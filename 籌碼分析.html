@@ -225,7 +225,10 @@ function getServer() {
 }
 const SERVER = getServer();
 
-function getToken() { return sessionStorage.getItem('appToken') || ''; }
+function getToken() {
+  // sessionStorage（同分頁登入）或 localStorage（跨分頁共用）
+  return sessionStorage.getItem('appToken') || localStorage.getItem('appToken') || '';
+}
 
 function apiFetch(url, options = {}) {
   return fetch(url, {

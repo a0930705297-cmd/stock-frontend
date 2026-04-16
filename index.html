@@ -558,6 +558,7 @@ async function doLogin() {
     });
     if (res.ok) {
       sessionStorage.setItem('appToken', pwd);
+      localStorage.setItem('appToken', pwd);  // 跨分頁共用
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('mainPage').style.display = 'block';
       init();
