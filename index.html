@@ -378,6 +378,18 @@ td.neg { color: #1D9E75; }
 .analysis-btn:hover { background: #f5f5f5; }
 .analysis-btn:disabled { color: #bbb; cursor: not-allowed; }
 
+
+/* 籌碼按鈕 */
+.chips-btn {
+  padding: 3px 10px; font-size: 10px;
+  border: 1px solid #378ADD; border-radius: 2px;
+  background: #e8f0fb; color: #185FA5;
+  cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: auto;
+}
+.chips-btn:hover { background: #378ADD; color: #fff; }
+
 /* 通用 */
 .section-divider {
   font-size: 10px; font-weight: 600; color: #bbb;
@@ -868,6 +880,7 @@ async function loadStock() {
         <span class="stock-name">${stockName}</span>
         <span class="stock-code">${code}</span>
         <span class="stock-price">$${latestPrice.toFixed(1)}</span>
+        <a class="chips-btn" href="籌碼分析.html?code=${code}" target="_blank">📊 籌碼分析</a>
       </div>
 
       <!-- 選股四要素 -->
