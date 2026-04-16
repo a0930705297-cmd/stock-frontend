@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>興櫃股票分析</title>
+<style>
+:root{--bg:#f5f4f0;--surface:#fff;--border:rgba(0,0,0,.1);--text:#1a1a18;--muted:#6b6b66;--accent:#185fa5;--accent-light:#e6f1fb;--success:#3b6d11;--success-light:#eaf3de;--danger:#a32d2d;--danger-light:#fcebeb;--warn:#854f0b;--warn-light:#faeeda;--r:10px;}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a18;--surface:#252523;--border:rgba(255,255,255,.1);--text:#e8e7e1;--muted:#a0a09a;--accent:#85b7eb;--accent-light:#042c53;--success-light:#173404;--danger-light:#501313;--warn-light:#412402;}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+a{color:var(--accent);}
+header{background:var(--surface);border-bottom:.5px solid var(--border);padding:1rem 1.5rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+header h1{font-size:18px;font-weight:500;}
+.tag{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-weight:500;}
+.container{max-width:1100px;margin:0 auto;padding:1.5rem;}
+.card{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border);padding:1rem 1.25rem;margin-bottom:1.25rem;}
+.card h3{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:10px;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+input{padding:6px 10px;border:.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;width:240px;}
+input:focus{outline:none;border-color:var(--accent);}
+.btn{padding:7px 18px;border-radius:6px;border:.5px solid var(--accent);background:var(--accent-light);color:var(--accent);font-size:13px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn:hover{background:var(--accent);color:#fff;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.filter-bar{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border);padding:.75rem 1.25rem;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.fl{color:var(--muted);font-size:12px;}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;background:var(--accent-light);color:var(--accent);border:.5px solid var(--accent);}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:1.25rem;}
+.metric{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border);padding:.9rem 1rem;}
+.metric-label{font-size:12px;color:var(--muted);margin-bottom:4px;}
+.metric-value{font-size:21px;font-weight:500;}
+.c-accent{color:var(--accent);}.c-up{color:#c0392b;}
+.table-card{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border);overflow:hidden;}
+.th-row{padding:.9rem 1.25rem;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.t-title{font-size:14px;font-weight:500;}
+.rbtn{font-size:12px;padding:4px 12px;border-radius:20px;border:.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:5px;}
+.rbtn:hover{background:var(--bg);}
+.spin{display:inline-block;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{padding:8px 12px;text-align:right;font-weight:500;font-size:11px;color:var(--muted);border-bottom:.5px solid var(--border);white-space:nowrap;background:var(--bg);}
+th:nth-child(1),th:nth-child(2){text-align:left;}
+td{padding:9px 12px;border-bottom:.5px solid var(--border);text-align:right;white-space:nowrap;}
+td:nth-child(1){text-align:left;}
+td:nth-child(2){text-align:left;color:var(--muted);font-size:12px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--bg);}
+.sh{cursor:pointer;user-select:none;}.sh:hover{color:var(--accent);}
+.code{font-family:'SF Mono','Fira Code',monospace;font-size:12px;font-weight:500;color:var(--accent);}
+.up{color:#c0392b;}.down{color:#196f3d;}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:500;}
+.bull{background:var(--success-light);color:var(--success);}
+.no-q{background:var(--warn-light);color:var(--warn);font-size:10px;}
+.bar-wrap{display:flex;align-items:center;gap:6px;justify-content:flex-end;}
+.bar-bg{width:44px;height:5px;border-radius:3px;background:var(--border);overflow:hidden;flex-shrink:0;}
+.bar-fill{height:100%;border-radius:3px;}
+.bp{background:#c0392b;}.bn{background:#196f3d;}
+.mad{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;}
+.ma-up{background:#c0392b;}.ma-dn{background:var(--muted);opacity:.4;}
+.state{padding:2.5rem;text-align:center;color:var(--muted);font-size:13px;}
+.si{font-size:28px;margin-bottom:8px;}
+.err{padding:.9rem 1rem;background:var(--danger-light);color:var(--danger);border-radius:var(--r);font-size:13px;margin-bottom:1rem;display:none;line-height:1.6;}
+.src{font-size:11px;color:var(--muted);padding:.5rem 1.25rem;display:none;border-top:.5px solid var(--border);}
+.note{margin-top:1rem;font-size:12px;color:var(--muted);line-height:1.7;padding:.75rem 1rem;background:var(--surface);border-radius:var(--r);border:.5px solid var(--border);}
+code{font-family:'SF Mono',monospace;font-size:11px;background:var(--bg);padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>興櫃股票分析</h1>
+  <span class="tag">後端篩選</span>
+</header>
+<div class="container">
+
+  <div class="card">
+    <h3>連線設定</h3>
+    <div class="row">
+      <div><label>後端網域</label><input type="text" id="api-base" placeholder="https://fafafa168.win"></div>
+      <div><label>API Token</label><input type="password" id="api-token" placeholder="輸入 x-token"></div>
+      <button class="btn" id="load-btn" onclick="loadData()">載入資料</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="fl">篩選條件：</span>
+    <span class="chip"><span class="dot"></span>成交量 &gt; 100,000</span>
+    <span class="chip"><span class="dot"></span>股價 &gt; 150</span>
+    <span class="chip"><span class="dot"></span>股價 &gt; 20MA</span>
+    <span class="chip"><span class="dot"></span>有委買委賣時，買賣比 &gt; 1,000</span>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div class="grid4">
+    <div class="metric"><div class="metric-label">符合條件</div><div class="metric-value c-accent" id="cnt">—</div></div>
+    <div class="metric"><div class="metric-label">最高買賣比</div><div class="metric-value c-up" id="max-r">—</div></div>
+    <div class="metric"><div class="metric-label">最大成交量</div><div class="metric-value" id="max-v">—</div></div>
+    <div class="metric"><div class="metric-label">興櫃總檔數</div><div class="metric-value" id="esb-tot" style="font-size:15px;color:var(--muted)">—</div></div>
+  </div>
+
+  <div class="table-card">
+    <div class="th-row">
+      <span class="t-title">興櫃強勢股票</span>
+      <button class="rbtn" id="rbtn" onclick="loadData()"><span id="si">↻</span> 重新整理</button>
+    </div>
+    <div id="tc">
+      <div class="state"><div class="si">⬆</div><div>請填入後端網域與 Token 後按「載入資料」</div></div>
+    </div>
+    <div id="src-row" class="src"></div>
+  </div>
+
+  <div class="note">
+    <strong>資料說明：</strong>後端呼叫優先順序：① TPEX 即時委買委賣 API → ② FinMind 當日收盤備援。
+    若 TPEX API 無法取得，自動改用 FinMind，此時無委買委賣，以 <span class="badge no-q">僅量價</span> 標示。
+    20MA 由 FinMind 近 60 天收盤計算。端點：<code>GET /emerging_analysis</code>
+    ｜興櫃約 300+ 檔，首次載入需約 10–20 秒。
+  </div>
+</div>
+
+<script>
+let allData=[],sortCol='ratio',sortDir=-1;
+const $=id=>document.getElementById(id);
+const base=()=>($('api-base').value||'').replace(/\/$/,'').trim();
+const token=()=>$('api-token').value.trim();
+function fmt(n,d=0){if(n==null||isNaN(n))return'—';return n.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function vfmt(v){if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return Math.round(v/1e3)+'K';return v;}
+function showErr(m){const e=$('err');e.innerHTML=m;e.style.display='block';}
+function hideErr(){$('err').style.display='none';}
+
+async function loadData(){
+  const b=base(),t=token();
+  if(!b){showErr('請先填入後端網域，例如 https://fafafa168.win');return;}
+  if(!t){showErr('請填入 API Token');return;}
+  hideErr();setLoad(true);
+  $('tc').innerHTML='<div class="state"><div class="si spin">↻</div><div style="margin-top:8px">後端資料載入中，興櫃約 300+ 檔，首次較慢（10–20 秒）...</div></div>';
+  try{
+    const r=await fetch(`${b}/emerging_analysis`,{headers:{'x-token':t}});
+    if(!r.ok){const txt=await r.text();showErr(`HTTP ${r.status}：${txt.slice(0,300)}`);setLoad(false);return;}
+    const j=await r.json();
+    if(j.error){showErr('後端錯誤：'+j.error);setLoad(false);return;}
+    allData=j.data||[];
+    const hasTpex=j.source_tpex&&j.source_tpex!=='N/A（使用 FinMind 備援）';
+    const srcEl=$('src-row');
+    srcEl.innerHTML=`委買委賣來源：${hasTpex?`<a href="${j.source_tpex}" target="_blank">TPEX 即時 API</a>`:'FinMind 備援（無委買委賣）'} ｜ 興櫃總檔數：${j.esb_total||'—'}`;
+    srcEl.style.display='block';
+    $('esb-tot').textContent=j.esb_total||'—';
+    renderTable(allData);updateSummary(allData);
+  }catch(e){
+    showErr(`連線失敗：${e.message}<br>確認後端是否運行、網域與 Token 是否正確。`);
+    $('tc').innerHTML='<div class="state"><div class="si">⚠️</div><div>連線失敗</div></div>';
+  }finally{setLoad(false);}
+}
+
+function setLoad(on){$('load-btn').disabled=on;$('rbtn').disabled=on;$('si').className=on?'spin':'';}
+
+function setSort(col){
+  if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=-1;}
+  renderTable([...allData].sort((a,b)=>sortDir*(b[sortCol]-a[sortCol])));
+}
+
+function renderTable(rows){
+  const tc=$('tc');
+  if(!rows||rows.length===0){
+    tc.innerHTML='<div class="state"><div class="si">🔍</div><div>無符合條件的股票</div><div style="margin-top:6px;font-size:12px">可能為非交易時段，或條件暫無符合標的</div></div>';
+    return;
+  }
+  const maxR=Math.max(...rows.map(r=>Math.abs(r.ratio||0)))||1;
+  const arr=c=>sortCol===c?(sortDir>0?'↑':'↓'):'⇅';
+  const tbody=rows.map(r=>{
+    const cc=r.change>0?'up':r.change<0?'down':'';
+    const px=r.change>0?'+':'';
+    const bw=Math.round(Math.abs(r.ratio||0)/maxR*100);
+    return`<tr>
+      <td><span class="code">${r.code}</span></td>
+      <td>${r.name||'—'}</td>
+      <td style="font-weight:500">${fmt(r.price,2)}</td>
+      <td class="${cc}">${px}${fmt(r.change,2)}<br><span style="font-size:11px">${px}${(r.change_pct||0).toFixed(1)}%</span></td>
+      <td>${vfmt(r.volume)}</td>
+      <td>${r.has_quote
+        ?`<div class="bar-wrap"><span style="font-weight:500">${r.ratio>=0?'+':''}${fmt(r.ratio)}</span><div class="bar-bg"><div class="bar-fill ${r.ratio>=0?'bp':'bn'}" style="width:${bw}%"></div></div></div>`
+        :'<span class="badge no-q">僅量價</span>'}</td>
+      <td>${r.ma20>0?fmt(r.ma20,1):'—'}</td>
+      <td><span class="mad ${r.above_ma20?'ma-up':'ma-dn'}"></span>${r.above_ma20?'<span class="badge bull">多頭</span>':'<span style="color:var(--muted);font-size:11px">觀察</span>'}</td>
+    </tr>`;
+  }).join('');
+  tc.innerHTML=`<div style="overflow-x:auto"><table>
+    <thead><tr>
+      <th>代號</th><th>名稱</th>
+      <th class="sh" onclick="setSort('price')">股價 ${arr('price')}</th>
+      <th>漲跌</th>
+      <th class="sh" onclick="setSort('volume')">成交量 ${arr('volume')}</th>
+      <th class="sh" onclick="setSort('ratio')">買賣比 ${arr('ratio')}</th>
+      <th>20MA</th><th>多頭訊號</th>
+    </tr></thead>
+    <tbody>${tbody}</tbody>
+  </table></div>`;
+}
+
+function updateSummary(rows){
+  $('cnt').textContent=rows.length;
+  if(rows.length>0){
+    $('max-r').textContent='+'+fmt(Math.max(...rows.map(r=>r.ratio||0)));
+    $('max-v').textContent=vfmt(Math.max(...rows.map(r=>r.volume)));
+  }
+}
+
+window.addEventListener('load',()=>{
+  try{const c=JSON.parse(localStorage.getItem('em_cfg')||'{}');if(c.b)$('api-base').value=c.b;}catch(e){}
+});
+$('api-base').addEventListener('blur',()=>{
+  try{localStorage.setItem('em_cfg',JSON.stringify({b:base()}));}catch(e){}
+});
+</script>
+</body>
+</html>
