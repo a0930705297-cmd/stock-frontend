@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ABC 選股掃描</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0f0f0d;
+  --surface: #161614;
+  --surface2: #1e1e1b;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8e6df;
+  --muted: #6b6960;
+  --accent: #c8a96e;
+  --accent2: #8fb87a;
+  --danger: #d4655a;
+  --warn: #d4955a;
+  --blue: #6a9fd4;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Noto Sans TC', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* 頂部 */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.logo span { color: var(--muted); }
+.server-status {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px; color: var(--muted);
+}
+.dot { width: 5px; height: 5px; border-radius: 50%; background: #444; flex-shrink: 0; }
+.dot.on { background: var(--accent2); box-shadow: 0 0 4px var(--accent2); }
+.dot.off { background: var(--danger); }
+.topbar-link {
+  margin-left: auto;
+  font-size: 11px; color: var(--muted);
+  text-decoration: none; border: 1px solid var(--border2);
+  padding: 4px 10px; border-radius: 3px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.topbar-link:hover { color: var(--text); border-color: var(--accent); }
+
+/* 登入 */
+#loginPage {
+  display: flex; align-items: center; justify-content: center;
+  height: 100vh;
+}
+.login-box {
+  width: 260px; text-align: center;
+}
+.login-box h2 {
+  font-family: var(--mono); font-size: 14px; font-weight: 400;
+  color: var(--accent); margin-bottom: 6px;
+}
+.login-box p { font-size: 11px; color: var(--muted); margin-bottom: 20px; }
+.login-box input {
+  width: 100%; padding: 8px 12px; font-size: 12px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); margin-bottom: 8px;
+  font-family: var(--mono);
+}
+.login-box input:focus { outline: none; border-color: var(--accent); }
+.login-box button {
+  width: 100%; padding: 8px; font-size: 12px;
+  background: var(--accent); color: var(--bg);
+  border: none; border-radius: 3px; cursor: pointer;
+  font-family: var(--sans); font-weight: 500;
+}
+.login-box button:hover { opacity: 0.9; }
+#loginErr { font-size: 11px; color: var(--danger); margin-top: 6px; }
+
+/* 主版面 */
+#mainPage { display: none; }
+
+.container { max-width: 1280px; margin: 0 auto; padding: 20px 24px; }
+
+/* ABC說明banner */
+.abc-banner {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.abc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  border-top: 2px solid;
+}
+.abc-card.a { border-top-color: var(--accent); }
+.abc-card.b { border-top-color: var(--accent2); }
+.abc-card.c { border-top-color: var(--blue); }
+.abc-letter {
+  font-family: var(--mono); font-size: 18px; font-weight: 500;
+  margin-bottom: 4px;
+}
+.abc-card.a .abc-letter { color: var(--accent); }
+.abc-card.b .abc-letter { color: var(--accent2); }
+.abc-card.c .abc-letter { color: var(--blue); }
+.abc-title { font-size: 11px; font-weight: 500; margin-bottom: 4px; }
+.abc-desc { font-size: 10px; color: var(--muted); line-height: 1.6; }
+
+/* 掃描控制區 */
+.scan-controls {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.sc-label { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+.sc-sep { width: 1px; height: 24px; background: var(--border); }
+
+.sc-group { display: flex; align-items: center; gap: 8px; }
+.sc-group select {
+  padding: 5px 8px; font-size: 11px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); font-family: var(--sans);
+}
+.sc-group select:focus { outline: none; border-color: var(--accent); }
+
+.btn-scan {
+  padding: 6px 16px; font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border2); border-radius: 3px;
+  cursor: pointer; transition: all 0.15s;
+  font-family: var(--sans); letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.btn-scan.primary {
+  background: var(--accent); color: var(--bg); border-color: var(--accent);
+}
+.btn-scan.primary:hover { opacity: 0.85; }
+.btn-scan.secondary {
+  background: transparent; color: var(--text); border-color: var(--border2);
+}
+.btn-scan.secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+.btn-scan:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 篩選選項 */
+.filter-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.filter-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; transition: all 0.15s; user-select: none;
+  color: var(--muted);
+}
+.filter-chip.active {
+  border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,0.08);
+}
+.filter-chip .fc-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+/* 結果區 */
+.results-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.results-title {
+  font-size: 11px; color: var(--muted); font-family: var(--mono);
+  letter-spacing: 0.5px;
+}
+.results-count {
+  font-size: 11px; color: var(--accent); font-family: var(--mono);
+}
+
+/* 結果表格 */
+.result-table-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse; font-size: 11px;
+}
+thead tr {
+  border-bottom: 1px solid var(--border2);
+}
+th {
+  padding: 8px 10px; text-align: left;
+  font-size: 9px; font-weight: 500; color: var(--muted);
+  letter-spacing: 0.8px; text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+th:hover { color: var(--text); }
+th.num { text-align: right; }
+td {
+  padding: 9px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: middle; white-space: nowrap;
+}
+td.num { text-align: right; font-family: var(--mono); }
+tr:hover td { background: rgba(255,255,255,0.02); }
+tr.clickable { cursor: pointer; }
+
+.code-cell { font-family: var(--mono); font-weight: 500; color: var(--accent); font-size: 12px; }
+.name-cell { color: var(--muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+.price-cell { font-family: var(--mono); font-weight: 500; }
+
+/* ABC 評分格 */
+.abc-scores { display: flex; gap: 4px; }
+.score-badge {
+  width: 22px; height: 22px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 9px; font-weight: 500;
+}
+.score-badge.pass { background: rgba(143,184,122,0.15); color: var(--accent2); border: 1px solid rgba(143,184,122,0.3); }
+.score-badge.fail { background: rgba(107,105,96,0.1); color: #444; border: 1px solid var(--border); }
+.score-badge.warn { background: rgba(212,149,90,0.12); color: var(--warn); border: 1px solid rgba(212,149,90,0.3); }
+
+/* 趨勢標籤 */
+.trend-tag {
+  padding: 2px 7px; border-radius: 2px; font-size: 9px; font-weight: 500;
+  font-family: var(--mono);
+}
+.trend-tag.bull { background: rgba(143,184,122,0.12); color: var(--accent2); border: 1px solid rgba(143,184,122,0.25); }
+.trend-tag.bear { background: rgba(212,101,90,0.1); color: var(--danger); border: 1px solid rgba(212,101,90,0.2); }
+.trend-tag.flat { background: rgba(107,105,96,0.12); color: var(--muted); border: 1px solid var(--border); }
+
+/* 一年新高標籤 */
+.newhigh-tag {
+  padding: 2px 6px; border-radius: 2px; font-size: 9px;
+  background: rgba(200,169,110,0.12); color: var(--accent);
+  border: 1px solid rgba(200,169,110,0.25);
+}
+
+/* 外資趨勢條 */
+.fi-bar { display: flex; align-items: center; gap: 5px; }
+.fi-days { font-family: var(--mono); font-size: 10px; }
+.fi-days.pos { color: var(--accent2); }
+.fi-days.neg { color: var(--danger); }
+.fi-days.flat { color: var(--muted); }
+.mini-bar-wrap { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.mini-bar { height: 100%; border-radius: 2px; }
+.mini-bar.pos { background: var(--accent2); }
+.mini-bar.neg { background: var(--danger); }
+
+/* B2量縮 */
+.b2-indicator { display: flex; align-items: center; gap: 4px; }
+.b2-dot { width: 7px; height: 7px; border-radius: 50%; }
+.b2-dot.pass { background: var(--accent2); box-shadow: 0 0 4px var(--accent2); }
+.b2-dot.warn { background: var(--warn); }
+.b2-dot.fail { background: #333; }
+.b2-text { font-size: 9px; color: var(--muted); }
+
+/* 籌碼集中 */
+.chip-indicator { display: flex; align-items: center; gap: 3px; font-size: 9px; }
+.chip-up { color: var(--accent2); }
+.chip-dn { color: var(--danger); }
+.chip-na { color: var(--muted); }
+
+/* 狀態 */
+.state-box {
+  text-align: center; padding: 48px 24px;
+  color: var(--muted); font-size: 12px; line-height: 2;
+}
+.state-icon { font-size: 28px; margin-bottom: 10px; }
+
+/* 進度條 */
+.progress-wrap {
+  background: var(--surface2); border-radius: 3px;
+  height: 3px; overflow: hidden; margin-bottom: 10px;
+}
+.progress-bar {
+  height: 100%; background: var(--accent);
+  border-radius: 3px; transition: width 0.3s;
+}
+.progress-text { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-bottom: 6px; }
+
+/* 評分總覽 */
+.score-summary {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 8px;
+  margin-bottom: 16px;
+}
+.ss-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 10px 12px; text-align: center;
+}
+.ss-val { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.ss-val.gold { color: var(--accent); }
+.ss-val.green { color: var(--accent2); }
+.ss-val.muted { color: var(--muted); }
+.ss-label { font-size: 9px; color: var(--muted); margin-top: 3px; letter-spacing: 0.3px; }
+
+/* 通知 */
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 10px 16px;
+  font-size: 11px; color: var(--text);
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  z-index: 200;
+}
+.toast.show { opacity: 1; }
+
+/* 分頁切換 */
+.tab-row {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  padding: 8px 16px; font-size: 11px; cursor: pointer;
+  background: transparent; border: none; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; font-family: var(--sans);
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn:hover { color: var(--text); }
+
+/* 響應式 */
+@media (max-width: 768px) {
+  .abc-banner { grid-template-columns: 1fr; }
+  .score-summary { grid-template-columns: 1fr 1fr; }
+  .container { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 登入 -->
+<div id="loginPage">
+  <div class="login-box">
+    <h2>ABC 選股掃描</h2>
+    <p>輸入密碼登入</p>
+    <input type="text" id="apiBase" placeholder="後端網域（如 https://fafafa168.win）" />
+    <input type="password" id="loginInput" placeholder="密碼" autocomplete="off" />
+    <button onclick="doLogin()">登入</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<!-- 主頁面 -->
+<div id="mainPage">
+
+  <div class="topbar">
+    <div class="logo">ABC <span>/</span> 選股掃描</div>
+    <div class="server-status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">連線中</span>
+    </div>
+    <a class="topbar-link" id="mainAppLink" href="#" target="_blank">→ 法人成本追蹤</a>
+  </div>
+
+  <div class="container">
+
+    <!-- ABC 說明 -->
+    <div class="abc-banner">
+      <div class="abc-card a">
+        <div class="abc-letter">A</div>
+        <div class="abc-title">趨勢正確</div>
+        <div class="abc-desc">240日線向上翹 ＋ 站上一年新高<br>空頭個股上方都是賣壓</div>
+      </div>
+      <div class="abc-card b">
+        <div class="abc-letter">B</div>
+        <div class="abc-title">籌碼有人</div>
+        <div class="abc-desc">B1：外資長期持續吸籌<br>B2：量縮價穩、賣壓消失<br>大戶增加、散戶減少</div>
+      </div>
+      <div class="abc-card c">
+        <div class="abc-letter">C</div>
+        <div class="abc-title">信念持倉</div>
+        <div class="abc-desc">相信人類慾望不止<br>科技創新需求不會停止<br>搭大錢便車，耐心等待</div>
+      </div>
+    </div>
+
+    <!-- 掃描控制 -->
+    <div class="scan-controls">
+      <span class="sc-label">來源</span>
+      <div class="sc-group">
+        <select id="topN">
+          <option value="50">前50</option>
+          <option value="100" selected>前100</option>
+          <option value="200">前200</option>
+        </select>
+        <button class="btn-scan primary" id="btnVolume" onclick="runVolumeScan()">大盤成交量掃描</button>
+      </div>
+      <div class="sc-sep"></div>
+      <div class="sc-group">
+        <select id="scanIndustry">
+          <option value="半導體業">半導體</option>
+          <option value="電腦及週邊設備業">電腦週邊</option>
+          <option value="電子零組件業">電子零組件</option>
+          <option value="光電業">光電</option>
+          <option value="通信網路業">通信網路</option>
+          <option value="其他電子業">其他電子</option>
+          <option value="航運業">航運</option>
+          <option value="金融業">金融</option>
+          <option value="生技醫療業">生技醫療</option>
+          <option value="鋼鐵工業">鋼鐵</option>
+          <option value="太空衛星">太空衛星</option>
+          <option value="玻纖布">玻纖布</option>
+          <option value="銅箔基板">銅箔基板</option>
+          <option value="被動元件">被動元件</option>
+        </select>
+        <button class="btn-scan secondary" id="btnIndustry" onclick="runIndustryScan()">產業掃描</button>
+      </div>
+    </div>
+
+    <!-- 篩選 -->
+    <div class="filter-row">
+      <span style="font-size:10px;color:var(--muted);">顯示篩選：</span>
+      <div class="filter-chip active" id="chip-all" onclick="setFilter('all')"><span class="fc-dot"></span>全部</div>
+      <div class="filter-chip" id="chip-abc" onclick="setFilter('abc')"><span class="fc-dot"></span>ABC 全過</div>
+      <div class="filter-chip" id="chip-ab" onclick="setFilter('ab')"><span class="fc-dot"></span>AB 趨勢＋籌碼</div>
+      <div class="filter-chip" id="chip-a" onclick="setFilter('a')"><span class="fc-dot"></span>僅 A 趨勢</div>
+    </div>
+
+    <!-- 進度 -->
+    <div id="progressWrap" style="display:none;">
+      <div class="progress-text" id="progressText">掃描中 0 / 0</div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- 評分總覽 -->
+    <div class="score-summary" id="scoreSummary" style="display:none;">
+      <div class="ss-card"><div class="ss-val muted" id="ss-total">—</div><div class="ss-label">掃描總數</div></div>
+      <div class="ss-card"><div class="ss-val gold" id="ss-abc">—</div><div class="ss-label">ABC 全過</div></div>
+      <div class="ss-card"><div class="ss-val green" id="ss-ab">—</div><div class="ss-label">AB 通過</div></div>
+      <div class="ss-card"><div class="ss-val muted" id="ss-a">—</div><div class="ss-label">僅 A 通過</div></div>
+    </div>
+
+    <!-- 結果 -->
+    <div class="results-header">
+      <div class="results-title" id="resultsTitle">等待掃描</div>
+      <div class="results-count" id="resultsCount"></div>
+    </div>
+
+    <div id="resultsArea">
+      <div class="state-box">
+        <div class="state-icon">◈</div>
+        選擇掃描來源後開始<br>
+        系統將自動計算每支股票的 ABC 指標
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 設定 ────────────────────────────────────
+let SERVER = '';
+function getToken() { return sessionStorage.getItem('abcToken') || ''; }
+function apiFetch(url, opts = {}) {
+  return fetch(url, { ...opts, headers: { 'ngrok-skip-browser-warning':'1', 'x-token': getToken(), ...(opts.headers||{}) } });
+}
+
+// ── 登入 ─────────────────────────────────────
+async function doLogin() {
+  const base = document.getElementById('apiBase').value.trim().replace(/\/$/,'');
+  const pwd  = document.getElementById('loginInput').value.trim();
+  if (!base || !pwd) { document.getElementById('loginErr').textContent = '請填入網域與密碼'; return; }
+  try {
+    const res = await fetch(`${base}/history/2330`, { headers: { 'ngrok-skip-browser-warning':'1', 'x-token': pwd } });
+    if (res.ok) {
+      SERVER = base;
+      sessionStorage.setItem('abcToken', pwd);
+      sessionStorage.setItem('abcServer', base);
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('mainPage').style.display = 'block';
+      document.getElementById('mainAppLink').href = base;
+      init();
+    } else {
+      document.getElementById('loginErr').textContent = '密碼錯誤';
+    }
+  } catch(e) { document.getElementById('loginErr').textContent = '無法連線：' + e.message; }
+}
+document.getElementById('loginInput').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// 自動恢復登入
+const savedToken = sessionStorage.getItem('abcToken');
+const savedServer = sessionStorage.getItem('abcServer');
+if (savedToken && savedServer) {
+  SERVER = savedServer;
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainPage').style.display = 'block';
+  document.getElementById('mainAppLink').href = savedServer;
+}
+
+// ── 初始化 ───────────────────────────────────
+function init() {
+  checkServer();
+}
+if (savedToken && savedServer) init();
+
+async function checkServer() {
+  try {
+    const r = await apiFetch(`${SERVER}/history/2330`);
+    if (r.ok) {
+      document.getElementById('statusDot').className = 'dot on';
+      document.getElementById('statusText').textContent = '已連線';
+    } else throw new Error();
+  } catch {
+    document.getElementById('statusDot').className = 'dot off';
+    document.getElementById('statusText').textContent = '未連線';
+  }
+}
+
+// ── 篩選狀態 ──────────────────────────────────
+let currentFilter = 'all';
+let allResults = [];
+
+function setFilter(f) {
+  currentFilter = f;
+  ['all','abc','ab','a'].forEach(k => {
+    document.getElementById('chip-'+k).classList.toggle('active', k === f);
+  });
+  renderResults(filterData(allResults));
+}
+
+function filterData(data) {
+  if (currentFilter === 'abc') return data.filter(d => d.scoreA && d.scoreB1 && d.scoreB2);
+  if (currentFilter === 'ab')  return data.filter(d => d.scoreA && d.scoreB1);
+  if (currentFilter === 'a')   return data.filter(d => d.scoreA);
+  return data;
+}
+
+// ── 大盤成交量掃描 ────────────────────────────
+async function runVolumeScan() {
+  const topN = parseInt(document.getElementById('topN').value);
+  setBusy(true, '大盤成交量掃描');
+  showProgress(0, topN, '取得大盤資料...');
+  try {
+    const volRes = await apiFetch(`${SERVER}/market_volume`);
+    const volJson = await volRes.json();
+    const stocks = (volJson.data || []).slice(0, topN);
+    if (!stocks.length) { setEmpty('無法取得大盤資料'); return; }
+    await runABCScan(stocks);
+  } catch(e) {
+    setEmpty('掃描失敗：' + e.message);
+  } finally { setBusy(false); }
+}
+
+// ── 產業掃描 ──────────────────────────────────
+async function runIndustryScan() {
+  const industry = document.getElementById('scanIndustry').value;
+  setBusy(true, `產業掃描：${industry}`);
+  showProgress(0, 1, '取得產業清單...');
+  try {
+    const [volRes, indRes] = await Promise.all([
+      apiFetch(`${SERVER}/market_volume`),
+      apiFetch(`${SERVER}/industry_stocks/${encodeURIComponent(industry)}`)
+    ]);
+    const volJson = await volRes.json();
+    const indJson = await indRes.json();
+    const volList = volJson.data || [];
+    const indStocks = indJson.data || [];
+    const industryCodes = new Set(indStocks.map(s => s.code));
+    const nameMap = {};
+    indStocks.forEach(s => nameMap[s.code] = s.name);
+
+    let stocks = volList.filter(v => industryCodes.has(v.code));
+    if (!stocks.length) {
+      stocks = indStocks.map(s => {
+        const v = volList.find(x => x.code === s.code);
+        return { code: s.code, name: s.name, close: v ? v.close : 0, volume: v ? v.volume : 0 };
+      });
+    }
+    stocks = stocks.map(s => ({ ...s, name: nameMap[s.code] || s.name }));
+    if (!stocks.length) { setEmpty('無產業資料'); return; }
+    await runABCScan(stocks);
+  } catch(e) {
+    setEmpty('掃描失敗：' + e.message);
+  } finally { setBusy(false); }
+}
+
+// ── ABC 核心計算 ──────────────────────────────
+async function runABCScan(stocks) {
+  allResults = [];
+  const total = stocks.length;
+  let done = 0;
+
+  for (const item of stocks) {
+    showProgress(done, total, `計算 ${item.code} ${item.name || ''}`);
+    try {
+      const result = await calcABC(item);
+      if (result) allResults.push(result);
+    } catch(e) {}
+    done++;
+    showProgress(done, total, done < total ? `計算 ${stocks[done]?.code || ''}` : '完成');
+  }
+
+  // 排序：全過 > AB > A > 其他，相同則按成交量
+  allResults.sort((a, b) => {
+    const scoreOf = d => (d.scoreA?4:0) + (d.scoreB1?2:0) + (d.scoreB2?1:0);
+    return scoreOf(b) - scoreOf(a) || (b.volume||0) - (a.volume||0);
+  });
+
+  updateSummary(allResults);
+  renderResults(filterData(allResults));
+  hideProgress();
+}
+
+async function calcABC(item) {
+  const code = item.code;
+  const today = new Date();
+  const start730 = fmtDate(new Date(today - 730*86400000));
+  const end = fmtDate(today);
+
+  // 抓價格資料（FinMind TaiwanStockPrice）
+  const priceRes = await apiFetch(`${SERVER}/price/${code}`);
+  const priceJson = await priceRes.json();
+  const priceMap = priceJson.data || {};
+  const priceArr = Object.values(priceMap).sort((a,b) => {
+    const ka = Object.keys(priceMap).find(k => priceMap[k]===a);
+    const kb = Object.keys(priceMap).find(k => priceMap[k]===b);
+    return ka > kb ? 1 : -1;
+  });
+
+  if (priceArr.length < 60) return null;
+
+  const closes = priceArr.map(p => p.close);
+  const latestClose = item.close > 0 ? item.close : closes[closes.length-1];
+
+  // ── A 指標 ──────────────────────────────────
+  // 240日線方向
+  const ma240 = closes.length >= 240 ? avg(closes.slice(-240)) : avg(closes);
+  const ma240_prev = closes.length >= 250 ? avg(closes.slice(-250,-10)) : avg(closes.slice(0, -10));
+  const ma240rising = ma240 > ma240_prev;
+
+  // 一年新高（近252個交易日）
+  const year252 = closes.slice(-252);
+  const yearHigh = Math.max(...year252);
+  const isYearHigh = latestClose >= yearHigh * 0.98; // 98% 以上視為接近一年新高
+
+  // MA5, MA20, MA60
+  const ma5  = avg(closes.slice(-5));
+  const ma20 = avg(closes.slice(-20));
+  const ma60 = avg(closes.slice(-60));
+  const bullAlign = ma5 > ma20 && ma20 > ma60; // 多頭排列
+
+  const scoreA = (ma240rising || bullAlign) && latestClose >= ma20;
+
+  // ── B1 指標（外資趨勢）──────────────────────
+  const foreignRes = await apiFetch(`${SERVER}/foreign/${code}`);
+  const foreignJson = await foreignRes.json();
+  const foreignRaw = foreignJson.data || [];
+
+  // 近30日外資買賣超
+  const recent30 = foreignRaw.slice(-30);
+  const buyDays = recent30.filter(d => d.buy > d.sell).length;
+  const sellDays = recent30.filter(d => d.sell > d.buy).length;
+  const netRecent = recent30.reduce((s,d) => s + (d.buy - d.sell), 0);
+
+  // 近10日 vs 近20日淨買
+  const net10 = foreignRaw.slice(-10).reduce((s,d) => s+(d.buy-d.sell),0);
+  const net20 = foreignRaw.slice(-20).reduce((s,d) => s+(d.buy-d.sell),0);
+  const foreignTrend = net10 > 0 && net20 > 0 ? 'pos' : net10 < 0 && net20 < 0 ? 'neg' : 'flat';
+  const scoreB1 = buyDays >= 15 || (foreignTrend === 'pos' && buyDays >= 10);
+
+  // ── B2 指標（量縮價穩）──────────────────────
+  // 取近20日成交量（從 priceMap 補充）
+  const priceKeys = Object.keys(priceMap).sort();
+  const recent20prices = priceKeys.slice(-20).map(k => priceMap[k]);
+  const volumes = recent20prices.map(p => p.volume || 0).filter(v => v > 0);
+  const recentCloses = recent20prices.map(p => p.close);
+
+  let scoreB2 = false;
+  let b2Detail = '—';
+  if (volumes.length >= 10) {
+    const volFirst10 = avg(volumes.slice(0,10));
+    const volLast10  = avg(volumes.slice(-10));
+    const volShrink  = volLast10 < volFirst10 * 0.85; // 量縮 15%
+
+    const priceRange = Math.max(...recentCloses.slice(-10)) / Math.min(...recentCloses.slice(-10));
+    const priceStable = priceRange < 1.06; // 波動 < 6%
+
+    scoreB2 = volShrink && priceStable;
+    b2Detail = volShrink ? (priceStable ? '量縮價穩' : '量縮但波動') : '量未縮';
+  }
+
+  // ── 籌碼集中度（由B1資料推估）──────────────
+  // 用外資近60日持股方向：持續淨買入視為大戶增加
+  const net60 = foreignRaw.slice(-60).reduce((s,d) => s+(d.buy-d.sell),0);
+  const chipConcentrating = net60 > 0 && netRecent > 0;
+  const chipScore = chipConcentrating ? 'up' : net60 < 0 ? 'dn' : 'flat';
+
+  // ── 外資成本 ─────────────────────────────────
+  const merged = foreignRaw.map(d => {
+    const p = priceMap[d.date];
+    return p ? { ...d, close: p.close } : null;
+  }).filter(Boolean);
+
+  let holdings = 0, totalCost = 0;
+  for (const d of merged) {
+    if (d.buy > 0) { totalCost += d.buy * 1000 * d.close; holdings += d.buy * 1000; }
+    if (d.sell > 0 && holdings > 0) {
+      const s = Math.min(d.sell * 1000, holdings);
+      totalCost -= s * (totalCost / holdings);
+      holdings -= s;
+    }
+  }
+  const fCost = holdings > 0 ? totalCost / holdings : 0;
+  const trigger = fCost * 1.04;
+
+  return {
+    code, name: item.name || code,
+    close: latestClose, volume: item.volume || 0,
+    // A
+    scoreA, ma240rising, isYearHigh, bullAlign,
+    ma5: +ma5.toFixed(1), ma20: +ma20.toFixed(1), ma60: +ma60.toFixed(1),
+    // B1
+    scoreB1, buyDays, sellDays, foreignTrend, net20,
+    // B2
+    scoreB2, b2Detail,
+    // 籌碼
+    chipScore,
+    // 外資成本
+    fCost: fCost > 0 ? +fCost.toFixed(1) : 0,
+    trigger: trigger > 0 ? +trigger.toFixed(1) : 0,
+  };
+}
+
+// ── 渲染結果 ──────────────────────────────────
+function renderResults(data) {
+  const area = document.getElementById('resultsArea');
+  document.getElementById('resultsCount').textContent = data.length ? `${data.length} 筆` : '';
+
+  if (!data.length) {
+    area.innerHTML = `<div class="state-box"><div class="state-icon">○</div>無符合條件的股票</div>`;
+    return;
+  }
+
+  const rows = data.map(d => {
+    const abcClass = d.scoreA && d.scoreB1 && d.scoreB2 ? 'abc' : d.scoreA && d.scoreB1 ? 'ab' : d.scoreA ? 'a' : '';
+    const trendTag = d.ma240rising
+      ? `<span class="trend-tag bull">240↑</span>`
+      : `<span class="trend-tag flat">240—</span>`;
+    const newHighTag = d.isYearHigh ? `<span class="newhigh-tag">一年新高</span>` : '';
+    const bullTag = d.bullAlign ? `<span class="trend-tag bull">多頭</span>` : '';
+
+    const net20str = d.net20 >= 0
+      ? `<span class="fi-days pos">+${d.net20}</span>`
+      : `<span class="fi-days neg">${d.net20}</span>`;
+    const barW = Math.min(Math.abs(d.buyDays - 15) / 15 * 100, 100);
+    const barCls = d.scoreB1 ? 'pos' : 'neg';
+
+    const b2dot = d.scoreB2 ? 'pass' : d.b2Detail.includes('量縮') ? 'warn' : 'fail';
+
+    const chipHtml = d.chipScore === 'up'
+      ? `<span class="chip-up">大戶↑</span>`
+      : d.chipScore === 'dn'
+      ? `<span class="chip-dn">大戶↓</span>`
+      : `<span class="chip-na">—</span>`;
+
+    const costStr = d.fCost > 0 ? `$${d.fCost}` : '—';
+    const trigStr = d.trigger > 0 ? `$${d.trigger}` : '—';
+    const overTrig = d.fCost > 0 && d.close >= d.trigger;
+
+    const mainAppUrl = `${SERVER}?stock=${d.code}`;
+
+    return `<tr class="clickable" onclick="goToMain('${d.code}')">
+      <td><span class="code-cell">${d.code}</span></td>
+      <td><span class="name-cell">${d.name}</span></td>
+      <td class="num"><span class="price-cell">${d.close.toFixed(1)}</span></td>
+      <td>
+        <div class="abc-scores">
+          <div class="score-badge ${d.scoreA?'pass':'fail'}" title="A：趨勢">A</div>
+          <div class="score-badge ${d.scoreB1?'pass':'fail'}" title="B1：外資吸籌">B1</div>
+          <div class="score-badge ${d.scoreB2?'pass':d.b2Detail.includes('量縮')?'warn':'fail'}" title="B2：量縮價穩">B2</div>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          ${trendTag}${newHighTag}${bullTag}
+        </div>
+      </td>
+      <td>
+        <div class="fi-bar">
+          ${net20str}
+          <div style="font-size:9px;color:var(--muted);margin-left:2px;">(${d.buyDays}/30日)</div>
+        </div>
+      </td>
+      <td>
+        <div class="b2-indicator">
+          <div class="b2-dot ${b2dot}"></div>
+          <span class="b2-text">${d.b2Detail}</span>
+        </div>
+      </td>
+      <td>
+        <div class="chip-indicator">${chipHtml}</div>
+      </td>
+      <td class="num" style="color:var(--muted)">${costStr}</td>
+      <td class="num" style="${overTrig?'color:var(--accent2)':'color:var(--muted)'}">${trigStr}</td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `
+    <div class="result-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>代號</th>
+            <th>名稱</th>
+            <th class="num">股價</th>
+            <th>ABC評分</th>
+            <th>A 趨勢</th>
+            <th>B1 外資</th>
+            <th>B2 量縮</th>
+            <th>籌碼</th>
+            <th class="num">外資成本</th>
+            <th class="num">發動點</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:0 4px;">
+      點擊任一列 → 跳轉到法人成本追蹤查詢詳細資料
+    </div>`;
+}
+
+function goToMain(code) {
+  const url = `${SERVER}?stock=${code}`;
+  // 嘗試打開法人成本追蹤並傳入代號
+  // 若同網域，可用 localStorage 或 URL 參數
+  localStorage.setItem('abc_jump_code', code);
+  window.open(url, '_blank');
+  showToast(`已開啟 ${code} 的詳細查詢`);
+}
+
+// ── 總覽更新 ──────────────────────────────────
+function updateSummary(data) {
+  const abcCount = data.filter(d => d.scoreA && d.scoreB1 && d.scoreB2).length;
+  const abCount  = data.filter(d => d.scoreA && d.scoreB1 && !d.scoreB2).length;
+  const aCount   = data.filter(d => d.scoreA && !d.scoreB1).length;
+  document.getElementById('ss-total').textContent = data.length;
+  document.getElementById('ss-abc').textContent   = abcCount;
+  document.getElementById('ss-ab').textContent    = abCount;
+  document.getElementById('ss-a').textContent     = aCount;
+  document.getElementById('scoreSummary').style.display = 'grid';
+}
+
+// ── 進度條 ────────────────────────────────────
+function showProgress(done, total, msg) {
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('progressText').textContent = `${msg}（${done} / ${total}）`;
+  document.getElementById('progressBar').style.width = total > 0 ? `${done/total*100}%` : '0%';
+}
+function hideProgress() {
+  document.getElementById('progressWrap').style.display = 'none';
+}
+
+// ── 工具 ──────────────────────────────────────
+function setBusy(on, label='') {
+  document.getElementById('btnVolume').disabled = on;
+  document.getElementById('btnIndustry').disabled = on;
+  if (on) {
+    document.getElementById('resultsTitle').textContent = label;
+    document.getElementById('resultsCount').textContent = '';
+    document.getElementById('scoreSummary').style.display = 'none';
+  } else {
+    document.getElementById('resultsTitle').textContent = '掃描完成';
+  }
+}
+function setEmpty(msg) {
+  document.getElementById('resultsArea').innerHTML =
+    `<div class="state-box"><div class="state-icon">⚠</div>${msg}</div>`;
+  hideProgress();
+}
+function avg(arr) {
+  if (!arr.length) return 0;
+  return arr.reduce((a,b) => a+b, 0) / arr.length;
+}
+function fmtDate(d) {
+  return d.toISOString().slice(0,10);
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
