@@ -465,7 +465,7 @@ tr.clickable { cursor: pointer; }
       <div class="abc-card b">
         <div class="abc-letter">B</div>
         <div class="abc-title">籌碼有人</div>
-        <div class="abc-desc">B1：外資長期持續吸籌<br>B2：量縮價穩、賣壓消失<br>大戶增加、散戶減少</div>
+        <div class="abc-desc">B1：外資長期持續吸籌<br>B2：量縮＋跌不下去＋在均線支撐附近<br>大戶增加、散戶減少</div>
       </div>
       <div class="abc-card c">
         <div class="abc-letter">C</div>
@@ -847,25 +847,47 @@ async function calcABC(item) {
   const foreignTrend = net10 > 0 && net20 > 0 ? 'pos' : net10 < 0 && net20 < 0 ? 'neg' : 'flat';
   const scoreB1 = buyDays >= 15 || (foreignTrend === 'pos' && buyDays >= 10);
 
-  // ── B2 指標（量縮價穩）──────────────────────
-  // 取近20日成交量（從 priceMap 補充）
+  // ── B2 指標（量縮價穩＋均線位置）────────────
+  // 符合 M哥邏輯：賣壓消失 = 量縮 + 跌不下去 + 在均線支撐附近
   const priceKeys = Object.keys(priceMap).sort();
-  const recent20prices = priceKeys.slice(-20).map(k => priceMap[k]);
-  const volumes = recent20prices.map(p => p.volume || 0).filter(v => v > 0);
-  const recentCloses = recent20prices.map(p => p.close);
+  const recent30prices = priceKeys.slice(-30).map(k => priceMap[k]);
+  const recentCloses   = recent30prices.map(p => p.close);
+  const volumes30      = recent30prices.map(p => p.volume || 0).filter(v => v > 0);
 
   let scoreB2 = false;
   let b2Detail = '—';
-  if (volumes.length >= 10) {
-    const volFirst10 = avg(volumes.slice(0,10));
-    const volLast10  = avg(volumes.slice(-10));
-    const volShrink  = volLast10 < volFirst10 * 0.85; // 量縮 15%
 
-    const priceRange = Math.max(...recentCloses.slice(-10)) / Math.min(...recentCloses.slice(-10));
-    const priceStable = priceRange < 1.06; // 波動 < 6%
+  if (volumes30.length >= 15 && recentCloses.length >= 10) {
+    // 1. 量縮：近5日均量 < 前25日均量的 70%（明顯量縮）
+    const vol5   = avg(volumes30.slice(-5));
+    const vol25  = avg(volumes30.slice(0, 25));
+    const volShrink = vol25 > 0 && vol5 < vol25 * 0.70;
 
-    scoreB2 = volShrink && priceStable;
-    b2Detail = volShrink ? (priceStable ? '量縮價穩' : '量縮但波動') : '量未縮';
+    // 2. 跌不下去：近5日最低價 >= 近10日最低價（沒有繼續破底）
+    const low5  = Math.min(...recentCloses.slice(-5));
+    const low10 = Math.min(...recentCloses.slice(-10));
+    const notFalling = low5 >= low10 * 0.99;
+
+    // 3. 均線位置：現價在 MA20 ~ MA120 之間（均線支撐附近，非高位量縮）
+    const ma20val  = avg(closes.slice(-20));
+    const ma120val = closes.length >= 120 ? avg(closes.slice(-120)) : avg(closes);
+    const inSupportZone = latestClose >= ma20val * 0.97 && latestClose <= ma120val * 1.15;
+
+    // 三條件同時成立才是真正的 B2
+    scoreB2 = volShrink && notFalling && inSupportZone;
+
+    // 描述（分層顯示部分符合）
+    if (scoreB2) {
+      b2Detail = '量縮價穩✓';
+    } else if (volShrink && notFalling) {
+      b2Detail = '量縮穩但位偏高';
+    } else if (volShrink) {
+      b2Detail = '量縮但仍下行';
+    } else if (notFalling && inSupportZone) {
+      b2Detail = '位置對但量未縮';
+    } else {
+      b2Detail = '未達條件';
+    }
   }
 
   // ── 籌碼集中度（由B1資料推估）──────────────
@@ -978,7 +1000,7 @@ function renderResults(data) {
         <div class="abc-scores">
           <div class="score-badge ${d.scoreA?'pass':'fail'}" title="A：趨勢">A</div>
           <div class="score-badge ${d.scoreB1?'pass':'fail'}" title="B1：外資吸籌">B1</div>
-          <div class="score-badge ${d.scoreB2?'pass':d.b2Detail.includes('量縮')?'warn':'fail'}" title="B2：量縮價穩">B2</div>
+          <div class="score-badge ${d.scoreB2?'pass':d.b2Detail.includes('量縮')?'warn':'fail'}" title="B2：量縮＋跌不下去＋均線支撐附近">B2</div>
         </div>
       </td>
       <td>
