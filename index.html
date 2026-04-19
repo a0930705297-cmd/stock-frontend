@@ -378,18 +378,6 @@ td.neg { color: #1D9E75; }
 .analysis-btn:hover { background: #f5f5f5; }
 .analysis-btn:disabled { color: #bbb; cursor: not-allowed; }
 
-
-/* 籌碼按鈕 */
-.chips-btn {
-  padding: 3px 10px; font-size: 10px;
-  border: 1px solid #378ADD; border-radius: 2px;
-  background: #e8f0fb; color: #185FA5;
-  cursor: pointer; text-decoration: none;
-  display: inline-flex; align-items: center; gap: 3px;
-  margin-left: auto;
-}
-.chips-btn:hover { background: #378ADD; color: #fff; }
-
 /* 通用 */
 .section-divider {
   font-size: 10px; font-weight: 600; color: #bbb;
@@ -529,11 +517,9 @@ td.neg { color: #1D9E75; }
 </div>
 
 <script>
-// ── SERVER 設定 ──
-function getServer() {
-  return localStorage.getItem('stockServerUrl') || 'https://stock-backend-production-95d3.up.railway.app';
-}
-const SERVER = getServer();
+const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:8000'
+  : 'https://fafafa168.win';
 
 function getToken() { return sessionStorage.getItem('appToken') || ''; }
 
@@ -558,7 +544,6 @@ async function doLogin() {
     });
     if (res.ok) {
       sessionStorage.setItem('appToken', pwd);
-      localStorage.setItem('appToken', pwd);  // 跨分頁共用
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('mainPage').style.display = 'block';
       init();
@@ -881,7 +866,6 @@ async function loadStock() {
         <span class="stock-name">${stockName}</span>
         <span class="stock-code">${code}</span>
         <span class="stock-price">$${latestPrice.toFixed(1)}</span>
-        <a class="chips-btn" href="籌碼分析.html?code=${code}" target="_blank">📊 籌碼分析</a>
       </div>
 
       <!-- 選股四要素 -->
@@ -1242,17 +1226,17 @@ function init() {
   loadNews();
   renderWatchlist();
   if (watchlist.length>0) refreshWatchlist();
+
+  // ABC選股掃描跳轉：讀取傳入的股票代號
+  const jumpCode = localStorage.getItem('abc_jump_code');
+  if (jumpCode) {
+    localStorage.removeItem('abc_jump_code');
+    document.getElementById('stockInput').value = jumpCode;
+    loadStock();
+  }
 }
 
 if (sessionStorage.getItem('appToken')) init();
-
-// 在外資成本追蹤.html 的 init() 函式裡加這段
-const jumpCode = localStorage.getItem('abc_jump_code');
-if (jumpCode) {
-  localStorage.removeItem('abc_jump_code');
-  document.getElementById('stockInput').value = jumpCode;
-  loadStock();
-}
 </script>
 </body>
 </html>

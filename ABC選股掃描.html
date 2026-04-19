@@ -353,7 +353,7 @@ tr.clickable { cursor: pointer; }
   <div class="login-box">
     <h2>ABC 選股掃描</h2>
     <p>輸入密碼登入</p>
-    <input type="text" id="apiBase" placeholder="後端網域（如 https://fafafa168.win）" />
+    <input type="text" id="apiBase" placeholder="後端網域" value="https://stock-backend-production-95d3.up.railway.app" />
     <input type="password" id="loginInput" placeholder="密碼" autocomplete="off" />
     <button onclick="doLogin()">登入</button>
     <div id="loginErr"></div>
@@ -471,7 +471,7 @@ tr.clickable { cursor: pointer; }
 <script>
 // ── 設定 ────────────────────────────────────
 let SERVER = '';
-function getToken() { return sessionStorage.getItem('abcToken') || ''; }
+function getToken() { return localStorage.getItem('appToken') || sessionStorage.getItem('abcToken') || ''; }
 function apiFetch(url, opts = {}) {
   return fetch(url, { ...opts, headers: { 'ngrok-skip-browser-warning':'1', 'x-token': getToken(), ...(opts.headers||{}) } });
 }
@@ -486,7 +486,8 @@ async function doLogin() {
     if (res.ok) {
       SERVER = base;
       sessionStorage.setItem('abcToken', pwd);
-      sessionStorage.setItem('abcServer', base);
+      localStorage.setItem('appToken', pwd);       // 與 index.html 共用
+      localStorage.setItem('abcServer', base);     // 記住後端網址
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('mainPage').style.display = 'block';
       document.getElementById('mainAppLink').href = base;
@@ -498,9 +499,9 @@ async function doLogin() {
 }
 document.getElementById('loginInput').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
-// 自動恢復登入
-const savedToken = sessionStorage.getItem('abcToken');
-const savedServer = sessionStorage.getItem('abcServer');
+// 自動恢復登入（讀 localStorage）
+const savedToken = localStorage.getItem('appToken') || sessionStorage.getItem('abcToken');
+const savedServer = localStorage.getItem('abcServer') || sessionStorage.getItem('abcServer');
 if (savedToken && savedServer) {
   SERVER = savedServer;
   document.getElementById('loginPage').style.display = 'none';
