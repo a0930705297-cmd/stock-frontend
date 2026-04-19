@@ -913,6 +913,18 @@ async function calcABC(item) {
   const fCost = holdings > 0 ? totalCost / holdings : 0;
   const trigger = fCost * 1.04;
 
+  // ── 位階判定（用原始精確數值，不用 toFixed 後的捨去值）──
+  let zone = '—', zoneCss = 'neutral';
+  if (fCost > 0) {
+    const p1 = fCost*1.04, p2 = fCost*1.2, p3 = fCost*1.4, p4 = fCost*1.7;
+    if      (latestClose < fCost) { zone = '跌破成本';   zoneCss = 'neutral'; }
+    else if (latestClose < p1)    { zone = '醞釀期';     zoneCss = 'neutral'; }
+    else if (latestClose < p2)    { zone = '第一攻擊區'; zoneCss = 'good';    }
+    else if (latestClose < p3)    { zone = '第二攻擊區'; zoneCss = 'ok';      }
+    else if (latestClose < p4)    { zone = '極端高位';   zoneCss = 'warning'; }
+    else                          { zone = '韭菜區';     zoneCss = 'danger';  }
+  }
+
   // ── 產業（輕量抓，快取）─────────────────────
   let industry = item.industry || '';
   if (!industry) {
@@ -939,6 +951,7 @@ async function calcABC(item) {
     // 外資成本
     fCost: fCost > 0 ? +fCost.toFixed(1) : 0,
     trigger: trigger > 0 ? +trigger.toFixed(1) : 0,
+    zone, zoneCss,
   };
 }
 
@@ -978,18 +991,10 @@ function renderResults(data) {
     const trigStr = d.trigger > 0 ? `$${d.trigger}` : '—';
     const overTrig = d.fCost > 0 && d.close >= d.trigger;
 
-    // 位階計算
-    let zoneTag = '—';
-    if (d.fCost > 0) {
-      const p1 = d.fCost*1.04, p2 = d.fCost*1.2, p3 = d.fCost*1.4, p4 = d.fCost*1.7;
-      const cl = d.close;
-      if      (cl < d.fCost) zoneTag = `<span class="zone-tag neutral">跌破成本</span>`;
-      else if (cl < p1)      zoneTag = `<span class="zone-tag neutral">醞釀期</span>`;
-      else if (cl < p2)      zoneTag = `<span class="zone-tag good">第一攻擊區</span>`;
-      else if (cl < p3)      zoneTag = `<span class="zone-tag ok">第二攻擊區</span>`;
-      else if (cl < p4)      zoneTag = `<span class="zone-tag warning">極端高位</span>`;
-      else                   zoneTag = `<span class="zone-tag danger">韭菜區</span>`;
-    }
+    // 位階（已在 calcABC 用精確數值算好）
+    const zoneTag = d.zone !== '—' && d.zone
+      ? `<span class="zone-tag ${d.zoneCss}">${d.zone}</span>`
+      : '—';
 
     return `<tr class="clickable" onclick="goToMain('${d.code}')">
       <td><span class="code-cell">${d.code}</span></td>
