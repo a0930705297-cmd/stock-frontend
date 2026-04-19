@@ -424,6 +424,13 @@ tr.clickable { cursor: pointer; }
         </select>
         <button class="btn-scan secondary" id="btnIndustry" onclick="runIndustryScan()">產業掃描</button>
       </div>
+      <div class="sc-sep"></div>
+      <div class="sc-group">
+        <input type="text" id="singleCode" placeholder="輸入股號" maxlength="6"
+          style="padding:5px 8px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;color:var(--text);font-family:var(--mono);width:90px;"
+          onkeydown="if(event.key==='Enter') runSingleScan()" />
+        <button class="btn-scan secondary" onclick="runSingleScan()">單股查詢</button>
+      </div>
     </div>
 
     <!-- 篩選 -->
@@ -594,6 +601,41 @@ async function runIndustryScan() {
   } catch(e) {
     setEmpty('掃描失敗：' + e.message);
   } finally { setBusy(false); }
+}
+
+// ── 單股查詢 ──────────────────────────────────
+async function runSingleScan() {
+  const code = document.getElementById('singleCode').value.trim();
+  if (!code) return;
+  setBusy(true, `單股查詢：${code}`);
+  showProgress(0, 1, `查詢 ${code}...`);
+  try {
+    // 先抓股票名稱和現價
+    const [tickerRes, priceRes] = await Promise.all([
+      apiFetch(`${SERVER}/ticker/${code}`),
+      apiFetch(`${SERVER}/price/${code}`)
+    ]);
+    const tickerJson = await tickerRes.json();
+    const priceJson  = await priceRes.json();
+    const name  = tickerJson.name || code;
+    const priceMap = priceJson.data || {};
+    const pv = Object.values(priceMap);
+    const close = pv.length > 0 ? pv[pv.length-1].close : 0;
+
+    const result = await calcABC({ code, name, close, volume: 0 });
+    if (result) {
+      allResults = [result];
+      updateSummary(allResults);
+      renderResults(allResults);
+    } else {
+      setEmpty(`${code} 資料不足，無法計算`);
+    }
+  } catch(e) {
+    setEmpty('查詢失敗：' + e.message);
+  } finally {
+    setBusy(false);
+    hideProgress();
+  }
 }
 
 // ── ABC 核心計算 ──────────────────────────────

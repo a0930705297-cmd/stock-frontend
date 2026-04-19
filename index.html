@@ -519,9 +519,9 @@ td.neg { color: #1D9E75; }
 <script>
 const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
   ? 'http://127.0.0.1:8000'
-  : 'https://fafafa168.win';
+  : (localStorage.getItem('abcServer') || 'https://stock-backend-production-95d3.up.railway.app');
 
-function getToken() { return sessionStorage.getItem('appToken') || ''; }
+function getToken() { return localStorage.getItem('appToken') || sessionStorage.getItem('appToken') || ''; }
 
 function apiFetch(url, options = {}) {
   return fetch(url, {
@@ -544,6 +544,7 @@ async function doLogin() {
     });
     if (res.ok) {
       sessionStorage.setItem('appToken', pwd);
+      localStorage.setItem('appToken', pwd);   // 跨分頁、跨頁面共用
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('mainPage').style.display = 'block';
       init();
@@ -555,7 +556,7 @@ async function doLogin() {
   }
 }
 document.getElementById('loginInput').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-if (sessionStorage.getItem('appToken')) {
+if (localStorage.getItem('appToken') || sessionStorage.getItem('appToken')) {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('mainPage').style.display = 'block';
 }
@@ -1227,7 +1228,7 @@ function init() {
   renderWatchlist();
   if (watchlist.length>0) refreshWatchlist();
 
-  // ABC選股掃描跳轉：讀取傳入的股票代號
+  // ABC選股掃描跳轉
   const jumpCode = localStorage.getItem('abc_jump_code');
   if (jumpCode) {
     localStorage.removeItem('abc_jump_code');
@@ -1236,7 +1237,7 @@ function init() {
   }
 }
 
-if (sessionStorage.getItem('appToken')) init();
+if (localStorage.getItem('appToken') || sessionStorage.getItem('appToken')) init();
 </script>
 </body>
 </html>

@@ -77,7 +77,7 @@ code{font-family:'SF Mono',monospace;font-size:11px;background:var(--bg);padding
   <div class="card">
     <h3>連線設定</h3>
     <div class="row">
-      <div><label>後端網域</label><input type="text" id="api-base" placeholder="https://fafafa168.win"></div>
+      <div><label>後端網域</label><input type="text" id="api-base" placeholder="https://stock-backend-production-95d3.up.railway.app"></div>
       <div><label>API Token</label><input type="password" id="api-token" placeholder="輸入 x-token"></div>
       <button class="btn" id="load-btn" onclick="loadData()">載入資料</button>
     </div>
@@ -207,7 +207,17 @@ function updateSummary(rows){
 }
 
 window.addEventListener('load',()=>{
-  try{const c=JSON.parse(localStorage.getItem('em_cfg')||'{}');if(c.b)$('api-base').value=c.b;}catch(e){}
+  try{
+    // 優先讀共用的 abcServer，其次讀舊設定
+    const sharedServer = localStorage.getItem('abcServer');
+    const c = JSON.parse(localStorage.getItem('em_cfg')||'{}');
+    const savedBase = sharedServer || c.b || 'https://stock-backend-production-95d3.up.railway.app';
+    if(savedBase) $('api-base').value = savedBase;
+
+    // 自動填入共用 token
+    const sharedToken = localStorage.getItem('appToken');
+    if(sharedToken) $('api-token').value = sharedToken;
+  }catch(e){}
 });
 $('api-base').addEventListener('blur',()=>{
   try{localStorage.setItem('em_cfg',JSON.stringify({b:base()}));}catch(e){}
