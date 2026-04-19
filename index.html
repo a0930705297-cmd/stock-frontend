@@ -1245,6 +1245,14 @@ function init() {
 }
 
 if (sessionStorage.getItem('appToken')) init();
+
+// 在外資成本追蹤.html 的 init() 函式裡加這段
+const jumpCode = localStorage.getItem('abc_jump_code');
+if (jumpCode) {
+  localStorage.removeItem('abc_jump_code');
+  document.getElementById('stockInput').value = jumpCode;
+  loadStock();
+}
 </script>
 </body>
 </html>
