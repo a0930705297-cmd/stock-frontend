@@ -793,23 +793,23 @@ async function runABCScan(stocks) {
 async function calcABC(item) {
   const code = item.code;
   const today = new Date();
-  const start730 = fmtDate(new Date(today - 730*86400000));
-  const end = fmtDate(today);
 
   // 抓價格資料（FinMind TaiwanStockPrice）
   const priceRes = await apiFetch(`${SERVER}/price/${code}`);
   const priceJson = await priceRes.json();
   const priceMap = priceJson.data || {};
-  const priceArr = Object.values(priceMap).sort((a,b) => {
-    const ka = Object.keys(priceMap).find(k => priceMap[k]===a);
-    const kb = Object.keys(priceMap).find(k => priceMap[k]===b);
-    return ka > kb ? 1 : -1;
-  });
+
+  // 正確排序：直接對 key 排序，key 格式為 YYYYMMDD 字串，字典序即時間序
+  const sortedKeys = Object.keys(priceMap).sort();
+  const priceArr   = sortedKeys.map(k => priceMap[k]);
 
   if (priceArr.length < 60) return null;
 
   const closes = priceArr.map(p => p.close);
-  const latestClose = item.close > 0 ? item.close : closes[closes.length-1];
+
+  // 現價優先用 priceMap 最新收盤（最準確），其次才用 item.close
+  const latestPriceFromMap = priceArr[priceArr.length - 1]?.close || 0;
+  const latestClose = latestPriceFromMap > 0 ? latestPriceFromMap : (item.close || 0);
 
   // ── A 指標 ──────────────────────────────────
   // 240日線方向
@@ -849,8 +849,7 @@ async function calcABC(item) {
 
   // ── B2 指標（量縮價穩＋均線位置）────────────
   // 符合 M哥邏輯：賣壓消失 = 量縮 + 跌不下去 + 在均線支撐附近
-  const priceKeys = Object.keys(priceMap).sort();
-  const recent30prices = priceKeys.slice(-30).map(k => priceMap[k]);
+  const recent30prices = sortedKeys.slice(-30).map(k => priceMap[k]);
   const recentCloses   = recent30prices.map(p => p.close);
   const volumes30      = recent30prices.map(p => p.volume || 0).filter(v => v > 0);
 
