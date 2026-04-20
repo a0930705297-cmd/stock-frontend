@@ -372,6 +372,14 @@ tr.clickable { cursor: pointer; }
 .rank-bar.neg { background: var(--green); }
 
 /* 呼吸燈 */
+.b2-dot.breathe-snipe {
+  background: var(--blue);
+  animation: breathe-snipe 1.8s ease-in-out infinite;
+}
+@keyframes breathe-snipe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--blue), 0 0 12px rgba(106,159,212,0.4); }
+  50%       { opacity: 0.5; box-shadow: none; }
+}
 .b2-dot.breathe {
   animation: breathe 2s ease-in-out infinite;
 }
@@ -383,7 +391,7 @@ tr.clickable { cursor: pointer; }
   animation: breathe-warn 2s ease-in-out infinite;
 }
 @keyframes breathe-warn {
-  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--warn); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--warn); background: var(--warn); }
   50%       { opacity: 0.4; box-shadow: none; }
 }
 .zone-tag {
@@ -921,13 +929,24 @@ async function calcABC(item) {
     const atrLow = atr15 > 0 && atr5 < atr15 * 0.80;
     if (atrLow) b2Signals.push('ATR↓');
 
-    // 2b. K線實體縮小：近3日每日 (High-Low)/Close < 2.5%
+    // 2b. 價穩（雙軌判斷，任一成立）：
+    //   - 傳統：近3日每日 (High-Low)/Close < 2.5%
+    //   - 改良：近3日收盤價變動 < 1%（更能反映真正的價穩）
     const recentBars = recent30prices.slice(-3);
-    const narrowBars = recentBars.every(p => {
+    const narrowBarsHL = recentBars.every(p => {
       const h = p.max || p.close, l = p.min || p.close;
       return p.close > 0 && (h - l) / p.close < 0.025;
     });
-    if (narrowBars) b2Signals.push('K線窄幅');
+    // 收盤價穩定度：今日 vs 昨日收盤變動幅度
+    const closeChanges = [];
+    for (let i = recentCloses.length - 3; i < recentCloses.length; i++) {
+      if (i > 0 && recentCloses[i-1] > 0) {
+        closeChanges.push(Math.abs(recentCloses[i] - recentCloses[i-1]) / recentCloses[i-1]);
+      }
+    }
+    const narrowBarsClose = closeChanges.length >= 2 && closeChanges.every(c => c < 0.01);
+    const narrowBars = narrowBarsHL || narrowBarsClose;
+    if (narrowBars) b2Signals.push(narrowBarsClose ? '收盤價穩' : 'K線窄幅');
 
     // 2c. 布林帶寬收縮：近5日帶寬 < 近20日帶寬均值 × 0.7
     function bollingerBandwidth(cls, n) {
@@ -935,7 +954,7 @@ async function calcABC(item) {
       const slice = cls.slice(-n);
       const mean  = avg(slice);
       const std   = Math.sqrt(slice.reduce((s,v) => s+(v-mean)**2, 0) / n);
-      return mean > 0 ? (2 * 2 * std) / mean : 0;  // (Upper-Lower)/Middle
+      return mean > 0 ? (2 * 2 * std) / mean : 0;
     }
     const bw5  = bollingerBandwidth(recentCloses.slice(-5), 5);
     const bw20 = bollingerBandwidth(recentCloses, 20);
@@ -944,43 +963,43 @@ async function calcABC(item) {
 
     const priceStable = atrLow || narrowBars || bbSqueeze;
 
-    // ── 均線糾結偵測 ────────────────────────────
+    // ── 均線糾結偵測（放寬至5%）────────────────
+    // 原本3%太嚴，突發波動會讓均線拉開但趨勢仍糾結
     const ma5v  = avg(closes.slice(-5));
     const ma10v = avg(closes.slice(-10));
     const ma20v = avg(closes.slice(-20));
-    // 三線收斂：最大值與最小值差距 < 3%
     const maMax = Math.max(ma5v, ma10v, ma20v);
     const maMin = Math.min(ma5v, ma10v, ma20v);
-    const maConverge = maMin > 0 && (maMax - maMin) / maMin < 0.03;
+    const maConverge = maMin > 0 && (maMax - maMin) / maMin < 0.05;  // 放寬至 5%
     if (maConverge) b2Signals.push('均線糾結');
 
     // ── 位置濾網（法人成本濾網）────────────────
-    // 有效 B2：發生在法人成本 ~ 1.2x 之間（起漲前的整理）
-    // 危險區：發生在 1.4x 以上（高檔力道轉弱）
-    let positionOk   = true;   // 預設：沒有成本資料就不濾
+    // 狙擊區：成本 ~ 1.2x → 藍綠呼吸燈（最佳進場區）
+    // 抬轎區：>= 1.4x → 橘色呼吸燈（別人在用你抬轎）
+    let positionOk   = true;
     let positionWarn = false;
+    let inSnipeZone  = false;   // 狙擊區
     if (fCost > 0) {
       const ratio = latestClose / fCost;
       if (ratio >= 1.4) {
-        positionWarn = true;   // 高檔量縮，可能是籌碼鬆動
+        positionWarn = true;
         b2Signals.push('⚠高位量縮');
       } else if (ratio <= 1.2) {
-        positionOk = true;
-        b2Signals.push('成本附近✓');
+        inSnipeZone = true;
+        b2Signals.push('狙擊區✓');
       }
     }
 
     // ── 綜合評分 ────────────────────────────────
-    // 核心：量縮 + 價穩（任一）= B2 通過
-    // 加分：均線糾結、成本附近
-    // 扣分：高位量縮（仍可通過但加警示）
     scoreB2 = volShrink && priceStable;
 
-    // 描述組合
     if (scoreB2) {
-      const signalStr = b2Signals.filter(s => s !== '⚠高位量縮').join('・');
       if (positionWarn) {
         b2Detail = `量縮價穩⚠高位`;
+      } else if (inSnipeZone && maConverge) {
+        b2Detail = `狙擊糾結✓`;
+      } else if (inSnipeZone) {
+        b2Detail = `狙擊區量縮✓`;
       } else if (maConverge) {
         b2Detail = `量縮糾結✓`;
       } else {
@@ -995,10 +1014,16 @@ async function calcABC(item) {
     }
   }
 
-  // b2Score：給渲染層用的細緻分級（0~3）
+  // b2Score 分級：
+  // 4 = 狙擊區＋糾結（最強訊號，藍綠呼吸燈）
+  // 3 = 糾結通過 或 狙擊區通過（藍綠呼吸燈）
+  // 2 = 一般量縮價穩（綠色常亮）
+  // 1 = 高位量縮警示（橘色呼吸燈）
+  // 0 = 未通過
   const b2Score = !scoreB2 ? 0
-    : b2Detail.includes('糾結') ? 3
-    : b2Detail.includes('⚠')   ? 1
+    : b2Detail.includes('狙擊') && b2Detail.includes('糾結') ? 4
+    : b2Detail.includes('狙擊') || b2Detail.includes('糾結') ? 3
+    : b2Detail.includes('⚠') ? 1
     : 2;
 
   // ── 籌碼集中度（由B1資料推估）──────────────
@@ -1091,13 +1116,17 @@ function renderResults(data) {
     const barW = Math.min(Math.abs(d.buyDays - 15) / 15 * 100, 100);
     const barCls = d.scoreB1 ? 'pos' : 'neg';
 
-    const b2dot = d.b2Score === 3 ? 'pass'     // 量縮+糾結（最佳）
-                : d.b2Score === 2 ? 'pass'     // 量縮價穩
-                : d.b2Score === 1 ? 'warn'     // 通過但高位警示
+    const b2dot = d.b2Score >= 3 ? 'pass'
+                : d.b2Score === 2 ? 'pass'
+                : d.b2Score === 1 ? 'warn'
                 : d.b2Detail.includes('量縮') ? 'warn'
                 : 'fail';
-    // B2 badge 細分
-    const b2BadgeCss = d.b2Score === 3 ? 'pass' : d.b2Score >= 1 ? 'pass' : d.b2Detail.includes('量縮') ? 'warn' : 'fail';
+    const b2BadgeCss = d.b2Score >= 1 ? 'pass' : d.b2Detail.includes('量縮') ? 'warn' : 'fail';
+    // 呼吸燈 class
+    const b2Breathe = d.b2Score === 4 ? ' breathe-snipe'   // 狙擊＋糾結：藍綠強閃
+                    : d.b2Score === 3 ? ' breathe-snipe'   // 狙擊或糾結：藍綠
+                    : d.b2Score === 1 ? ' warn-breathe'    // 高位警示：橘色
+                    : '';
 
     const chipHtml = d.chipScore === 'up'
       ? `<span class="chip-up">大戶↑</span>`
@@ -1138,7 +1167,7 @@ function renderResults(data) {
       </td>
       <td>
         <div class="b2-indicator">
-          <div class="b2-dot ${b2dot}${d.b2Score===3?' breathe':d.b2Score===1?' warn-breathe':''}"></div>
+          <div class="b2-dot ${b2dot}${b2Breathe}"></div>
           <span class="b2-text">${d.b2Detail}</span>
         </div>
       </td>
