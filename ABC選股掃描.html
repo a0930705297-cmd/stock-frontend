@@ -1059,12 +1059,16 @@ function renderResults(data) {
     </div>`;
 }
 
+function getMainUrl() {
+  // 前端 index.html 跟 ABC選股掃描.html 在同一個資料夾
+  // 用當前頁面的 origin + pathname 推算
+  const base = window.location.href.replace(/\/[^\/]*$/, '');
+  return `${base}/index.html`;
+}
+
 function goToMain(code) {
-  const url = `${SERVER}?stock=${code}`;
-  // 嘗試打開法人成本追蹤並傳入代號
-  // 若同網域，可用 localStorage 或 URL 參數
   localStorage.setItem('abc_jump_code', code);
-  window.open(url, '_blank');
+  window.open(getMainUrl(), '_blank');
   showToast(`已開啟 ${code} 的詳細查詢`);
 }
 
@@ -1205,8 +1209,7 @@ function renderForeignRank(buyTop, sellTop) {
 
 function jumpToStock(code) {
   localStorage.setItem('abc_jump_code', code);
-  const mainUrl = localStorage.getItem('abcServer') || SERVER;
-  window.open(mainUrl, '_blank');
+  window.open(getMainUrl(), '_blank');
   showToast(`已開啟 ${code}`);
 }
 
