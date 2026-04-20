@@ -371,7 +371,21 @@ tr.clickable { cursor: pointer; }
 .rank-bar.pos { background: var(--danger); }
 .rank-bar.neg { background: var(--green); }
 
-/* 位階標籤 */
+/* 呼吸燈 */
+.b2-dot.breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--accent2); }
+  50%       { opacity: 0.4; box-shadow: none; }
+}
+.b2-dot.warn-breathe {
+  animation: breathe-warn 2s ease-in-out infinite;
+}
+@keyframes breathe-warn {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--warn); }
+  50%       { opacity: 0.4; box-shadow: none; }
+}
 .zone-tag {
   padding: 1px 5px; border-radius: 2px; font-size: 9px;
   font-family: var(--mono); white-space: nowrap;
@@ -465,7 +479,7 @@ tr.clickable { cursor: pointer; }
       <div class="abc-card b">
         <div class="abc-letter">B</div>
         <div class="abc-title">籌碼有人</div>
-        <div class="abc-desc">B1：外資長期持續吸籌<br>B2：量縮＋跌不下去＋在均線支撐附近<br>大戶增加、散戶減少</div>
+        <div class="abc-desc">B1：外資長期持續吸籌<br>B2：量縮（凹洞量/連縮/MA20×60%）<br>＋價穩（ATR↓/布林收口/K線窄幅）<br>＋位置在法人成本附近最佳</div>
       </div>
       <div class="abc-card c">
         <div class="abc-letter">C</div>
@@ -847,47 +861,145 @@ async function calcABC(item) {
   const foreignTrend = net10 > 0 && net20 > 0 ? 'pos' : net10 < 0 && net20 < 0 ? 'neg' : 'flat';
   const scoreB1 = buyDays >= 15 || (foreignTrend === 'pos' && buyDays >= 10);
 
-  // ── B2 指標（量縮價穩＋均線位置）────────────
-  // 符合 M哥邏輯：賣壓消失 = 量縮 + 跌不下去 + 在均線支撐附近
+
+  // ── B2 指標（精確版）─────────────────────────
+  // 建議的量化邏輯：
+  // 1. 量縮：成交量 < MA20量 × 0.6，或近日為10日以來最低量，或連續3日遞減
+  // 2. 價穩：ATR降低 + K線實體縮小 + 布林帶寬收縮
+  // 3. 位置濾網：發生在法人成本 ~ 1.04x 附近才有效，1.7x附近反而是危險
+  // 4. 均線糾結：MA5/MA10/MA20 開始收斂（變盤前兆）
+
   const recent30prices = sortedKeys.slice(-30).map(k => priceMap[k]);
   const recentCloses   = recent30prices.map(p => p.close);
-  const volumes30      = recent30prices.map(p => p.volume || 0).filter(v => v > 0);
+  const recentHighs    = recent30prices.map(p => p.max   || p.close);
+  const recentLows     = recent30prices.map(p => p.min   || p.close);
+  const volumes30      = recent30prices.map(p => p.volume || 0);
+  const volsFiltered   = volumes30.filter(v => v > 0);
 
-  let scoreB2 = false;
-  let b2Detail = '—';
+  let scoreB2   = false;
+  let b2Detail  = '—';
+  let b2Signals = [];  // 收集命中的子訊號
 
-  if (volumes30.length >= 15 && recentCloses.length >= 10) {
-    // 1. 量縮：近5日均量 < 前25日均量的 70%（明顯量縮）
-    const vol5   = avg(volumes30.slice(-5));
-    const vol25  = avg(volumes30.slice(0, 25));
-    const volShrink = vol25 > 0 && vol5 < vol25 * 0.70;
+  if (volsFiltered.length >= 10 && recentCloses.length >= 15) {
+    const vol20avg = avg(volsFiltered.slice(-20));
 
-    // 2. 跌不下去：近5日最低價 >= 近10日最低價（沒有繼續破底）
-    const low5  = Math.min(...recentCloses.slice(-5));
-    const low10 = Math.min(...recentCloses.slice(-10));
-    const notFalling = low5 >= low10 * 0.99;
+    // ── 量縮三判斷（任一成立即為量縮）─────────
+    // 1a. 當日量 < MA20量 × 0.6
+    const lastVol   = volumes30[volumes30.length - 1] || 0;
+    const volBelowMA = vol20avg > 0 && lastVol < vol20avg * 0.60;
 
-    // 3. 均線位置：現價在 MA20 ~ MA120 之間（均線支撐附近，非高位量縮）
-    const ma20val  = avg(closes.slice(-20));
-    const ma120val = closes.length >= 120 ? avg(closes.slice(-120)) : avg(closes);
-    const inSupportZone = latestClose >= ma20val * 0.97 && latestClose <= ma120val * 1.15;
+    // 1b. 近5日量是過去20日以來最低（凹洞量）
+    const minVol20  = Math.min(...volsFiltered.slice(-20).filter(v=>v>0));
+    const vol5avg   = avg(volsFiltered.slice(-5));
+    const volLowest = vol5avg <= minVol20 * 1.1;
 
-    // 三條件同時成立才是真正的 B2
-    scoreB2 = volShrink && notFalling && inSupportZone;
+    // 1c. 連續3日量遞減
+    const vols3 = volumes30.slice(-3);
+    const vol3Decreasing = vols3.length === 3 && vols3[0] > vols3[1] && vols3[1] > vols3[2] && vols3[2] < vol20avg * 0.85;
 
-    // 描述（分層顯示部分符合）
+    const volShrink = volBelowMA || volLowest || vol3Decreasing;
+    if (volShrink) {
+      if (volLowest)      b2Signals.push('凹洞量');
+      else if (volBelowMA) b2Signals.push('量<MA20×60%');
+      else                b2Signals.push('量連縮3日');
+    }
+
+    // ── 價穩三判斷 ──────────────────────────────
+    // 2a. ATR(5) 下降：近5日 ATR < 近15日 ATR × 0.8
+    function calcATR(highs, lows, cls, n) {
+      const trs = [];
+      for (let i = 1; i < cls.length; i++) {
+        const hl = highs[i] - lows[i];
+        const hc = Math.abs(highs[i] - cls[i-1]);
+        const lc = Math.abs(lows[i] - cls[i-1]);
+        trs.push(Math.max(hl, hc, lc));
+      }
+      return avg(trs.slice(-n));
+    }
+    const atr5  = calcATR(recentHighs, recentLows, recentCloses, 5);
+    const atr15 = calcATR(recentHighs, recentLows, recentCloses, 15);
+    const atrLow = atr15 > 0 && atr5 < atr15 * 0.80;
+    if (atrLow) b2Signals.push('ATR↓');
+
+    // 2b. K線實體縮小：近3日每日 (High-Low)/Close < 2.5%
+    const recentBars = recent30prices.slice(-3);
+    const narrowBars = recentBars.every(p => {
+      const h = p.max || p.close, l = p.min || p.close;
+      return p.close > 0 && (h - l) / p.close < 0.025;
+    });
+    if (narrowBars) b2Signals.push('K線窄幅');
+
+    // 2c. 布林帶寬收縮：近5日帶寬 < 近20日帶寬均值 × 0.7
+    function bollingerBandwidth(cls, n) {
+      if (cls.length < n) return 0;
+      const slice = cls.slice(-n);
+      const mean  = avg(slice);
+      const std   = Math.sqrt(slice.reduce((s,v) => s+(v-mean)**2, 0) / n);
+      return mean > 0 ? (2 * 2 * std) / mean : 0;  // (Upper-Lower)/Middle
+    }
+    const bw5  = bollingerBandwidth(recentCloses.slice(-5), 5);
+    const bw20 = bollingerBandwidth(recentCloses, 20);
+    const bbSqueeze = bw20 > 0 && bw5 < bw20 * 0.70;
+    if (bbSqueeze) b2Signals.push('布林收口');
+
+    const priceStable = atrLow || narrowBars || bbSqueeze;
+
+    // ── 均線糾結偵測 ────────────────────────────
+    const ma5v  = avg(closes.slice(-5));
+    const ma10v = avg(closes.slice(-10));
+    const ma20v = avg(closes.slice(-20));
+    // 三線收斂：最大值與最小值差距 < 3%
+    const maMax = Math.max(ma5v, ma10v, ma20v);
+    const maMin = Math.min(ma5v, ma10v, ma20v);
+    const maConverge = maMin > 0 && (maMax - maMin) / maMin < 0.03;
+    if (maConverge) b2Signals.push('均線糾結');
+
+    // ── 位置濾網（法人成本濾網）────────────────
+    // 有效 B2：發生在法人成本 ~ 1.2x 之間（起漲前的整理）
+    // 危險區：發生在 1.4x 以上（高檔力道轉弱）
+    let positionOk   = true;   // 預設：沒有成本資料就不濾
+    let positionWarn = false;
+    if (fCost > 0) {
+      const ratio = latestClose / fCost;
+      if (ratio >= 1.4) {
+        positionWarn = true;   // 高檔量縮，可能是籌碼鬆動
+        b2Signals.push('⚠高位量縮');
+      } else if (ratio <= 1.2) {
+        positionOk = true;
+        b2Signals.push('成本附近✓');
+      }
+    }
+
+    // ── 綜合評分 ────────────────────────────────
+    // 核心：量縮 + 價穩（任一）= B2 通過
+    // 加分：均線糾結、成本附近
+    // 扣分：高位量縮（仍可通過但加警示）
+    scoreB2 = volShrink && priceStable;
+
+    // 描述組合
     if (scoreB2) {
-      b2Detail = '量縮價穩✓';
-    } else if (volShrink && notFalling) {
-      b2Detail = '量縮穩但位偏高';
-    } else if (volShrink) {
-      b2Detail = '量縮但仍下行';
-    } else if (notFalling && inSupportZone) {
-      b2Detail = '位置對但量未縮';
+      const signalStr = b2Signals.filter(s => s !== '⚠高位量縮').join('・');
+      if (positionWarn) {
+        b2Detail = `量縮價穩⚠高位`;
+      } else if (maConverge) {
+        b2Detail = `量縮糾結✓`;
+      } else {
+        b2Detail = `量縮價穩✓`;
+      }
+    } else if (volShrink && !priceStable) {
+      b2Detail = '量縮但波動大';
+    } else if (!volShrink && priceStable) {
+      b2Detail = '量未縮';
     } else {
       b2Detail = '未達條件';
     }
   }
+
+  // b2Score：給渲染層用的細緻分級（0~3）
+  const b2Score = !scoreB2 ? 0
+    : b2Detail.includes('糾結') ? 3
+    : b2Detail.includes('⚠')   ? 1
+    : 2;
 
   // ── 籌碼集中度（由B1資料推估）──────────────
   // 用外資近60日持股方向：持續淨買入視為大戶增加
@@ -945,7 +1057,7 @@ async function calcABC(item) {
     // B1
     scoreB1, buyDays, sellDays, foreignTrend, net20,
     // B2
-    scoreB2, b2Detail,
+    scoreB2, b2Detail, b2Score: b2Score || 0,
     // 籌碼
     chipScore,
     // 外資成本
@@ -979,7 +1091,13 @@ function renderResults(data) {
     const barW = Math.min(Math.abs(d.buyDays - 15) / 15 * 100, 100);
     const barCls = d.scoreB1 ? 'pos' : 'neg';
 
-    const b2dot = d.scoreB2 ? 'pass' : d.b2Detail.includes('量縮') ? 'warn' : 'fail';
+    const b2dot = d.b2Score === 3 ? 'pass'     // 量縮+糾結（最佳）
+                : d.b2Score === 2 ? 'pass'     // 量縮價穩
+                : d.b2Score === 1 ? 'warn'     // 通過但高位警示
+                : d.b2Detail.includes('量縮') ? 'warn'
+                : 'fail';
+    // B2 badge 細分
+    const b2BadgeCss = d.b2Score === 3 ? 'pass' : d.b2Score >= 1 ? 'pass' : d.b2Detail.includes('量縮') ? 'warn' : 'fail';
 
     const chipHtml = d.chipScore === 'up'
       ? `<span class="chip-up">大戶↑</span>`
@@ -1004,7 +1122,7 @@ function renderResults(data) {
         <div class="abc-scores">
           <div class="score-badge ${d.scoreA?'pass':'fail'}" title="A：趨勢">A</div>
           <div class="score-badge ${d.scoreB1?'pass':'fail'}" title="B1：外資吸籌">B1</div>
-          <div class="score-badge ${d.scoreB2?'pass':d.b2Detail.includes('量縮')?'warn':'fail'}" title="B2：量縮＋跌不下去＋均線支撐附近">B2</div>
+          <div class="score-badge ${b2BadgeCss}" title="B2：量縮（MA20×60%/凹洞量/連縮3日）＋價穩（ATR↓/K線窄/布林收口）">B2</div>
         </div>
       </td>
       <td>
@@ -1020,7 +1138,7 @@ function renderResults(data) {
       </td>
       <td>
         <div class="b2-indicator">
-          <div class="b2-dot ${b2dot}"></div>
+          <div class="b2-dot ${b2dot}${d.b2Score===3?' breathe':d.b2Score===1?' warn-breathe':''}"></div>
           <span class="b2-text">${d.b2Detail}</span>
         </div>
       </td>
