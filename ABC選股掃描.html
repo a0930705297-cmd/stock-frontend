@@ -869,6 +869,23 @@ async function calcABC(item) {
   const foreignTrend = net10 > 0 && net20 > 0 ? 'pos' : net10 < 0 && net20 < 0 ? 'neg' : 'flat';
   const scoreB1 = buyDays >= 15 || (foreignTrend === 'pos' && buyDays >= 10);
 
+  // ── 外資成本（移到 B2 之前，讓位置濾網可以使用）──
+  const merged = foreignRaw.map(d => {
+    const p = priceMap[d.date];
+    return p ? { ...d, close: p.close } : null;
+  }).filter(Boolean);
+
+  let holdings = 0, totalCost = 0;
+  for (const d of merged) {
+    if (d.buy > 0) { totalCost += d.buy * 1000 * d.close; holdings += d.buy * 1000; }
+    if (d.sell > 0 && holdings > 0) {
+      const s = Math.min(d.sell * 1000, holdings);
+      totalCost -= s * (totalCost / holdings);
+      holdings -= s;
+    }
+  }
+  const fCost = holdings > 0 ? totalCost / holdings : 0;
+  const trigger = fCost * 1.04;
 
   // ── B2 指標（精確版）─────────────────────────
   // 建議的量化邏輯：
@@ -1031,24 +1048,6 @@ async function calcABC(item) {
   const net60 = foreignRaw.slice(-60).reduce((s,d) => s+(d.buy-d.sell),0);
   const chipConcentrating = net60 > 0 && netRecent > 0;
   const chipScore = chipConcentrating ? 'up' : net60 < 0 ? 'dn' : 'flat';
-
-  // ── 外資成本 ─────────────────────────────────
-  const merged = foreignRaw.map(d => {
-    const p = priceMap[d.date];
-    return p ? { ...d, close: p.close } : null;
-  }).filter(Boolean);
-
-  let holdings = 0, totalCost = 0;
-  for (const d of merged) {
-    if (d.buy > 0) { totalCost += d.buy * 1000 * d.close; holdings += d.buy * 1000; }
-    if (d.sell > 0 && holdings > 0) {
-      const s = Math.min(d.sell * 1000, holdings);
-      totalCost -= s * (totalCost / holdings);
-      holdings -= s;
-    }
-  }
-  const fCost = holdings > 0 ? totalCost / holdings : 0;
-  const trigger = fCost * 1.04;
 
   // ── 位階判定（用原始精確數值，不用 toFixed 後的捨去值）──
   let zone = '—', zoneCss = 'neutral';
