@@ -440,6 +440,40 @@ tr.clickable { cursor: pointer; }
 .page-content { display: none; }
 .page-content.active { display: block; }
 
+/* 模式切換 */
+.mode-switch {
+  display: flex; gap: 0; border: 1px solid var(--border2);
+  border-radius: 4px; overflow: hidden; flex-shrink: 0;
+}
+.mode-btn {
+  padding: 5px 12px; font-size: 10px; cursor: pointer;
+  background: transparent; border: none; color: var(--muted);
+  transition: all 0.15s; font-family: var(--sans);
+  white-space: nowrap;
+}
+.mode-btn.active {
+  background: var(--accent); color: var(--bg); font-weight: 500;
+}
+.mode-btn:not(.active):hover { background: var(--surface2); color: var(--text); }
+
+.mode-desc {
+  font-size: 10px; color: var(--muted); padding: 6px 10px;
+  background: var(--surface2); border-radius: 3px;
+  margin-bottom: 10px; border-left: 2px solid var(--accent);
+  line-height: 1.6;
+}
+
+/* 流動性門檻設定 */
+.threshold-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; color: var(--muted);
+}
+.threshold-row input {
+  width: 70px; padding: 4px 6px; font-size: 10px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); font-family: var(--mono);
+}
+
 /* 響應式 */
 @media (max-width: 768px) {
   .abc-banner { grid-template-columns: 1fr; }
@@ -505,6 +539,8 @@ tr.clickable { cursor: pointer; }
 
     <!-- ── 頁1：ABC 掃描 ── -->
     <div class="page-content active" id="tab-scan">
+
+    <!-- 掃描控制 -->
     <div class="scan-controls">
       <span class="sc-label">來源</span>
       <div class="sc-group">
@@ -513,7 +549,11 @@ tr.clickable { cursor: pointer; }
           <option value="100" selected>前100</option>
           <option value="200">前200</option>
         </select>
-        <button class="btn-scan primary" id="btnVolume" onclick="runVolumeScan()">大盤成交量掃描</button>
+        <select id="sortMode" title="排序方式">
+          <option value="volume">成交張數</option>
+          <option value="amount">成交金額</option>
+        </select>
+        <button class="btn-scan primary" id="btnVolume" onclick="runVolumeScan()">大盤掃描</button>
       </div>
       <div class="sc-sep"></div>
       <div class="sc-group">
@@ -537,11 +577,25 @@ tr.clickable { cursor: pointer; }
       </div>
       <div class="sc-sep"></div>
       <div class="sc-group">
+        <button class="btn-scan secondary" id="btnMemory" onclick="runMemoryScan()" title="掃描過去7天曾進過前200名、今天已退出的標的">
+          📦 追蹤股池
+          <span id="memoryCount" style="font-size:9px;color:var(--accent);"></span>
+        </button>
+        <button class="btn-scan secondary" onclick="clearMemory()" title="清除記憶庫" style="padding:6px 8px;">✕</button>
+      </div>
+      <div class="sc-sep"></div>
+      <div class="sc-group">
         <input type="text" id="singleCode" placeholder="輸入股號" maxlength="6"
           style="padding:5px 8px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;color:var(--text);font-family:var(--mono);width:90px;"
           onkeydown="if(event.key==='Enter') runSingleScan()" />
         <button class="btn-scan secondary" onclick="runSingleScan()">單股查詢</button>
       </div>
+    </div>
+
+    <!-- 記憶庫狀態列 -->
+    <div id="memoryBar" style="display:none;font-size:10px;color:var(--muted);margin-bottom:8px;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:3px;display:flex;align-items:center;gap:8px;">
+      <span>📦</span>
+      <span id="memoryBarText"></span>
     </div>
 
     <!-- 篩選 -->
@@ -551,6 +605,8 @@ tr.clickable { cursor: pointer; }
       <div class="filter-chip" id="chip-abc" onclick="setFilter('abc')"><span class="fc-dot"></span>ABC 全過</div>
       <div class="filter-chip" id="chip-ab" onclick="setFilter('ab')"><span class="fc-dot"></span>AB 趨勢＋籌碼</div>
       <div class="filter-chip" id="chip-a" onclick="setFilter('a')"><span class="fc-dot"></span>僅 A 趨勢</div>
+      <div class="filter-chip" id="chip-snipe" onclick="setFilter('snipe')"><span class="fc-dot"></span>🎯 狙擊區</div>
+      <div class="filter-chip" id="chip-drop" onclick="setFilter('drop')" title="排名曾在前50，現在掉到150名以後"><span class="fc-dot"></span>📉 排名大跌</div>
     </div>
 
     <!-- 進度 -->
@@ -663,6 +719,7 @@ if (savedToken && savedServer) {
 // ── 初始化 ───────────────────────────────────
 function init() {
   checkServer();
+  updateMemoryUI();
 }
 if (savedToken && savedServer) init();
 
@@ -685,29 +742,158 @@ let allResults = [];
 
 function setFilter(f) {
   currentFilter = f;
-  ['all','abc','ab','a'].forEach(k => {
-    document.getElementById('chip-'+k).classList.toggle('active', k === f);
+  ['all','abc','ab','a','snipe','drop'].forEach(k => {
+    const el = document.getElementById('chip-'+k);
+    if (el) el.classList.toggle('active', k === f);
   });
   renderResults(filterData(allResults));
 }
 
 function filterData(data) {
-  if (currentFilter === 'abc') return data.filter(d => d.scoreA && d.scoreB1 && d.scoreB2);
-  if (currentFilter === 'ab')  return data.filter(d => d.scoreA && d.scoreB1);
-  if (currentFilter === 'a')   return data.filter(d => d.scoreA);
+  if (currentFilter === 'abc')   return data.filter(d => d.scoreA && d.scoreB1 && d.scoreB2);
+  if (currentFilter === 'ab')    return data.filter(d => d.scoreA && d.scoreB1);
+  if (currentFilter === 'a')     return data.filter(d => d.scoreA);
+  if (currentFilter === 'snipe') return data.filter(d => d.scoreB2 && d.b2Detail.includes('狙擊'));
+  if (currentFilter === 'drop')  return data.filter(d => d.rankPrev && d.rankPrev <= 50 && d.rankToday >= 100);
   return data;
+}
+
+// ── 記憶庫（LocalStorage）────────────────────
+const MEMORY_KEY = 'abc_stock_memory';
+const MEMORY_DAYS = 7;
+
+function loadMemory() {
+  try { return JSON.parse(localStorage.getItem(MEMORY_KEY) || '{}'); } catch { return {}; }
+}
+function saveMemory(mem) {
+  try { localStorage.setItem(MEMORY_KEY, JSON.stringify(mem)); } catch {}
+}
+function updateMemory(stocks, rankMap) {
+  const mem = loadMemory();
+  const today = new Date().toISOString().slice(0,10);
+  const cutoff = new Date(Date.now() - MEMORY_DAYS*86400000).toISOString().slice(0,10);
+
+  // 加入今日排名
+  for (const s of stocks) {
+    if (!mem[s.code]) mem[s.code] = { name: s.name, history: {} };
+    mem[s.code].history[today] = rankMap[s.code] || 999;
+    mem[s.code].name = s.name;
+  }
+  // 清除過期資料
+  for (const code of Object.keys(mem)) {
+    for (const d of Object.keys(mem[code].history || {})) {
+      if (d < cutoff) delete mem[code].history[d];
+    }
+    if (!Object.keys(mem[code].history || {}).length) delete mem[code];
+  }
+  saveMemory(mem);
+  updateMemoryUI();
+}
+function updateMemoryUI() {
+  const mem = loadMemory();
+  const count = Object.keys(mem).length;
+  const el = document.getElementById('memoryCount');
+  if (el) el.textContent = count > 0 ? ` ${count}檔` : '';
+  const bar = document.getElementById('memoryBar');
+  const barText = document.getElementById('memoryBarText');
+  if (bar && barText && count > 0) {
+    bar.style.display = 'flex';
+    barText.textContent = `追蹤股池：${count} 檔（過去${MEMORY_DAYS}天曾進前200名）`;
+  } else if (bar) {
+    bar.style.display = 'none';
+  }
+}
+function clearMemory() {
+  localStorage.removeItem(MEMORY_KEY);
+  updateMemoryUI();
+  showToast('追蹤股池已清除');
 }
 
 // ── 大盤成交量掃描 ────────────────────────────
 async function runVolumeScan() {
-  const topN = parseInt(document.getElementById('topN').value);
-  setBusy(true, '大盤成交量掃描');
+  const topN     = parseInt(document.getElementById('topN').value);
+  const sortMode = document.getElementById('sortMode')?.value || 'volume';
+  setBusy(true, `大盤掃描（前${topN}名）`);
   showProgress(0, topN, '取得大盤資料...');
   try {
-    const volRes = await apiFetch(`${SERVER}/market_volume`);
+    const volRes  = await apiFetch(`${SERVER}/market_volume`);
     const volJson = await volRes.json();
-    const stocks = (volJson.data || []).slice(0, topN);
+    let allStocks = volJson.data || [];
+
+    // 成交金額排序：close × volume
+    if (sortMode === 'amount') {
+      allStocks = allStocks
+        .map(s => ({ ...s, amount: (s.close || 0) * (s.volume || 0) }))
+        .sort((a, b) => b.amount - a.amount);
+    }
+
+    const stocks = allStocks.slice(0, topN);
     if (!stocks.length) { setEmpty('無法取得大盤資料'); return; }
+
+    // 建立今日排名 map
+    const rankMap = {};
+    allStocks.forEach((s, i) => { rankMap[s.code] = i + 1; });
+
+    // 讀取昨日記憶庫，找出排名變化
+    const mem = loadMemory();
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+    stocks.forEach(s => {
+      s.rankToday = rankMap[s.code] || null;
+      const hist  = mem[s.code]?.history || {};
+      const dates = Object.keys(hist).sort();
+      const prevDate = dates.filter(d => d < new Date().toISOString().slice(0,10)).pop();
+      s.rankPrev = prevDate ? hist[prevDate] : null;
+    });
+
+    // 儲存到記憶庫
+    updateMemory(allStocks.slice(0, 200), rankMap);
+
+    await runABCScan(stocks);
+  } catch(e) {
+    setEmpty('掃描失敗：' + e.message);
+  } finally { setBusy(false); }
+}
+
+// ── 追蹤股池掃描 ─────────────────────────────
+async function runMemoryScan() {
+  const mem = loadMemory();
+  const codes = Object.keys(mem);
+  if (!codes.length) {
+    showToast('追蹤股池是空的，請先執行大盤掃描');
+    return;
+  }
+
+  // 取得今日大盤排名
+  setBusy(true, `追蹤股池掃描（${codes.length}檔）`);
+  showProgress(0, codes.length, '取得今日排名...');
+
+  try {
+    const volRes  = await apiFetch(`${SERVER}/market_volume`);
+    const volJson = await volRes.json();
+    const allStocks = volJson.data || [];
+    const rankMap   = {};
+    const priceMap2 = {};
+    allStocks.forEach((s, i) => {
+      rankMap[s.code]   = i + 1;
+      priceMap2[s.code] = s.close;
+    });
+
+    const stocks = codes.map(code => {
+      const info  = mem[code];
+      const hist  = info.history || {};
+      const dates = Object.keys(hist).sort();
+      const today = new Date().toISOString().slice(0,10);
+      const prevDate = dates.filter(d => d < today).pop();
+      return {
+        code,
+        name:      info.name || code,
+        close:     priceMap2[code] || 0,
+        volume:    allStocks.find(s => s.code === code)?.volume || 0,
+        rankToday: rankMap[code] || null,   // null = 今天掉出前200
+        rankPrev:  prevDate ? hist[prevDate] : null,
+      };
+    });
+
     await runABCScan(stocks);
   } catch(e) {
     setEmpty('掃描失敗：' + e.message);
@@ -1075,6 +1261,8 @@ async function calcABC(item) {
     code, name: item.name || code,
     close: latestClose, volume: item.volume || 0,
     industry,
+    rankToday: item.rankToday || null,
+    rankPrev:  item.rankPrev  || null,
     // A
     scoreA, ma240rising, isYearHigh, bullAlign,
     ma5: +ma5.toFixed(1), ma20: +ma20.toFixed(1), ma60: +ma60.toFixed(1),
@@ -1176,6 +1364,22 @@ function renderResults(data) {
       <td class="num" style="color:var(--muted)">${costStr}</td>
       <td class="num" style="${overTrig?'color:var(--accent2)':'color:var(--muted)'}">${trigStr}</td>
       <td>${zoneTag}</td>
+      <td>${(() => {
+        if (!d.rankToday) return '<span style="color:var(--muted);font-size:9px;">—</span>';
+        const prev = d.rankPrev;
+        const cur  = d.rankToday;
+        if (!prev) return `<span style="font-family:var(--mono);font-size:10px;color:var(--muted);">#${cur}</span>`;
+        const diff = prev - cur; // 正數 = 排名上升（數字變小）
+        const arrow = diff > 0
+          ? `<span style="color:var(--danger);font-size:9px;">↑${diff}</span>`
+          : diff < 0
+          ? `<span style="color:var(--green);font-size:9px;">↓${Math.abs(diff)}</span>`
+          : '';
+        const dropBadge = prev <= 50 && cur >= 100
+          ? `<span style="font-size:8px;background:rgba(212,149,90,0.15);color:var(--warn);border-radius:2px;padding:1px 3px;margin-left:2px;">熱退</span>`
+          : '';
+        return `<span style="font-family:var(--mono);font-size:10px;">#${cur}</span> ${arrow}${dropBadge}`;
+      })()}</td>
     </tr>`;
   }).join('');
 
@@ -1195,6 +1399,7 @@ function renderResults(data) {
             <th class="num">外資成本</th>
             <th class="num">發動點</th>
             <th>位階</th>
+            <th>排名</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
