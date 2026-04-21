@@ -151,15 +151,19 @@ body {
   background: #fafafa; border: 1px solid #f0f0f0;
 }
 .watch-item.alert { background: #fff8f8; border-color: #ffd5d5; }
-.watch-item.safe { background: #f8fff5; border-color: #d5f0d5; }
+.watch-item.safe  { background: #f8fff5; border-color: #d5f0d5; }
+.watch-item.below { background: #f8f8ff; border-color: #d0d0f0; }  /* 跌破成本 */
+.watch-item.ready { background: #fffdf0; border-color: #f0e8b0; }  /* 醞釀中 */
 .wi-code { font-weight: 600; min-width: 35px; font-family: monospace; font-size: 10px; }
 .wi-name { flex: 1; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wi-badge {
   font-size: 9px; padding: 1px 4px; border-radius: 2px;
   white-space: nowrap;
 }
-.wi-badge.alert { background: #E24B4A; color: #fff; }
-.wi-badge.safe { background: #639922; color: #fff; }
+.wi-badge.alert   { background: #E24B4A; color: #fff; }
+.wi-badge.safe    { background: #639922; color: #fff; }
+.wi-badge.below   { background: #7070C0; color: #fff; }
+.wi-badge.ready   { background: #C08820; color: #fff; }
 .wi-badge.loading { background: #eee; color: #999; }
 .wi-remove { color: #ccc; cursor: pointer; font-size: 10px; flex-shrink: 0; }
 .wi-remove:hover { color: #E24B4A; }
@@ -1204,14 +1208,30 @@ function renderWatchlist() {
   const c = document.getElementById('watchlistItems');
   if (!watchlist.length) { c.innerHTML = '<div class="empty-text">尚未新增監控</div>'; return; }
   c.innerHTML = watchlist.map((w,i) => {
-    const triggered = w.currentPrice>0&&w.triggerPrice>0&&w.currentPrice>=w.triggerPrice;
-    const hasData = w.currentPrice>0;
-    const cls = !hasData?'':triggered?'alert':'safe';
-    const badge = !hasData?'loading':triggered?'alert':'safe';
-    const badgeText = !hasData?'載入中':triggered?'⚡突破':'未發動';
+    const hasData   = w.currentPrice > 0;
+    const fCost     = w.foreignCost  || 0;
+    const trigger   = w.triggerPrice || 0;
+    const price     = w.currentPrice || 0;
+
+    // 三態判斷
+    let cls, badge, badgeText;
+    if (!hasData) {
+      cls = ''; badge = 'loading'; badgeText = '載入中';
+    } else if (fCost > 0 && price < fCost) {
+      cls = 'below'; badge = 'below'; badgeText = '↓跌破成本';
+    } else if (trigger > 0 && price >= trigger) {
+      cls = 'alert'; badge = 'alert'; badgeText = '⚡突破發動';
+    } else if (fCost > 0 && price >= fCost) {
+      cls = 'ready'; badge = 'ready'; badgeText = '⏳醞釀中';
+    } else {
+      cls = 'safe'; badge = 'safe'; badgeText = '持平';
+    }
+
+    const costInfo = fCost > 0 ? ` 成本$${fCost.toFixed(1)}` : '';
+    const trigInfo = trigger > 0 ? ` 發動$${trigger.toFixed(1)}` : '';
     return `<div class="watch-item ${cls}">
       <span class="wi-code">${w.code}</span>
-      <span class="wi-name">${w.name}${hasData?` $${w.currentPrice.toFixed(1)}`:''}${hasData&&w.triggerPrice>0?` ›${w.triggerPrice.toFixed(1)}`:''}</span>
+      <span class="wi-name">${w.name}${hasData?` $${price.toFixed(1)}`:''}${costInfo}</span>
       <span class="wi-badge ${badge}">${badgeText}</span>
       <span class="wi-remove" onclick="removeWatch(${i})">✕</span>
     </div>`;

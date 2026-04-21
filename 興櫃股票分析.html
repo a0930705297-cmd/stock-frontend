@@ -77,7 +77,7 @@ code{font-family:'SF Mono',monospace;font-size:11px;background:var(--bg);padding
   <div class="card">
     <h3>連線設定</h3>
     <div class="row">
-      <div><label>後端網域</label><input type="text" id="api-base" placeholder="https://stock-backend-production-95d3.up.railway.app"></div>
+      <div><label>後端網域</label><input type="text" id="api-base" placeholder="https://fafafa168.win"></div>
       <div><label>API Token</label><input type="password" id="api-token" placeholder="輸入 x-token"></div>
       <button class="btn" id="load-btn" onclick="loadData()">載入資料</button>
     </div>
@@ -156,8 +156,16 @@ async function loadData(){
 function setLoad(on){$('load-btn').disabled=on;$('rbtn').disabled=on;$('si').className=on?'spin':'';}
 
 function setSort(col){
-  if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=-1;}
-  renderTable([...allData].sort((a,b)=>sortDir*(b[sortCol]-a[sortCol])));
+  // 第一次點該欄：降冪（-1 = b-a = 大到小）；再點：反向
+  if(sortCol===col) sortDir*=-1; else { sortCol=col; sortDir=-1; }
+  renderTable([...allData].sort((a,b)=>{
+    const va=a[col], vb=b[col];
+    // 支援字串欄位
+    if(typeof va==='string'||typeof vb==='string'){
+      return sortDir*(String(va||'').localeCompare(String(vb||''),'zh-TW'));
+    }
+    return sortDir*((vb||0)-(va||0));
+  }));
 }
 
 function renderTable(rows){
@@ -167,7 +175,7 @@ function renderTable(rows){
     return;
   }
   const maxR=Math.max(...rows.map(r=>Math.abs(r.ratio||0)))||1;
-  const arr=c=>sortCol===c?(sortDir>0?'↑':'↓'):'⇅';
+  const arr=c=>sortCol===c?(sortDir<0?'↓':'↑'):'⇅';
   const tbody=rows.map(r=>{
     const cc=r.change>0?'up':r.change<0?'down':'';
     const px=r.change>0?'+':'';
@@ -207,17 +215,7 @@ function updateSummary(rows){
 }
 
 window.addEventListener('load',()=>{
-  try{
-    // 優先讀共用的 abcServer，其次讀舊設定
-    const sharedServer = localStorage.getItem('abcServer');
-    const c = JSON.parse(localStorage.getItem('em_cfg')||'{}');
-    const savedBase = sharedServer || c.b || 'https://stock-backend-production-95d3.up.railway.app';
-    if(savedBase) $('api-base').value = savedBase;
-
-    // 自動填入共用 token
-    const sharedToken = localStorage.getItem('appToken');
-    if(sharedToken) $('api-token').value = sharedToken;
-  }catch(e){}
+  try{const c=JSON.parse(localStorage.getItem('em_cfg')||'{}');if(c.b)$('api-base').value=c.b;}catch(e){}
 });
 $('api-base').addEventListener('blur',()=>{
   try{localStorage.setItem('em_cfg',JSON.stringify({b:base()}));}catch(e){}

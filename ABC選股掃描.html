@@ -1194,11 +1194,15 @@ async function calcABC(item) {
     }
 
     // ── 綜合評分 ────────────────────────────────
-    scoreB2 = volShrink && priceStable;
+    // signalB2：純技術面（量縮+價穩），有訊號但不代表可以進場
+    // entryB2：真正的 B2 pass = 技術面 + 位置沒有警示
+    const signalB2 = volShrink && priceStable;
+    const entryB2  = signalB2 && !positionWarn;  // 高位量縮不算 pass
+    scoreB2 = entryB2;
 
-    if (scoreB2) {
+    if (signalB2) {
       if (positionWarn) {
-        b2Detail = `量縮價穩⚠高位`;
+        b2Detail = `量縮⚠高位`;          // 有訊號但位置危險，不算 pass
       } else if (inSnipeZone && maConverge) {
         b2Detail = `狙擊糾結✓`;
       } else if (inSnipeZone) {
@@ -1218,16 +1222,17 @@ async function calcABC(item) {
   }
 
   // b2Score 分級：
-  // 4 = 狙擊區＋糾結（最強訊號，藍綠呼吸燈）
-  // 3 = 糾結通過 或 狙擊區通過（藍綠呼吸燈）
-  // 2 = 一般量縮價穩（綠色常亮）
-  // 1 = 高位量縮警示（橘色呼吸燈）
+  // 4 = 狙擊區＋糾結（最強，藍綠呼吸燈）
+  // 3 = 狙擊區 或 糾結（藍綠呼吸燈）
+  // 2 = 一般量縮價穩 pass（綠色常亮）
+  // 1 = 高位量縮警示（有技術訊號但位置危險，橘色呼吸燈，不算 pass）
   // 0 = 未通過
-  const b2Score = !scoreB2 ? 0
-    : b2Detail.includes('狙擊') && b2Detail.includes('糾結') ? 4
-    : b2Detail.includes('狙擊') || b2Detail.includes('糾結') ? 3
-    : b2Detail.includes('⚠') ? 1
-    : 2;
+  const b2Score = scoreB2
+    ? (b2Detail.includes('狙擊') && b2Detail.includes('糾結') ? 4
+      : b2Detail.includes('狙擊') || b2Detail.includes('糾結') ? 3
+      : 2)
+    : b2Detail.includes('⚠') ? 1   // 技術有訊號但高位，不 pass
+    : 0;
 
   // ── 籌碼集中度（由B1資料推估）──────────────
   // 用外資近60日持股方向：持續淨買入視為大戶增加
@@ -1308,7 +1313,11 @@ function renderResults(data) {
                 : d.b2Score === 1 ? 'warn'
                 : d.b2Detail.includes('量縮') ? 'warn'
                 : 'fail';
-    const b2BadgeCss = d.b2Score >= 1 ? 'pass' : d.b2Detail.includes('量縮') ? 'warn' : 'fail';
+    // score>=2 才是真正 pass；score=1 是高位警示，用 warn 樣式
+    const b2BadgeCss = d.b2Score >= 2 ? 'pass'
+                     : d.b2Score === 1 ? 'warn'
+                     : d.b2Detail.includes('量縮') ? 'warn'
+                     : 'fail';
     // 呼吸燈 class
     const b2Breathe = d.b2Score === 4 ? ' breathe-snipe'   // 狙擊＋糾結：藍綠強閃
                     : d.b2Score === 3 ? ' breathe-snipe'   // 狙擊或糾結：藍綠
