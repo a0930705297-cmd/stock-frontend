@@ -776,14 +776,15 @@ async function loadStock() {
   document.getElementById('rightPanel').innerHTML = '<div class="loading-text">載入中...</div>';
 
   try {
-    const [tickerRes, historyRes, foreignRes, marginRes, priceRes, themeRes, revenueRes] = await Promise.all([
+    const [tickerRes, historyRes, foreignRes, marginRes, priceRes, themeRes, revenueRes, itRes] = await Promise.all([
       apiFetch(`${SERVER}/ticker/${code}`),
       apiFetch(`${SERVER}/history/${code}`),
       apiFetch(`${SERVER}/foreign/${code}`),
       apiFetch(`${SERVER}/margin/${code}`),
       apiFetch(`${SERVER}/price/${code}`),
       apiFetch(`${SERVER}/theme/${code}`),
-      apiFetch(`${SERVER}/revenue/${code}`)
+      apiFetch(`${SERVER}/revenue/${code}`),
+      apiFetch(`${SERVER}/invest_trust/${code}`)
     ]);
 
     const tickerJson = await tickerRes.json();
@@ -793,6 +794,7 @@ async function loadStock() {
     const priceJson = await priceRes.json();
     const themeJson = await themeRes.json();
     const revenueJson = await revenueRes.json();
+    const itJson = await itRes.json();
 
     const stockName = tickerJson.name || code;
     window._stockName = stockName;
@@ -804,6 +806,7 @@ async function loadStock() {
     const industry = themeJson.industry || '';
     const usStocks = themeJson.us_stocks || [];
     const revenueData = revenueJson.data || [];
+    const itRaw = itJson.data || [];
 
     if (!candles.length) {
       document.getElementById('rightPanel').innerHTML = '<div class="empty-state"><p>找不到股票資料</p></div>';
@@ -824,6 +827,16 @@ async function loadStock() {
     const fTrend = checkTrend(foreignHistory);
     const fAccum = checkAccumulate(foreignHistory);
     const fPw = fCost > 0 ? calcPassword(fCost, latestPrice) : null;
+
+    // 投信成本計算（同外資邏輯）
+    const itRows = mergeForeignWithPrice(itRaw, priceMap);
+    const itHistory = calcCost(itRows);
+    const hasIT = itHistory.length > 0;
+    const itLatest = hasIT ? itHistory[itHistory.length-1] : null;
+    const itCost = itLatest ? itLatest.cost : 0;
+    const itDiff = latestPrice - itCost;
+    const itPct = itCost > 0 ? itDiff / itCost * 100 : 0;
+    const itPw = itCost > 0 ? calcPassword(itCost, latestPrice) : null;
 
     // 融資
     const marginRows = mergeMarginWithPrice(marginRaw, priceMap);
@@ -936,38 +949,37 @@ async function loadStock() {
         </div>
       </div>
 
-      <!-- 成本背離警示 -->
+      <!-- 成本背離警示（以投信成本為主） -->
       ${(() => {
         const alerts = [];
 
-        // 外資成本背離
+        // 投信成本背離（主要警示）
+        if (itCost > 0) {
+          const itRatio = latestPrice / itCost;
+          if (itRatio >= 1.7)
+            alerts.push({ type:'danger', src:'投信', cost:itCost, ratio:itRatio,
+              msg:`現價已達投信成本 ${itRatio.toFixed(2)}x，進入韭菜收割區，法人隨時可能出貨。` });
+          else if (itRatio >= 1.4)
+            alerts.push({ type:'warning', src:'投信', cost:itCost, ratio:itRatio,
+              msg:`現價達投信成本 ${itRatio.toFixed(2)}x，處於極端高位，追高風險高。` });
+        }
+
+        // 外資成本背離（次要參考）
         if (fCost > 0) {
           const fRatio = latestPrice / fCost;
           if (fRatio >= 1.7)
             alerts.push({ type:'danger', src:'外資', cost:fCost, ratio:fRatio,
-              msg:`現價已達外資成本 ${(fRatio).toFixed(2)}x，進入韭菜收割區，主力隨時可能出貨。` });
+              msg:`現價達外資成本 ${fRatio.toFixed(2)}x，超漲區。` });
           else if (fRatio >= 1.4)
             alerts.push({ type:'warning', src:'外資', cost:fCost, ratio:fRatio,
-              msg:`現價達外資成本 ${(fRatio).toFixed(2)}x，處於極端高位，追高風險高。` });
-        }
-
-        // 融資成本背離
-        if (mCost > 0) {
-          const mRatio = latestPrice / mCost;
-          if (mRatio >= 1.7)
-            alerts.push({ type:'danger', src:'融資', cost:mCost, ratio:mRatio,
-              msg:`現價已達融資成本 ${(mRatio).toFixed(2)}x，散戶大量套牢高位，強制平倉風險高。` });
-          else if (mRatio >= 1.4)
-            alerts.push({ type:'warning', src:'融資', cost:mCost, ratio:mRatio,
-              msg:`現價達融資成本 ${(mRatio).toFixed(2)}x，融資戶高位集中，留意籌碼鬆動。` });
+              msg:`現價達外資成本 ${fRatio.toFixed(2)}x，高位警示。` });
         }
 
         if (!alerts.length) {
-          // 無警示 → 顯示安全訊號（僅在有成本資料時）
-          if (fCost > 0 || mCost > 0) {
+          if (itCost > 0 || fCost > 0) {
             const safeItems = [];
-            if (fCost > 0) safeItems.push(`外資成本 $${fCost.toFixed(1)}（×${(latestPrice/fCost).toFixed(2)}）`);
-            if (mCost > 0) safeItems.push(`融資成本 $${mCost.toFixed(1)}（×${(latestPrice/mCost).toFixed(2)}）`);
+            if (itCost > 0) safeItems.push(`投信成本 $${itCost.toFixed(1)}（×${(latestPrice/itCost).toFixed(2)}）`);
+            if (fCost > 0)  safeItems.push(`外資成本 $${fCost.toFixed(1)}（×${(latestPrice/fCost).toFixed(2)}）`);
             return `<div class="deviation-bar safe">
               <div class="dev-icon">✅</div>
               <div class="dev-body">
@@ -980,9 +992,8 @@ async function loadStock() {
           return '';
         }
 
-        // 有警示
         const topAlert = alerts.sort((a,b) => b.ratio - a.ratio)[0];
-        const icon = topAlert.type === 'danger' ? '🚨' : '⚠️';
+        const icon  = topAlert.type === 'danger' ? '🚨' : '⚠️';
         const title = topAlert.type === 'danger' ? '⚠ 超漲區警示！韭菜收割區' : '注意：高位背離警示';
         const badgeCss = topAlert.type === 'danger' ? 'red' : 'orange';
         const badges = alerts.map(a =>
