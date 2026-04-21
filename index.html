@@ -392,6 +392,27 @@ td.neg { color: #1D9E75; }
 .label-orange { background: #E09020; color: #fff; padding: 1px 5px; border-radius: 2px; font-size: 9px; }
 .note-text { font-size: 9px; color: #bbb; line-height: 1.6; margin-top: 6px; }
 
+/* 成本背離警示 */
+.deviation-bar {
+  border-radius: 3px; padding: 8px 12px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.deviation-bar.danger  { background: #fff0f0; border: 1px solid #f5c0c0; }
+.deviation-bar.warning { background: #fffaf0; border: 1px solid #f5dfa0; }
+.deviation-bar.safe    { background: #f0fff5; border: 1px solid #b5e8c8; }
+.dev-icon  { font-size: 16px; flex-shrink: 0; }
+.dev-body  { flex: 1; }
+.dev-title { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.dev-desc  { font-size: 10px; color: #555; line-height: 1.5; }
+.dev-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.dev-badge {
+  font-size: 9px; padding: 2px 7px; border-radius: 2px;
+  font-family: monospace;
+}
+.dev-badge.red  { background: #fde; color: #A32D2D; border: 1px solid #f5c0c0; }
+.dev-badge.orange { background: #fdf0e0; color: #854F0B; border: 1px solid #f5dfa0; }
+.dev-badge.green  { background: #eaf3de; color: #3B6D11; border: 1px solid #c5e0a0; }
+
 /* 連結按鈕 */
 .link-btn {
   padding: 3px 10px; font-size: 10px;
@@ -914,6 +935,68 @@ async function loadStock() {
           </div>
         </div>
       </div>
+
+      <!-- 成本背離警示 -->
+      ${(() => {
+        const alerts = [];
+
+        // 外資成本背離
+        if (fCost > 0) {
+          const fRatio = latestPrice / fCost;
+          if (fRatio >= 1.7)
+            alerts.push({ type:'danger', src:'外資', cost:fCost, ratio:fRatio,
+              msg:`現價已達外資成本 ${(fRatio).toFixed(2)}x，進入韭菜收割區，主力隨時可能出貨。` });
+          else if (fRatio >= 1.4)
+            alerts.push({ type:'warning', src:'外資', cost:fCost, ratio:fRatio,
+              msg:`現價達外資成本 ${(fRatio).toFixed(2)}x，處於極端高位，追高風險高。` });
+        }
+
+        // 融資成本背離
+        if (mCost > 0) {
+          const mRatio = latestPrice / mCost;
+          if (mRatio >= 1.7)
+            alerts.push({ type:'danger', src:'融資', cost:mCost, ratio:mRatio,
+              msg:`現價已達融資成本 ${(mRatio).toFixed(2)}x，散戶大量套牢高位，強制平倉風險高。` });
+          else if (mRatio >= 1.4)
+            alerts.push({ type:'warning', src:'融資', cost:mCost, ratio:mRatio,
+              msg:`現價達融資成本 ${(mRatio).toFixed(2)}x，融資戶高位集中，留意籌碼鬆動。` });
+        }
+
+        if (!alerts.length) {
+          // 無警示 → 顯示安全訊號（僅在有成本資料時）
+          if (fCost > 0 || mCost > 0) {
+            const safeItems = [];
+            if (fCost > 0) safeItems.push(`外資成本 $${fCost.toFixed(1)}（×${(latestPrice/fCost).toFixed(2)}）`);
+            if (mCost > 0) safeItems.push(`融資成本 $${mCost.toFixed(1)}（×${(latestPrice/mCost).toFixed(2)}）`);
+            return `<div class="deviation-bar safe">
+              <div class="dev-icon">✅</div>
+              <div class="dev-body">
+                <div class="dev-title">成本背離正常</div>
+                <div class="dev-desc">現價尚未觸及韭菜區（×1.7），風險相對可控。</div>
+                <div class="dev-badges">${safeItems.map(s=>`<span class="dev-badge green">${s}</span>`).join('')}</div>
+              </div>
+            </div>`;
+          }
+          return '';
+        }
+
+        // 有警示
+        const topAlert = alerts.sort((a,b) => b.ratio - a.ratio)[0];
+        const icon = topAlert.type === 'danger' ? '🚨' : '⚠️';
+        const title = topAlert.type === 'danger' ? '⚠ 超漲區警示！韭菜收割區' : '注意：高位背離警示';
+        const badgeCss = topAlert.type === 'danger' ? 'red' : 'orange';
+        const badges = alerts.map(a =>
+          `<span class="dev-badge ${badgeCss}">${a.src}成本 $${a.cost.toFixed(1)} → 現價 ×${a.ratio.toFixed(2)}</span>`
+        ).join('');
+        return `<div class="deviation-bar ${topAlert.type}">
+          <div class="dev-icon">${icon}</div>
+          <div class="dev-body">
+            <div class="dev-title">${title}</div>
+            <div class="dev-desc">${alerts.map(a=>a.msg).join('<br>')}</div>
+            <div class="dev-badges">${badges}</div>
+          </div>
+        </div>`;
+      })()}
 
       <!-- 兩欄：外資＋融資 -->
       <div class="two-col">
