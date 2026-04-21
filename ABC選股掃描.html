@@ -697,7 +697,7 @@ async function doLogin() {
       localStorage.setItem('abcServer', base);     // 記住後端網址
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('mainPage').style.display = 'block';
-      document.getElementById('mainAppLink').href = base;
+      document.getElementById('mainAppLink').href = getMainUrl();
       init();
     } else {
       document.getElementById('loginErr').textContent = '密碼錯誤';
@@ -713,7 +713,7 @@ if (savedToken && savedServer) {
   SERVER = savedServer;
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('mainPage').style.display = 'block';
-  document.getElementById('mainAppLink').href = savedServer;
+  document.getElementById('mainAppLink').href = getMainUrl();
 }
 
 // ── 初始化 ───────────────────────────────────
