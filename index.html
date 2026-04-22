@@ -545,6 +545,27 @@ td.neg { color: #1D9E75; }
           <div id="techResults"><div class="empty-text">多頭排列＋OBV突破</div></div>
         </div>
 
+        <!-- 籌碼掃描：外資＋投信雙買超 -->
+<div class="left-section">
+  <div class="left-section-title">💰 籌碼掃描</div>
+  <div class="scan-controls" style="flex-wrap:wrap;gap:4px;">
+    <select id="chipDays" style="flex:1;min-width:80px;">
+      <option value="1">單日雙買超</option>
+      <option value="2">連續2日</option>
+      <option value="3">連續3日</option>
+    </select>
+    <select id="chipMinForeign" style="flex:1;min-width:80px;">
+      <option value="0">外資任意買超</option>
+      <option value="100">外資 ≥100張</option>
+      <option value="500">外資 ≥500張</option>
+      <option value="1000">外資 ≥1000張</option>
+    </select>
+    <button id="chipBtn" onclick="runChipScan()" style="white-space:nowrap;">掃描</button>
+  </div>
+  <div id="chipResults"><div class="empty-text">外資＋投信同步買超<br>收盤後最有效</div></div>
+  <div style="font-size:9px;color:#bbb;margin-top:4px;" id="chipScanDate"></div>
+</div>
+        
       </div><!-- end left-scroll -->
     </div><!-- end left-panel -->
 
@@ -1354,6 +1375,52 @@ async function runTechScan() {
   finally { btn.disabled=false; btn.textContent='掃描'; }
 }
 
+// 籌碼掃描
+async function runChipScan() {
+  const days = document.getElementById('chipDays').value;
+  const minForeign = document.getElementById('chipMinForeign').value;
+  const btn = document.getElementById('chipBtn');
+  const results = document.getElementById('chipResults');
+  const dateEl = document.getElementById('chipScanDate');
+
+  btn.disabled = true; btn.textContent = '掃描中';
+  results.innerHTML = '<div class="empty-text">掃描中，約需10-20秒...</div>';
+
+  try {
+    const res = await apiFetch(
+      `${SERVER}/chip_scan?days=${days}&min_foreign=${minForeign}`
+    );
+    const json = await res.json();
+    const data = json.data || [];
+    dateEl.textContent = json.note || '';
+
+    if (!data.length) {
+      results.innerHTML = '<div class="empty-text">無符合條件的股票<br>（通常收盤後才有資料）</div>';
+      return;
+    }
+
+    results.innerHTML = data.map(d => `
+      <div class="scan-item good" onclick="setStock('${d.code}')" style="flex-direction:column;align-items:flex-start;gap:2px;">
+        <div style="display:flex;align-items:center;gap:6px;width:100%;">
+          <span class="si-code">${d.code}</span>
+          <span class="si-name">${d.name}</span>
+          <span class="si-price" style="margin-left:auto;">${d.close > 0 ? '$' + d.close : '—'}</span>
+        </div>
+        <div style="display:flex;gap:6px;font-size:9px;">
+          <span style="color:#378ADD;">外資 +${d.foreign_net.toLocaleString()}張</span>
+          <span style="color:#E09020;">投信 +${d.trust_net.toLocaleString()}張</span>
+          <span style="color:#639922;margin-left:auto;">合計 +${d.total_net.toLocaleString()}張</span>
+        </div>
+      </div>`).join('') +
+      '<div style="font-size:9px;color:#bbb;margin-top:4px;">點擊查詢詳細 ｜ 收盤後資料最完整</div>';
+
+  } catch(e) {
+    results.innerHTML = `<div class="empty-text">失敗：${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '掃描';
+  }
+}
+  
 // 跳轉工具
 function getPageBase() {
   return window.location.href.replace(/\/[^\/]*(\?.*)?$/, '');
