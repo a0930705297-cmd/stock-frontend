@@ -215,10 +215,23 @@ function updateSummary(rows){
 }
 
 window.addEventListener('load',()=>{
-  try{const c=JSON.parse(localStorage.getItem('em_cfg')||'{}');if(c.b)$('api-base').value=c.b;}catch(e){}
+  try{
+    // 優先用共用的 Railway 網址，其次讀舊設定
+    const sharedServer = localStorage.getItem('abcServer');
+    const c = JSON.parse(localStorage.getItem('em_cfg')||'{}');
+    const savedBase = sharedServer || c.b || 'https://stock-backend-production-95d3.up.railway.app';
+    $('api-base').value = savedBase;
+
+    // 自動帶入共用 token
+    const sharedToken = localStorage.getItem('appToken');
+    if(sharedToken) $('api-token').value = sharedToken;
+  }catch(e){}
 });
 $('api-base').addEventListener('blur',()=>{
-  try{localStorage.setItem('em_cfg',JSON.stringify({b:base()}));}catch(e){}
+  try{
+    localStorage.setItem('em_cfg',JSON.stringify({b:base()}));
+    localStorage.setItem('abcServer', base()); // 同步到共用 key
+  }catch(e){}
 });
 </script>
 </body>
