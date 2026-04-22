@@ -241,6 +241,16 @@ function apiFetch(url, options = {}) {
   });
 }
 
+function timeout(ms) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error('請求逾時')), ms));
+}
+
+async function apiFetchJson(url, ms = 15000) {
+  const res = await Promise.race([apiFetch(url), timeout(ms)]);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 // 從 URL 讀取參數
 function getUrlParam(key) {
   return new URLSearchParams(window.location.search).get(key) || '';
@@ -294,14 +304,13 @@ async function loadChips() {
   document.getElementById('stockTitle').textContent = code;
 
   try {
-    // 並行抓：ticker + chips
-    const [tickerRes, chipsRes] = await Promise.all([
-      apiFetch(`${SERVER}/ticker/${code}`),
-      apiFetch(`${SERVER}/chips/${code}`)
-    ]);
-
-    const tickerJson = await tickerRes.json();
-    const chipsJson  = await chipsRes.json();
+    const chipsJson = await apiFetchJson(`${SERVER}/chips/${code}`, 30000);
+    let tickerJson = {};
+    try {
+      tickerJson = await apiFetchJson(`${SERVER}/ticker/${code}`, 3000);
+    } catch(e) {
+      tickerJson = { name: code };
+    }
 
     const stockName = tickerJson.name || code;
     const d = chipsJson.data || {};
