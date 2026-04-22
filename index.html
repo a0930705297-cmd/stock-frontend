@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>法人成本追蹤</title>
+<title>瘜犖?餈質馱</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
@@ -18,7 +18,7 @@ body {
   overflow: hidden;
 }
 
-/* 登入頁 */
+/* ?餃??*/
 #loginPage {
   display: flex;
   align-items: center;
@@ -45,7 +45,7 @@ body {
 .login-box button:hover { background: #333; }
 #loginError { font-size: 11px; color: #E24B4A; margin-top: 6px; }
 
-/* 主版面 */
+/* 銝餌???*/
 #mainPage {
   display: none;
   height: 100vh;
@@ -59,7 +59,7 @@ body {
   overflow: hidden;
 }
 
-/* 左欄 */
+/* 撌行? */
 .left-panel {
   background: #fff;
   border-right: 1px solid #eee;
@@ -83,7 +83,7 @@ body {
 .status-dot.green { background: #639922; }
 .status-dot.red { background: #E24B4A; }
 
-/* 搜尋 */
+/* ?? */
 .search-section {
   padding: 10px 12px;
   border-bottom: 1px solid #f0f0f0;
@@ -108,7 +108,7 @@ body {
 }
 .qp:hover { background: #f5f5f5; color: #1a1a1a; }
 
-/* 左欄捲動區 */
+/* 撌行??脣?? */
 .left-scroll {
   flex: 1;
   overflow-y: auto;
@@ -118,7 +118,7 @@ body {
 .left-scroll::-webkit-scrollbar-track { background: transparent; }
 .left-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
-/* 左欄區塊 */
+/* 撌行??憛?*/
 .left-section {
   border-bottom: 1px solid #f0f0f0;
   padding: 8px 12px;
@@ -133,7 +133,7 @@ body {
 .left-section-title span { cursor: pointer; color: #bbb; font-size: 10px; }
 .left-section-title span:hover { color: #666; }
 
-/* 監控清單 */
+/* ??皜 */
 .watch-add { display: flex; gap: 4px; margin-bottom: 6px; }
 .watch-add input {
   flex: 1; padding: 4px 6px; font-size: 10px;
@@ -152,8 +152,8 @@ body {
 }
 .watch-item.alert { background: #fff8f8; border-color: #ffd5d5; }
 .watch-item.safe  { background: #f8fff5; border-color: #d5f0d5; }
-.watch-item.below { background: #f8f8ff; border-color: #d0d0f0; }  /* 跌破成本 */
-.watch-item.ready { background: #fffdf0; border-color: #f0e8b0; }  /* 醞釀中 */
+.watch-item.below { background: #f8f8ff; border-color: #d0d0f0; }  /* 頝? */
+.watch-item.ready { background: #fffdf0; border-color: #f0e8b0; }  /* ??銝?*/
 .wi-code { font-weight: 600; min-width: 35px; font-family: monospace; font-size: 10px; }
 .wi-name { flex: 1; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wi-badge {
@@ -168,7 +168,7 @@ body {
 .wi-remove { color: #ccc; cursor: pointer; font-size: 10px; flex-shrink: 0; }
 .wi-remove:hover { color: #E24B4A; }
 
-/* 新聞清單 */
+/* ?啗?皜 */
 .news-item {
   display: flex; gap: 6px; align-items: flex-start;
   padding: 4px 0; border-bottom: 1px solid #f5f5f5;
@@ -180,7 +180,7 @@ body {
 }
 .news-title:hover { color: #1a1a1a; }
 
-/* 掃描區 */
+/* ??? */
 .scan-controls { display: flex; gap: 4px; margin-bottom: 6px; }
 .scan-controls select {
   flex: 1; padding: 4px 6px; font-size: 10px;
@@ -218,7 +218,7 @@ body {
 .si-zone.danger { background: #fcebeb; color: #A32D2D; }
 .si-zone.neutral { background: #f0f0f0; color: #666; }
 
-/* 技術掃描 */
+/* ?銵???*/
 .tech-item {
   padding: 5px 6px; border-radius: 2px;
   margin-bottom: 2px; font-size: 10px;
@@ -233,7 +233,7 @@ body {
 .tech-item-detail { font-size: 9px; color: #999; line-height: 1.5; }
 .tech-zone { font-size: 9px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; }
 
-/* 右欄 */
+/* ?單? */
 .right-panel {
   background: #f8f8f6;
   overflow-y: auto;
@@ -244,7 +244,7 @@ body {
 .right-panel::-webkit-scrollbar-track { background: transparent; }
 .right-panel::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 
-/* 空白狀態 */
+/* 蝛箇???*/
 .empty-state {
   display: flex; align-items: center; justify-content: center;
   height: 60%;  flex-direction: column; gap: 8px;
@@ -252,7 +252,7 @@ body {
 }
 .empty-state p { font-size: 11px; }
 
-/* 股票標題 */
+/* ?∠巨璅? */
 .stock-header {
   display: flex; align-items: baseline; gap: 8px;
   margin-bottom: 12px;
@@ -261,11 +261,11 @@ body {
 .stock-code { font-size: 11px; color: #999; font-family: monospace; }
 .stock-price { font-size: 16px; font-weight: 600; font-family: monospace; margin-left: auto; }
 
-/* 兩欄網格 */
+/* ?拇?蝬脫 */
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 
-/* 卡片 */
+/* ?∠? */
 .card {
   background: #fff; border: 1px solid #eee; border-radius: 4px;
   padding: 10px 12px; margin-bottom: 10px;
@@ -276,7 +276,7 @@ body {
   margin-bottom: 8px;
 }
 
-/* 指標 */
+/* ?? */
 .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
 .metric {
   background: #fff; border: 1px solid #eee; border-radius: 3px;
@@ -288,7 +288,7 @@ body {
 .metric-value.down { color: #1D9E75; }
 .metric-sub { font-size: 9px; color: #bbb; margin-top: 2px; }
 
-/* 波段密碼 */
+/* 瘜Ｘ挾撖Ⅳ */
 .password-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
 .pw-box {
   border-radius: 3px; padding: 8px 10px;
@@ -303,7 +303,7 @@ body {
 .pw-value { font-size: 13px; font-weight: 600; font-family: monospace; }
 .pw-mult { font-size: 9px; color: #bbb; margin-top: 2px; }
 
-/* 位階判定 */
+/* 雿??文? */
 .verdict {
   border-radius: 3px; padding: 8px 10px;
   margin-bottom: 10px;
@@ -316,7 +316,7 @@ body {
 .verdict-title { font-size: 10px; font-weight: 600; margin-bottom: 2px; }
 .verdict-desc { font-size: 10px; color: #555; line-height: 1.5; }
 
-/* 四要素 */
+/* ??蝝?*/
 .four-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .four-item {
   background: #fafafa; border: 1px solid #eee; border-radius: 3px;
@@ -327,7 +327,7 @@ body {
 .four-value.pass { color: #639922; }
 .four-value.fail { color: #E24B4A; }
 
-/* 美股 */
+/* 蝢 */
 .us-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; }
 .us-card {
   background: #fafafa; border: 1px solid #eee; border-radius: 3px;
@@ -341,19 +341,19 @@ body {
 .signal-up { background: #fff0f0; color: #E24B4A; }
 .signal-down { background: #f0fff0; color: #1D9E75; }
 
-/* 主題標籤 */
+/* 銝駁?璅惜 */
 .theme-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .theme-tag {
   padding: 2px 7px; font-size: 10px; border-radius: 2px;
   background: #f0f5ff; color: #378ADD; border: 1px solid #d0e4f8;
 }
 
-/* 圖表 */
+/* ?” */
 .chart-wrap { position: relative; width: 100%; height: 150px; margin-bottom: 6px; }
 .chart-legend { display: flex; gap: 12px; margin-bottom: 6px; font-size: 10px; color: #999; }
 .legend-dot { width: 8px; height: 8px; border-radius: 1px; display: inline-block; margin-right: 3px; }
 
-/* 表格 */
+/* 銵冽 */
 .data-table { width: 100%; border-collapse: collapse; font-size: 10px; }
 .data-table th {
   padding: 4px 8px; text-align: right; font-size: 9px;
@@ -372,7 +372,7 @@ td.neg { color: #1D9E75; }
 .rev-up { color: #E24B4A; }
 .rev-down { color: #1D9E75; }
 
-/* AI 分析 */
+/* AI ?? */
 .analysis-body { font-size: 11px; color: #333; line-height: 1.7; white-space: pre-wrap; }
 .analysis-btn {
   padding: 4px 12px; font-size: 10px;
@@ -382,7 +382,7 @@ td.neg { color: #1D9E75; }
 .analysis-btn:hover { background: #f5f5f5; }
 .analysis-btn:disabled { color: #bbb; cursor: not-allowed; }
 
-/* 通用 */
+/* ? */
 .section-divider {
   font-size: 10px; font-weight: 600; color: #bbb;
   letter-spacing: 0.6px; text-transform: uppercase;
@@ -396,7 +396,7 @@ td.neg { color: #1D9E75; }
 .label-orange { background: #E09020; color: #fff; padding: 1px 5px; border-radius: 2px; font-size: 9px; }
 .note-text { font-size: 9px; color: #bbb; line-height: 1.6; margin-top: 6px; }
 
-/* 成本背離警示 */
+/* ??霅衣內 */
 .deviation-bar {
   border-radius: 3px; padding: 8px 12px; margin-bottom: 10px;
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -417,7 +417,7 @@ td.neg { color: #1D9E75; }
 .dev-badge.orange { background: #fdf0e0; color: #854F0B; border: 1px solid #f5dfa0; }
 .dev-badge.green  { background: #eaf3de; color: #3B6D11; border: 1px solid #c5e0a0; }
 
-/* 連結按鈕 */
+/* ????? */
 .link-btn {
   padding: 3px 10px; font-size: 10px;
   border-radius: 2px; cursor: pointer;
@@ -439,39 +439,39 @@ td.neg { color: #1D9E75; }
 </head>
 <body>
 
-<!-- 登入頁 -->
+<!-- ?餃??-->
 <div id="loginPage">
   <div class="login-box">
-    <h1>法人成本追蹤</h1>
-    <p>請輸入密碼登入</p>
-    <input type="password" id="loginInput" placeholder="密碼" autocomplete="off" />
-    <button onclick="doLogin()">登入</button>
+    <h1>瘜犖?餈質馱</h1>
+    <p>隢撓?亙?蝣潛??/p>
+    <input type="password" id="loginInput" placeholder="撖Ⅳ" autocomplete="off" />
+    <button onclick="doLogin()">?餃</button>
     <div id="loginError"></div>
   </div>
 </div>
 
-<!-- 主頁面 -->
+<!-- 銝駁???-->
 <div id="mainPage">
   <div class="layout">
 
-    <!-- 左欄 -->
+    <!-- 撌行? -->
     <div class="left-panel">
       <div class="left-header">
-        <h1>法人成本追蹤</h1>
+        <h1>瘜犖?餈質馱</h1>
         <div class="server-status">
           <span class="status-dot" id="statusDot"></span>
-          <span id="statusText">連線中...</span>
+          <span id="statusText">???銝?..</span>
         </div>
       </div>
 
-      <!-- 搜尋 -->
+      <!-- ?? -->
       <div class="search-section">
         <div class="search-row">
-          <input type="text" id="stockInput" placeholder="股票代號" maxlength="6" />
-          <button onclick="loadStock()">查詢</button>
+          <input type="text" id="stockInput" placeholder="?∠巨隞??" maxlength="6" />
+          <button onclick="loadStock()">?亥岷</button>
         </div>
         <div class="quick-picks">
-          <span style="font-size:9px;color:#bbb;align-self:center;">常用</span>
+          <span style="font-size:9px;color:#bbb;align-self:center;">撣貊</span>
           <button class="qp" onclick="setStock('2330')">2330</button>
           <button class="qp" onclick="setStock('2317')">2317</button>
           <button class="qp" onclick="setStock('2454')">2454</button>
@@ -482,85 +482,89 @@ td.neg { color: #1D9E75; }
         </div>
       </div>
 
-      <!-- 左欄捲動 -->
+      <!-- 撌行??脣? -->
       <div class="left-scroll">
 
-        <!-- 監控警示 -->
+        <!-- ??霅衣內 -->
         <div class="left-section">
           <div class="left-section-title">
-            🔔 發動點監控
-            <span onclick="refreshWatchlist()">↻</span>
+            ?? ?澆?暺??
+            <span onclick="refreshWatchlist()">??/span>
           </div>
           <div class="watch-add">
-            <input type="text" id="watchInput" placeholder="代號" maxlength="6" />
+            <input type="text" id="watchInput" placeholder="隞??" maxlength="6" />
             <button onclick="addWatch()">+</button>
           </div>
-          <div id="watchlistItems"><div class="empty-text">尚未新增監控</div></div>
+          <div id="watchlistItems"><div class="empty-text">撠?啣???</div></div>
           <div style="font-size:9px;color:#bbb;margin-top:4px;" id="watchlistUpdated"></div>
         </div>
 
-        <!-- 新聞 -->
+        <!-- ?啗? -->
         <div class="left-section">
           <div class="left-section-title">
-            📰 權證特區
-            <span onclick="loadNews()">↻</span>
+            ? 甈??孵?
+            <span onclick="loadNews()">??/span>
           </div>
-          <div id="newsList"><div class="empty-text">載入中...</div></div>
+          <div id="newsList"><div class="empty-text">頛銝?..</div></div>
         </div>
 
-        <!-- 產業批次掃描 -->
+        <!-- ?Ｘ平?寞活?? -->
         <div class="left-section">
-          <div class="left-section-title">🔍 產業掃描</div>
+          <div class="left-section-title">?? ?Ｘ平??</div>
           <div class="scan-controls">
             <select id="scanIndustry">
-              <option value="半導體業">半導體</option>
-              <option value="電腦及週邊設備業">電腦週邊</option>
-              <option value="電子零組件業">電子零組件</option>
-              <option value="光電業">光電</option>
-              <option value="通信網路業">通信網路</option>
-              <option value="其他電子業">其他電子</option>
-              <option value="航運業">航運</option>
-              <option value="金融業">金融</option>
-              <option value="生技醫療業">生技醫療</option>
-              <option value="鋼鐵工業">鋼鐵</option>
-              <option value="太空衛星">太空衛星</option>
-              <option value="玻纖布">玻纖布</option>
+              <option value="??擃平">??擃?/option>
+              <option value="?餉?梢?閮剖?璆?>?餉?梢?</option>
+              <option value="?餃??嗥?隞嗆平">?餃??嗥?隞?/option>
+              <option value="?璆?>?</option>
+              <option value="?縑蝬脰楝璆?>?縑蝬脰楝</option>
+              <option value="?嗡??餃?璆?>?嗡??餃?</option>
+              <option value="?芷?璆?>?芷?</option>
+              <option value="??璆?>??</option>
+              <option value="???怎?璆?>???怎?</option>
+              <option value="?潮撌交平">?潮</option>
+              <option value="憭芰征銵?">憭芰征銵?</option>
+              <option value="?餌?撣?>?餌?撣?/option>
             </select>
-            <button id="scanBtn" onclick="runScan()">掃描</button>
+            <button id="scanBtn" onclick="runScan()">??</button>
           </div>
-          <div id="scanResults"><div class="empty-text">選擇產業後掃描</div></div>
+          <div id="scanResults"><div class="empty-text">?豢??Ｘ平敺???/div></div>
         </div>
 
-        <!-- 技術面掃描 -->
+        <!-- ?銵?? -->
         <div class="left-section">
-          <div class="left-section-title">📈 技術面掃描</div>
+          <div class="left-section-title">?? ?銵??</div>
           <div class="scan-controls">
             <select id="techTopN">
-              <option value="50">前50</option>
-              <option value="100" selected>前100</option>
-              <option value="200">前200</option>
+              <option value="50">??0</option>
+              <option value="100" selected>??00</option>
+              <option value="200">??00</option>
             </select>
-            <button id="techBtn" onclick="runTechScan()">掃描</button>
+            <button id="techBtn" onclick="runTechScan()">??</button>
           </div>
-          <div id="techResults"><div class="empty-text">多頭排列＋OBV突破</div></div>
+          <div id="techResults"><div class="empty-text">憭??嚗BV蝒</div></div>
         </div>
 
-        <!-- 籌碼掃描：外資＋投信雙買超 -->
+        <!-- 蝐Ⅳ??嚗?鞈??縑?眺頞?-->
 <div class="left-section">
   <div class="left-section-title">💰 籌碼掃描</div>
-  <div class="scan-controls" style="flex-wrap:wrap;gap:4px;">
-    <select id="chipDays" style="flex:1;min-width:80px;">
-      <option value="1">單日雙買超</option>
-      <option value="2">連續2日</option>
-      <option value="3">連續3日</option>
-    </select>
-    <select id="chipMinForeign" style="flex:1;min-width:80px;">
+  
+  <!-- 自訂股票輸入 -->
+  <div class="watch-add" style="margin-bottom:5px;">
+    <input type="text" id="chipCustom" placeholder="額外代號，逗號分隔" />
+  </div>
+  
+  <div class="scan-controls">
+    <select id="chipMinForeign" style="flex:1;">
       <option value="0">外資任意買超</option>
       <option value="100">外資 ≥100張</option>
       <option value="500">外資 ≥500張</option>
       <option value="1000">外資 ≥1000張</option>
     </select>
-    <button id="chipBtn" onclick="runChipScan()" style="white-space:nowrap;">掃描</button>
+    <button id="chipBtn" onclick="runChipScan()">掃描</button>
+  </div>
+  <div style="font-size:9px;color:#bbb;margin-bottom:4px;">
+    自動掃描監控清單＋常用股票
   </div>
   <div id="chipResults"><div class="empty-text">外資＋投信同步買超<br>收盤後最有效</div></div>
   <div style="font-size:9px;color:#bbb;margin-top:4px;" id="chipScanDate"></div>
@@ -569,10 +573,10 @@ td.neg { color: #1D9E75; }
       </div><!-- end left-scroll -->
     </div><!-- end left-panel -->
 
-    <!-- 右欄 -->
+    <!-- ?單? -->
     <div class="right-panel" id="rightPanel">
       <div class="empty-state">
-        <p>← 輸入股票代號開始查詢</p>
+        <p>??頛詨?∠巨隞?????亥岷</p>
       </div>
     </div>
 
@@ -597,7 +601,7 @@ function apiFetch(url, options = {}) {
   });
 }
 
-// 登入
+// ?餃
 async function doLogin() {
   const pwd = document.getElementById('loginInput').value.trim();
   if (!pwd) return;
@@ -607,15 +611,15 @@ async function doLogin() {
     });
     if (res.ok) {
       sessionStorage.setItem('appToken', pwd);
-      localStorage.setItem('appToken', pwd);   // 跨分頁、跨頁面共用
+      localStorage.setItem('appToken', pwd);   // 頝典??楊??梁
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('mainPage').style.display = 'block';
       init();
     } else {
-      document.getElementById('loginError').textContent = '密碼錯誤';
+      document.getElementById('loginError').textContent = '撖Ⅳ?航炊';
     }
   } catch(e) {
-    document.getElementById('loginError').textContent = '無法連線';
+    document.getElementById('loginError').textContent = '?⊥????';
   }
 }
 document.getElementById('loginInput').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
@@ -624,28 +628,28 @@ if (localStorage.getItem('appToken') || sessionStorage.getItem('appToken')) {
   document.getElementById('mainPage').style.display = 'block';
 }
 
-// 伺服器狀態
+// 隡箸??函???
 async function checkServer() {
   try {
     const res = await apiFetch(`${SERVER}/history/2330`);
     if (res.ok) {
       document.getElementById('statusDot').className = 'status-dot green';
-      document.getElementById('statusText').textContent = '已連線';
+      document.getElementById('statusText').textContent = '撌脤??';
     } else throw new Error();
   } catch {
     document.getElementById('statusDot').className = 'status-dot red';
-    document.getElementById('statusText').textContent = '未連線';
+    document.getElementById('statusText').textContent = '?芷??';
   }
 }
 
-// 搜尋
+// ??
 function setStock(code) {
   document.getElementById('stockInput').value = code;
   loadStock();
 }
 document.getElementById('stockInput').addEventListener('keydown', e => { if (e.key === 'Enter') loadStock(); });
 
-// 計算工具
+// 閮?撌亙
 let charts = {};
 function calcCost(rows) {
   let holdings = 0, totalCost = 0;
@@ -690,28 +694,28 @@ function mergeMarginWithPrice(marginData, priceMap) {
 function calcPassword(cost, price) {
   const p1 = cost * 1.04, p2 = cost * 1.2, p3 = cost * 1.4, p4 = cost * 1.7;
   let zone, verdict, css;
-  if (price < cost) { zone = `< 成本 ${cost.toFixed(1)}`; verdict = '【跌破成本】處於法人收貨盤整或弱勢狀態。'; css = 'neutral'; }
-  else if (price < p1) { zone = `成本～發動點 ${p1.toFixed(1)}`; verdict = '【醞釀期】尚未正式發動，待站穩發動點。'; css = 'neutral'; }
-  else if (price < p2) { zone = `發動點～第一波 ${p2.toFixed(1)}`; verdict = '【第一攻擊區】已發動，朝第一波高點邁進。'; css = 'good'; }
-  else if (price < p3) { zone = `第一波～第二波 ${p3.toFixed(1)}`; verdict = '【第二攻擊區】面臨第一波壓力，或正朝第二波邁進。'; css = 'ok'; }
-  else if (price < p4) { zone = `第二波～韭菜區 ${p4.toFixed(1)}`; verdict = '【極端高位區】現價已過高，隨時有下殺風險。'; css = 'warning'; }
-  else { zone = `已達韭菜區 ${p4.toFixed(1)} 以上`; verdict = '【韭菜收割區】已達或超越極限，屬於極度危險區域。'; css = 'danger'; }
+  if (price < cost) { zone = `< ? ${cost.toFixed(1)}`; verdict = '???湔??研??潭?鈭箸鞎函?湔?撘勗???; css = 'neutral'; }
+  else if (price < p1) { zone = `?嚚?? ${p1.toFixed(1)}`; verdict = '??????芣迤撘??敺?蝛拍????; css = 'neutral'; }
+  else if (price < p2) { zone = `?澆?暺?蝚砌?瘜?${p2.toFixed(1)}`; verdict = '?洵銝?餅???歇?澆?嚗?蝚砌?瘜ａ?暺??脯?; css = 'good'; }
+  else if (price < p3) { zone = `蝚砌?瘜ｇ?蝚砌?瘜?${p3.toFixed(1)}`; verdict = '?洵鈭????函洵銝瘜Ｗ????迤?洵鈭郭?脯?; css = 'ok'; }
+  else if (price < p4) { zone = `蝚砌?瘜ｇ??剛?? ${p4.toFixed(1)}`; verdict = '?扔蝡舫?雿???孵歇??嚗??銝捏憸券??; css = 'warning'; }
+  else { zone = `撌脤??剛?? ${p4.toFixed(1)} 隞乩?`; verdict = '???脣??歇??頞?璆菟?嚗惇?潭扔摨血?芸???; css = 'danger'; }
   return { p1, p2, p3, p4, zone, verdict, css };
 }
 
 function checkTrend(history) {
-  if (history.length < 20) return { pass: false, text: '資料不足' };
+  if (history.length < 20) return { pass: false, text: '鞈?銝雲' };
   const recent = history.slice(-20).map(h => h.price);
   const a = recent.slice(0,10).reduce((a,b)=>a+b,0)/10;
   const b = recent.slice(10).reduce((a,b)=>a+b,0)/10;
-  return { pass: b > a, text: b > a ? '多頭走勢 ✓' : '偏空走勢' };
+  return { pass: b > a, text: b > a ? '憭韏啣 ?? : '?征韏啣' };
 }
 
 function checkAccumulate(history) {
-  if (history.length < 5) return { pass: false, text: '資料不足' };
+  if (history.length < 5) return { pass: false, text: '鞈?銝雲' };
   const recent = history.slice(-10);
   const n = recent.filter(h => h.buy > h.sell).length;
-  return { pass: n >= 6, text: `近10日買超 ${n} 次${n >= 6 ? ' ✓' : ''}` };
+  return { pass: n >= 6, text: `餈?0?亥眺頞?${n} 甈?{n >= 6 ? ' ?? : ''}` };
 }
 
 function makeChart(id, labels, datasets, costValue) {
@@ -729,10 +733,10 @@ function makeChart(id, labels, datasets, costValue) {
         tooltip: { callbacks: { label: c => `${c.dataset.label}: $${c.parsed.y.toFixed(1)}` } },
         annotation: {
           annotations: {
-            p1line: { type:'line', yMin:p1, yMax:p1, borderColor:'rgba(99,153,34,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`發動 ${p1.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#639922',backgroundColor:'transparent'} },
-            p2line: { type:'line', yMin:p2, yMax:p2, borderColor:'rgba(224,144,32,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`一波 ${p2.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#E09020',backgroundColor:'transparent'} },
-            p3line: { type:'line', yMin:p3, yMax:p3, borderColor:'rgba(226,75,74,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`二波 ${p3.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#E24B4A',backgroundColor:'transparent'} },
-            p4line: { type:'line', yMin:p4, yMax:p4, borderColor:'rgba(160,0,0,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`韭菜 ${p4.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#A00000',backgroundColor:'transparent'} },
+            p1line: { type:'line', yMin:p1, yMax:p1, borderColor:'rgba(99,153,34,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`?澆? ${p1.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#639922',backgroundColor:'transparent'} },
+            p2line: { type:'line', yMin:p2, yMax:p2, borderColor:'rgba(224,144,32,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`銝瘜?${p2.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#E09020',backgroundColor:'transparent'} },
+            p3line: { type:'line', yMin:p3, yMax:p3, borderColor:'rgba(226,75,74,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`鈭郭 ${p3.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#E24B4A',backgroundColor:'transparent'} },
+            p4line: { type:'line', yMin:p4, yMax:p4, borderColor:'rgba(160,0,0,0.5)', borderWidth:1, borderDash:[3,3], label:{content:`?剛? ${p4.toFixed(0)}`,display:true,position:'end',font:{size:9},color:'#A00000',backgroundColor:'transparent'} },
           }
         }
       },
@@ -744,7 +748,7 @@ function makeChart(id, labels, datasets, costValue) {
   });
 }
 
-// 快取
+// 敹怠?
 const analysisCache = {};
 
 async function runAnalysis() {
@@ -753,12 +757,12 @@ async function runAnalysis() {
   const cacheKey = `${window._code}_${window._latestPrice}`;
   if (analysisCache[cacheKey]) {
     body.textContent = analysisCache[cacheKey];
-    btn.textContent = '重新分析（快取）';
+    btn.textContent = '???嚗翰??';
     return;
   }
   btn.disabled = true;
-  btn.textContent = '分析中...';
-  body.textContent = '正在生成分析...';
+  btn.textContent = '??銝?..';
+  body.textContent = '甇?????...';
   try {
     const payload = {
       stock_name: window._stockName || window._code,
@@ -780,25 +784,25 @@ async function runAnalysis() {
       body: JSON.stringify(payload)
     });
     const json = await res.json();
-    const text = json.analysis || '分析失敗';
+    const text = json.analysis || '??憭望?';
     analysisCache[cacheKey] = text;
     body.textContent = text;
-    btn.textContent = '重新分析';
+    btn.textContent = '???';
   } catch(e) {
-    body.textContent = '分析失敗：' + e.message;
+    body.textContent = '??憭望?嚗? + e.message;
   } finally {
     btn.disabled = false;
   }
 }
 
-// 載入股票
+// 頛?∠巨
 async function loadStock() {
   const code = document.getElementById('stockInput').value.trim();
   if (!code) return;
   window._code = code;
   Object.values(charts).forEach(c => c.destroy());
   charts = {};
-  document.getElementById('rightPanel').innerHTML = '<div class="loading-text">載入中...</div>';
+  document.getElementById('rightPanel').innerHTML = '<div class="loading-text">頛銝?..</div>';
 
   try {
     const [tickerRes, historyRes, foreignRes, marginRes, priceRes, themeRes, revenueRes, itRes] = await Promise.all([
@@ -834,14 +838,14 @@ async function loadStock() {
     const itRaw = itJson.data || [];
 
     if (!candles.length) {
-      document.getElementById('rightPanel').innerHTML = '<div class="empty-state"><p>找不到股票資料</p></div>';
+      document.getElementById('rightPanel').innerHTML = '<div class="empty-state"><p>?曆??啗蟡刻???/p></div>';
       return;
     }
 
     const priceValues = Object.values(priceMap);
     const latestPrice = priceValues.length > 0 ? priceValues[priceValues.length-1].close : candles[candles.length-1].close;
 
-    // 外資
+    // 憭?
     const foreignRows = mergeForeignWithPrice(foreignRaw, priceMap);
     const foreignHistory = calcCost(foreignRows);
     const hasForeign = foreignHistory.length > 0;
@@ -853,7 +857,7 @@ async function loadStock() {
     const fAccum = checkAccumulate(foreignHistory);
     const fPw = fCost > 0 ? calcPassword(fCost, latestPrice) : null;
 
-    // 投信成本計算（同外資邏輯）
+    // ?縑?閮?嚗?憭??摩嚗?
     const itRows = mergeForeignWithPrice(itRaw, priceMap);
     const itHistory = calcCost(itRows);
     const hasIT = itHistory.length > 0;
@@ -863,7 +867,7 @@ async function loadStock() {
     const itPct = itCost > 0 ? itDiff / itCost * 100 : 0;
     const itPw = itCost > 0 ? calcPassword(itCost, latestPrice) : null;
 
-    // 融資
+    // ??
     const marginRows = mergeMarginWithPrice(marginRaw, priceMap);
     const marginHistory = calcCost(marginRows);
     const hasMargin = marginHistory.length > 0;
@@ -873,7 +877,7 @@ async function loadStock() {
     const mPct = mCost > 0 ? mDiff / mCost * 100 : 0;
     const mPw = mCost > 0 ? calcPassword(mCost, latestPrice) : null;
 
-    // 美股
+    // 蝢
     const usPrices = {};
     if (usStocks.length > 0) {
       const usFetches = usStocks.slice(0,4).map(s => apiFetch(`${SERVER}/us_price/${s.ticker}`).then(r=>r.json()));
@@ -881,7 +885,7 @@ async function loadStock() {
       for (const r of usResults) { if (!r.error) usPrices[r.ticker] = r; }
     }
 
-    // 全域變數
+    // ?典?霈
     window._latestPrice = latestPrice;
     window._fCost = fCost;
     window._mCost = mCost;
@@ -901,115 +905,115 @@ async function loadStock() {
     const mRecent = marginHistory.slice(-40);
 
     function pwBlock(label, labelCss, pw, cost, price) {
-      if (!pw) return `<div class="card"><div class="card-title"><span class="label-${labelCss}">${label}</span> 波段密碼</div><div class="empty-text">無法計算</div></div>`;
+      if (!pw) return `<div class="card"><div class="card-title"><span class="label-${labelCss}">${label}</span> 瘜Ｘ挾撖Ⅳ</div><div class="empty-text">?⊥?閮?</div></div>`;
       return `
         <div class="card">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-            <span><span class="label-${labelCss}">${label}</span> 波段密碼</span>
-            <span style="font-size:10px;color:#999;font-weight:400;">成本 $${cost.toFixed(1)} ／ 現價 $${price.toFixed(1)}</span>
+            <span><span class="label-${labelCss}">${label}</span> 瘜Ｘ挾撖Ⅳ</span>
+            <span style="font-size:10px;color:#999;font-weight:400;">? $${cost.toFixed(1)} 嚗??曉 $${price.toFixed(1)}</span>
           </div>
           <div class="password-grid">
             <div class="pw-box q1 ${price>=pw.p1&&price<pw.p2?'active':''}">
-              <div class="pw-label">發動點</div>
+              <div class="pw-label">?澆?暺?/div>
               <div class="pw-value">$${pw.p1.toFixed(1)}</div>
-              <div class="pw-mult">×1.04</div>
+              <div class="pw-mult">?1.04</div>
             </div>
             <div class="pw-box q2 ${price>=pw.p2&&price<pw.p3?'active':''}">
-              <div class="pw-label">第一波高點</div>
+              <div class="pw-label">蝚砌?瘜ａ?暺?/div>
               <div class="pw-value">$${pw.p2.toFixed(1)}</div>
-              <div class="pw-mult">×1.20</div>
+              <div class="pw-mult">?1.20</div>
             </div>
             <div class="pw-box q3 ${price>=pw.p3&&price<pw.p4?'active':''}">
-              <div class="pw-label">第二波高點</div>
+              <div class="pw-label">蝚砌?瘜ａ?暺?/div>
               <div class="pw-value">$${pw.p3.toFixed(1)}</div>
-              <div class="pw-mult">×1.40</div>
+              <div class="pw-mult">?1.40</div>
             </div>
             <div class="pw-box q4 ${price>=pw.p4?'active':''}">
-              <div class="pw-label">韭菜區</div>
+              <div class="pw-label">?剛??</div>
               <div class="pw-value">$${pw.p4.toFixed(1)}</div>
-              <div class="pw-mult">×1.70</div>
+              <div class="pw-mult">?1.70</div>
             </div>
           </div>
           <div class="verdict ${pw.css}">
-            <div class="verdict-title">目前位階</div>
-            <div class="verdict-desc">現價落在：${pw.zone}<br>${pw.verdict}</div>
+            <div class="verdict-title">?桀?雿?</div>
+            <div class="verdict-desc">?曉?賢嚗?{pw.zone}<br>${pw.verdict}</div>
           </div>
         </div>`;
     }
 
     document.getElementById('rightPanel').innerHTML = `
-      <!-- 股票標題 -->
+      <!-- ?∠巨璅? -->
       <div class="stock-header">
         <span class="stock-name">${stockName}</span>
         <span class="stock-code">${code}</span>
         <span class="stock-price">$${latestPrice.toFixed(1)}</span>
-        <a class="link-btn link-btn-blue" href="javascript:void(0)" onclick="goToChips('${code}')">📊 籌碼分析</a>
-        <a class="link-btn link-btn-green" href="javascript:void(0)" onclick="goToABC('${code}')">◈ ABC掃描</a>
+        <a class="link-btn link-btn-blue" href="javascript:void(0)" onclick="goToChips('${code}')">?? 蝐Ⅳ??</a>
+        <a class="link-btn link-btn-green" href="javascript:void(0)" onclick="goToABC('${code}')">??ABC??</a>
       </div>
 
-      <!-- 選股四要素 -->
+      <!-- ?貉??蝝?-->
       <div class="card" style="margin-bottom:10px;">
-        <div class="card-title">選股四要素</div>
+        <div class="card-title">?貉??蝝?/div>
         <div class="four-grid">
           <div class="four-item">
-            <div class="four-label">現價 vs 外資成本</div>
+            <div class="four-label">?曉 vs 憭??</div>
             <div class="four-value ${hasForeign&&latestPrice>=fCost?'pass':'fail'}">
-              ${hasForeign?(latestPrice>=fCost?`≥ $${fCost.toFixed(1)} ✓`:`< $${fCost.toFixed(1)} ✗`):'—'}
+              ${hasForeign?(latestPrice>=fCost?`??$${fCost.toFixed(1)} ?:`< $${fCost.toFixed(1)} ?):'??}
             </div>
           </div>
           <div class="four-item">
-            <div class="four-label">現價 vs 融資成本</div>
+            <div class="four-label">?曉 vs ???</div>
             <div class="four-value ${hasMargin&&latestPrice>=mCost?'pass':'fail'}">
-              ${hasMargin?(latestPrice>=mCost?`≥ $${mCost.toFixed(1)} ✓`:`< $${mCost.toFixed(1)} ✗`):'—'}
+              ${hasMargin?(latestPrice>=mCost?`??$${mCost.toFixed(1)} ?:`< $${mCost.toFixed(1)} ?):'??}
             </div>
           </div>
           <div class="four-item">
-            <div class="four-label">外資持續加碼</div>
+            <div class="four-label">憭????Ⅳ</div>
             <div class="four-value ${fAccum.pass?'pass':'fail'}">${fAccum.text}</div>
           </div>
           <div class="four-item">
-            <div class="four-label">股價線型</div>
+            <div class="four-label">?∪蝺?</div>
             <div class="four-value ${fTrend.pass?'pass':'fail'}">${fTrend.text}</div>
           </div>
         </div>
       </div>
 
-      <!-- 成本背離警示（以投信成本為主） -->
+      <!-- ??霅衣內嚗誑?縑??箔蜓嚗?-->
       ${(() => {
         const alerts = [];
 
-        // 投信成本背離（主要警示）
+        // ?縑??嚗蜓閬郎蝷綽?
         if (itCost > 0) {
           const itRatio = latestPrice / itCost;
           if (itRatio >= 1.7)
-            alerts.push({ type:'danger', src:'投信', cost:itCost, ratio:itRatio,
-              msg:`現價已達投信成本 ${itRatio.toFixed(2)}x，進入韭菜收割區，法人隨時可能出貨。` });
+            alerts.push({ type:'danger', src:'?縑', cost:itCost, ratio:itRatio,
+              msg:`?曉撌脤??縑? ${itRatio.toFixed(2)}x嚗脣?剛??嗅?嚗?鈭粹??賢鞎具 });
           else if (itRatio >= 1.4)
-            alerts.push({ type:'warning', src:'投信', cost:itCost, ratio:itRatio,
-              msg:`現價達投信成本 ${itRatio.toFixed(2)}x，處於極端高位，追高風險高。` });
+            alerts.push({ type:'warning', src:'?縑', cost:itCost, ratio:itRatio,
+              msg:`?曉??靽⊥???${itRatio.toFixed(2)}x嚗??潭扔蝡舫?雿?餈賡?憸券擃 });
         }
 
-        // 外資成本背離（次要參考）
+        // 憭???嚗活閬???
         if (fCost > 0) {
           const fRatio = latestPrice / fCost;
           if (fRatio >= 1.7)
-            alerts.push({ type:'danger', src:'外資', cost:fCost, ratio:fRatio,
-              msg:`現價達外資成本 ${fRatio.toFixed(2)}x，超漲區。` });
+            alerts.push({ type:'danger', src:'憭?', cost:fCost, ratio:fRatio,
+              msg:`?曉??鞈???${fRatio.toFixed(2)}x嚗?瞍脣?? });
           else if (fRatio >= 1.4)
-            alerts.push({ type:'warning', src:'外資', cost:fCost, ratio:fRatio,
-              msg:`現價達外資成本 ${fRatio.toFixed(2)}x，高位警示。` });
+            alerts.push({ type:'warning', src:'憭?', cost:fCost, ratio:fRatio,
+              msg:`?曉??鞈???${fRatio.toFixed(2)}x嚗?雿郎蝷箝 });
         }
 
         if (!alerts.length) {
           if (itCost > 0 || fCost > 0) {
             const safeItems = [];
-            if (itCost > 0) safeItems.push(`投信成本 $${itCost.toFixed(1)}（×${(latestPrice/itCost).toFixed(2)}）`);
-            if (fCost > 0)  safeItems.push(`外資成本 $${fCost.toFixed(1)}（×${(latestPrice/fCost).toFixed(2)}）`);
+            if (itCost > 0) safeItems.push(`?縑? $${itCost.toFixed(1)}嚗?{(latestPrice/itCost).toFixed(2)}嚗);
+            if (fCost > 0)  safeItems.push(`憭?? $${fCost.toFixed(1)}嚗?{(latestPrice/fCost).toFixed(2)}嚗);
             return `<div class="deviation-bar safe">
-              <div class="dev-icon">✅</div>
+              <div class="dev-icon">??/div>
               <div class="dev-body">
-                <div class="dev-title">成本背離正常</div>
-                <div class="dev-desc">現價尚未觸及韭菜區（×1.7），風險相對可控。</div>
+                <div class="dev-title">??甇?虜</div>
+                <div class="dev-desc">?曉撠閫詨??剛??嚗?.7嚗?憸券?詨??舀??/div>
                 <div class="dev-badges">${safeItems.map(s=>`<span class="dev-badge green">${s}</span>`).join('')}</div>
               </div>
             </div>`;
@@ -1018,11 +1022,11 @@ async function loadStock() {
         }
 
         const topAlert = alerts.sort((a,b) => b.ratio - a.ratio)[0];
-        const icon  = topAlert.type === 'danger' ? '🚨' : '⚠️';
-        const title = topAlert.type === 'danger' ? '⚠ 超漲區警示！韭菜收割區' : '注意：高位背離警示';
+        const icon  = topAlert.type === 'danger' ? '?' : '??';
+        const title = topAlert.type === 'danger' ? '??頞撞?霅衣內嚗??脣?' : '瘜冽?嚗?雿??Ｚ郎蝷?;
         const badgeCss = topAlert.type === 'danger' ? 'red' : 'orange';
         const badges = alerts.map(a =>
-          `<span class="dev-badge ${badgeCss}">${a.src}成本 $${a.cost.toFixed(1)} → 現價 ×${a.ratio.toFixed(2)}</span>`
+          `<span class="dev-badge ${badgeCss}">${a.src}? $${a.cost.toFixed(1)} ???曉 ?${a.ratio.toFixed(2)}</span>`
         ).join('');
         return `<div class="deviation-bar ${topAlert.type}">
           <div class="dev-icon">${icon}</div>
@@ -1034,36 +1038,36 @@ async function loadStock() {
         </div>`;
       })()}
 
-      <!-- 兩欄：外資＋融資 -->
+      <!-- ?拇?嚗?鞈??? -->
       <div class="two-col">
-        <!-- 外資 -->
+        <!-- 憭? -->
         <div>
           <div class="metric-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px;">
             <div class="metric" style="background:#f0f6ff;">
-              <div class="metric-label">外資估算成本</div>
-              <div class="metric-value">${hasForeign?'$'+fCost.toFixed(1):'—'}</div>
-              <div class="metric-sub">TWSE 真實資料</div>
+              <div class="metric-label">憭?隡啁??</div>
+              <div class="metric-value">${hasForeign?'$'+fCost.toFixed(1):'??}</div>
+              <div class="metric-sub">TWSE ?祕鞈?</div>
             </div>
             <div class="metric" style="background:#f0f6ff;">
-              <div class="metric-label">外資損益</div>
-              <div class="metric-value ${fDiff>=0?'up':'down'}">${hasForeign?(fDiff>=0?'+':'')+fPct.toFixed(1)+'%':'—'}</div>
-              <div class="metric-sub">${fLatest?(fDiff>=0?'獲利':'虧損')+' $'+Math.abs(fDiff).toFixed(1):''}</div>
+              <div class="metric-label">憭???</div>
+              <div class="metric-value ${fDiff>=0?'up':'down'}">${hasForeign?(fDiff>=0?'+':'')+fPct.toFixed(1)+'%':'??}</div>
+              <div class="metric-sub">${fLatest?(fDiff>=0?'?脣':'?扳?')+' $'+Math.abs(fDiff).toFixed(1):''}</div>
             </div>
           </div>
-          ${pwBlock('外資', 'blue', fPw, fCost, latestPrice)}
+          ${pwBlock('憭?', 'blue', fPw, fCost, latestPrice)}
           ${hasForeign ? `
           <div class="card">
-            <div class="card-title">外資成本走勢</div>
+            <div class="card-title">憭??韏啣</div>
             <div class="chart-legend">
-              <span><span class="legend-dot" style="background:#378ADD;"></span>外資成本</span>
-              <span><span class="legend-dot" style="background:#639922;"></span>收盤價</span>
+              <span><span class="legend-dot" style="background:#378ADD;"></span>憭??</span>
+              <span><span class="legend-dot" style="background:#639922;"></span>?嗥??/span>
             </div>
             <div class="chart-wrap"><canvas id="foreignChart"></canvas></div>
           </div>
           <div class="card">
-            <div class="card-title">外資近期買賣超</div>
+            <div class="card-title">憭?餈?鞎瑁都頞?/div>
             <table class="data-table">
-              <thead><tr><th>日期</th><th>買進</th><th>賣出</th><th>買賣超</th><th>收盤</th></tr></thead>
+              <thead><tr><th>?交?</th><th>鞎琿?/th><th>鞈?</th><th>鞎瑁都頞?/th><th>?嗥</th></tr></thead>
               <tbody>
                 ${foreignRows.slice(-8).reverse().map(d=>{
                   const n=d.buy-d.sell;
@@ -1074,53 +1078,53 @@ async function loadStock() {
           </div>` : ''}
         </div>
 
-        <!-- 融資 -->
+        <!-- ?? -->
         <div>
           <div class="metric-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px;">
             <div class="metric" style="background:#fdf6ee;">
-              <div class="metric-label">融資估算成本</div>
-              <div class="metric-value">${hasMargin?'$'+mCost.toFixed(1):'—'}</div>
-              <div class="metric-sub">TWSE 真實資料</div>
+              <div class="metric-label">??隡啁??</div>
+              <div class="metric-value">${hasMargin?'$'+mCost.toFixed(1):'??}</div>
+              <div class="metric-sub">TWSE ?祕鞈?</div>
             </div>
             <div class="metric" style="background:#fdf6ee;">
-              <div class="metric-label">融資損益</div>
-              <div class="metric-value ${mDiff>=0?'up':'down'}">${hasMargin?(mDiff>=0?'+':'')+mPct.toFixed(1)+'%':'—'}</div>
-              <div class="metric-sub">${mLatest?(mDiff>=0?'獲利':'虧損')+' $'+Math.abs(mDiff).toFixed(1):''}</div>
+              <div class="metric-label">????</div>
+              <div class="metric-value ${mDiff>=0?'up':'down'}">${hasMargin?(mDiff>=0?'+':'')+mPct.toFixed(1)+'%':'??}</div>
+              <div class="metric-sub">${mLatest?(mDiff>=0?'?脣':'?扳?')+' $'+Math.abs(mDiff).toFixed(1):''}</div>
             </div>
           </div>
-          ${pwBlock('融資', 'orange', mPw, mCost, latestPrice)}
+          ${pwBlock('??', 'orange', mPw, mCost, latestPrice)}
           ${hasMargin ? `
           <div class="card">
-            <div class="card-title">融資成本走勢</div>
+            <div class="card-title">???韏啣</div>
             <div class="chart-legend">
-              <span><span class="legend-dot" style="background:#E09020;"></span>融資成本</span>
-              <span><span class="legend-dot" style="background:#639922;"></span>收盤價</span>
+              <span><span class="legend-dot" style="background:#E09020;"></span>???</span>
+              <span><span class="legend-dot" style="background:#639922;"></span>?嗥??/span>
             </div>
             <div class="chart-wrap"><canvas id="marginChart"></canvas></div>
           </div>
           <div class="card">
-            <div class="card-title">融資近期明細</div>
+            <div class="card-title">??餈??敦</div>
             <table class="data-table">
-              <thead><tr><th>日期</th><th>買進</th><th>賣出</th><th>餘額</th><th>收盤</th></tr></thead>
+              <thead><tr><th>?交?</th><th>鞎琿?/th><th>鞈?</th><th>擗?</th><th>?嗥</th></tr></thead>
               <tbody>
-                ${marginRows.slice(-8).reverse().map(d=>`<tr><td>${d.date.slice(4)}</td><td class="pos">${d.buy.toLocaleString()}</td><td class="neg">${d.sell.toLocaleString()}</td><td>${d.balance?.toLocaleString()||'—'}</td><td>$${d.close.toFixed(1)}</td></tr>`).join('')}
+                ${marginRows.slice(-8).reverse().map(d=>`<tr><td>${d.date.slice(4)}</td><td class="pos">${d.buy.toLocaleString()}</td><td class="neg">${d.sell.toLocaleString()}</td><td>${d.balance?.toLocaleString()||'??}</td><td>$${d.close.toFixed(1)}</td></tr>`).join('')}
               </tbody>
             </table>
           </div>` : ''}
         </div>
       </div>
 
-      <!-- 產業主題＋美股 -->
+      <!-- ?Ｘ平銝駁?嚗???-->
       <div class="card">
         <div class="card-title" style="display:flex;justify-content:space-between;">
-          <span>產業主題</span>
+          <span>?Ｘ平銝駁?</span>
           <span style="font-size:10px;color:#999;font-weight:400;">${industry}</span>
         </div>
         <div class="theme-tags" style="margin-bottom:10px;">
           ${themes.map(t=>`<span class="theme-tag">${t}</span>`).join('')}
         </div>
         ${usStocks.length > 0 ? `
-        <div class="card-title" style="margin-top:8px;">對應美股參考</div>
+        <div class="card-title" style="margin-top:8px;">撠?蝢??/div>
         <div class="us-grid">
           ${usStocks.slice(0,4).map(s=>{
             const p = usPrices[s.ticker];
@@ -1131,18 +1135,18 @@ async function loadStock() {
               <div class="us-name">${s.name}</div>
               <div class="us-price">$${p.latest_close}</div>
               <div class="us-change ${up?'pos':'neg'}">${up?'+':''}${p.change_pct}%</div>
-              <span class="us-signal ${up?'signal-up':'signal-down'}">${up?'▲偏多':'▼偏空'}</span>
+              <span class="us-signal ${up?'signal-up':'signal-down'}">${up?'?脣?憭?:'?澆?蝛?}</span>
             </div>`;
           }).join('')}
         </div>` : ''}
       </div>
 
-      <!-- 月營收 -->
+      <!-- ????-->
       ${revenueData.length > 0 ? `
       <div class="card">
-        <div class="card-title">月營收趨勢</div>
+        <div class="card-title">???嗉隅??/div>
         <table class="data-table">
-          <thead><tr><th>年月</th><th>營收（億）</th><th>月增率</th><th>年增率</th></tr></thead>
+          <thead><tr><th>撟湔?</th><th>?嚗?嚗?/th><th>????/th><th>撟游???/th></tr></thead>
           <tbody>
             ${revenueData.slice(-8).reverse().map(d=>`
               <tr>
@@ -1155,42 +1159,42 @@ async function loadStock() {
         </table>
       </div>` : ''}
 
-      <!-- AI 分析 -->
+      <!-- AI ?? -->
       <div class="card">
         <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-          <span>🤖 Claude AI 分析</span>
-          <button class="analysis-btn" id="analyzeBtn" onclick="runAnalysis()">生成分析</button>
+          <span>?? Claude AI ??</span>
+          <button class="analysis-btn" id="analyzeBtn" onclick="runAnalysis()">????</button>
         </div>
-        <div class="analysis-body" id="analysisBody" style="color:#bbb;font-size:10px;">點擊「生成分析」取得 AI 建議</div>
+        <div class="analysis-body" id="analysisBody" style="color:#bbb;font-size:10px;">暺???????敺?AI 撱箄降</div>
       </div>
 
       <div class="note-text">
-        * 股價：Fugle ✓　外資買賣超：TWSE ✓　融資：TWSE ✓　波段密碼僅供參考，不構成投資建議
+        * ?∪嚗ugle ?憭?鞎瑁都頞?TWSE ???嚗WSE ?瘜Ｘ挾撖Ⅳ????銝???鞈遣霅?
       </div>
     `;
 
-    // 畫圖
+    // ?怠?
     if (hasForeign && fCost > 0) {
       makeChart('foreignChart', fRecent.map(h=>h.label), [
-        { label:'外資成本', data:fRecent.map(h=>+h.cost.toFixed(2)), borderColor:'#378ADD', backgroundColor:'rgba(55,138,221,0.06)', borderWidth:1.5, pointRadius:1, fill:true, tension:0.3 },
-        { label:'收盤價', data:fRecent.map(h=>+h.price.toFixed(2)), borderColor:'#639922', borderWidth:1, pointRadius:1, borderDash:[4,3], fill:false, tension:0.3 }
+        { label:'憭??', data:fRecent.map(h=>+h.cost.toFixed(2)), borderColor:'#378ADD', backgroundColor:'rgba(55,138,221,0.06)', borderWidth:1.5, pointRadius:1, fill:true, tension:0.3 },
+        { label:'?嗥??, data:fRecent.map(h=>+h.price.toFixed(2)), borderColor:'#639922', borderWidth:1, pointRadius:1, borderDash:[4,3], fill:false, tension:0.3 }
       ], fCost);
     }
     if (hasMargin && mCost > 0) {
       makeChart('marginChart', mRecent.map(h=>h.label), [
-        { label:'融資成本', data:mRecent.map(h=>+h.cost.toFixed(2)), borderColor:'#E09020', backgroundColor:'rgba(224,144,32,0.06)', borderWidth:1.5, pointRadius:1, fill:true, tension:0.3 },
-        { label:'收盤價', data:mRecent.map(h=>+h.price.toFixed(2)), borderColor:'#639922', borderWidth:1, pointRadius:1, borderDash:[4,3], fill:false, tension:0.3 }
+        { label:'???', data:mRecent.map(h=>+h.cost.toFixed(2)), borderColor:'#E09020', backgroundColor:'rgba(224,144,32,0.06)', borderWidth:1.5, pointRadius:1, fill:true, tension:0.3 },
+        { label:'?嗥??, data:mRecent.map(h=>+h.price.toFixed(2)), borderColor:'#639922', borderWidth:1, pointRadius:1, borderDash:[4,3], fill:false, tension:0.3 }
       ], mCost);
     }
 
   } catch(err) {
-    document.getElementById('rightPanel').innerHTML = `<div class="empty-state"><p>錯誤：${err.message}</p></div>`;
+    document.getElementById('rightPanel').innerHTML = `<div class="empty-state"><p>?航炊嚗?{err.message}</p></div>`;
   }
 }
 
-// 新聞
+// ?啗?
 async function loadNews() {
-  document.getElementById('newsList').innerHTML = '<div class="empty-text">載入中...</div>';
+  document.getElementById('newsList').innerHTML = '<div class="empty-text">頛銝?..</div>';
   try {
     const res = await apiFetch(`${SERVER}/news`);
     const json = await res.json();
@@ -1200,18 +1204,18 @@ async function loadNews() {
     yesterday.setDate(yesterday.getDate()-1);
     const todayStr = toTWDate(today), yestStr = toTWDate(yesterday);
     const filtered = items.filter(item => { const s = toTWDate(new Date(item.pub_date)); return s===todayStr||s===yestStr; });
-    if (!filtered.length) { document.getElementById('newsList').innerHTML = '<div class="empty-text">今日暫無新聞</div>'; return; }
+    if (!filtered.length) { document.getElementById('newsList').innerHTML = '<div class="empty-text">隞?怎?啗?</div>'; return; }
     document.getElementById('newsList').innerHTML = filtered.map(item => {
       const d = new Date(item.pub_date);
       const dateStr = toTWDate(d);
       const timeStr = d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Taipei'});
-      const label = dateStr===todayStr?`今 ${timeStr}`:`昨 ${timeStr}`;
-      return `<div class="news-item"><span class="news-date">${label}</span><a class="news-title" href="${item.link}" target="_blank">${item.title.replace(' - 經濟日報','')}</a></div>`;
+      const label = dateStr===todayStr?`隞?${timeStr}`:`??${timeStr}`;
+      return `<div class="news-item"><span class="news-date">${label}</span><a class="news-title" href="${item.link}" target="_blank">${item.title.replace(' - 蝬??亙','')}</a></div>`;
     }).join('');
-  } catch(e) { document.getElementById('newsList').innerHTML = '<div class="empty-text">載入失敗</div>'; }
+  } catch(e) { document.getElementById('newsList').innerHTML = '<div class="empty-text">頛憭望?</div>'; }
 }
 
-// 監控清單
+// ??皜
 let watchlist = JSON.parse(localStorage.getItem('watchlist') || '[]');
 function saveWatchlist() { localStorage.setItem('watchlist', JSON.stringify(watchlist)); }
 function addWatch() {
@@ -1227,37 +1231,37 @@ document.getElementById('watchInput').addEventListener('keydown', e => { if(e.ke
 function removeWatch(i) { watchlist.splice(i,1); saveWatchlist(); renderWatchlist(); }
 function renderWatchlist() {
   const c = document.getElementById('watchlistItems');
-  if (!watchlist.length) { c.innerHTML = '<div class="empty-text">尚未新增監控</div>'; return; }
+  if (!watchlist.length) { c.innerHTML = '<div class="empty-text">撠?啣???</div>'; return; }
   c.innerHTML = watchlist.map((w,i) => {
     const hasData   = w.currentPrice > 0;
     const fCost     = w.foreignCost  || 0;
     const trigger   = w.triggerPrice || 0;
     const price     = w.currentPrice || 0;
 
-    // 三態判斷
+    // 銝??斗
     let cls, badge, badgeText;
     if (!hasData) {
-      cls = ''; badge = 'loading'; badgeText = '載入中';
+      cls = ''; badge = 'loading'; badgeText = '頛銝?;
     } else if (fCost > 0 && price < fCost) {
-      cls = 'below'; badge = 'below'; badgeText = '↓跌破成本';
+      cls = 'below'; badge = 'below'; badgeText = '???湔???;
     } else if (trigger > 0 && price >= trigger) {
-      cls = 'alert'; badge = 'alert'; badgeText = '⚡突破發動';
+      cls = 'alert'; badge = 'alert'; badgeText = '?∠??渡??;
     } else if (fCost > 0 && price >= fCost) {
-      cls = 'ready'; badge = 'ready'; badgeText = '⏳醞釀中';
+      cls = 'ready'; badge = 'ready'; badgeText = '?喲??銝?;
     } else {
-      cls = 'safe'; badge = 'safe'; badgeText = '持平';
+      cls = 'safe'; badge = 'safe'; badgeText = '?像';
     }
 
-    const costInfo = fCost > 0 ? ` 成本$${fCost.toFixed(1)}` : '';
-    const trigInfo = trigger > 0 ? ` 發動$${trigger.toFixed(1)}` : '';
+    const costInfo = fCost > 0 ? ` ?$${fCost.toFixed(1)}` : '';
+    const trigInfo = trigger > 0 ? ` ?澆?$${trigger.toFixed(1)}` : '';
     return `<div class="watch-item ${cls}">
       <span class="wi-code">${w.code}</span>
-      <span class="wi-name">${w.name}${hasData?` $${price.toFixed(1)}`:''}${costInfo}</span>
+      <span class="wi-name">${w.name}${hasData?` $${price.toFixed(1)}`:''}${costInfo}${trigInfo}</span>
       <span class="wi-badge ${badge}">${badgeText}</span>
-      <span class="wi-remove" onclick="removeWatch(${i})">✕</span>
+      <span class="wi-remove" onclick="removeWatch(${i})">??/span>
     </div>`;
   }).join('');
-  document.getElementById('watchlistUpdated').textContent = `更新 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('watchlistUpdated').textContent = `?湔 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`;
 }
 async function checkWatchItem(i) {
   const w = watchlist[i];
@@ -1287,13 +1291,13 @@ async function checkWatchItem(i) {
 }
 async function refreshWatchlist() { for(let i=0;i<watchlist.length;i++) await checkWatchItem(i); }
 
-// 產業批次掃描
+// ?Ｘ平?寞活??
 async function runScan() {
   const industry = document.getElementById('scanIndustry').value;
   const btn = document.getElementById('scanBtn');
   const results = document.getElementById('scanResults');
-  btn.disabled = true; btn.textContent = '掃描中';
-  results.innerHTML = '<div class="empty-text">掃描中...</div>';
+  btn.disabled = true; btn.textContent = '??銝?;
+  results.innerHTML = '<div class="empty-text">??銝?..</div>';
   try {
     const [volumeRes, industryRes] = await Promise.all([
       apiFetch(`${SERVER}/market_volume`),
@@ -1310,8 +1314,8 @@ async function runScan() {
     if (!filtered.length && industryStocks.length>0) {
       filtered = industryStocks.map(s=>{ const vol=volumeList.find(v=>v.code===s.code); return {code:s.code,name:s.name,close:vol?vol.close:0}; });
     }
-    if (!filtered.length) { results.innerHTML = '<div class="empty-text">無資料</div>'; return; }
-    // 補抓現價
+    if (!filtered.length) { results.innerHTML = '<div class="empty-text">?∟???/div>'; return; }
+    // 鋆??曉
     for (const item of filtered) {
       if (item.close===0) {
         try {
@@ -1322,32 +1326,32 @@ async function runScan() {
         } catch(e) {}
       }
     }
-    results.innerHTML = '<div class="empty-text">計算成本中...</div>';
+    results.innerHTML = '<div class="empty-text">閮??銝?..</div>';
     const scanRes = await apiFetch(`${SERVER}/scan`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({codes:filtered})
     });
     const scanJson = await scanRes.json();
     const scanData = scanJson.data || [];
-    if (!scanData.length) { results.innerHTML = '<div class="empty-text">無結果</div>'; return; }
+    if (!scanData.length) { results.innerHTML = '<div class="empty-text">?∠???/div>'; return; }
     results.innerHTML = scanData.map(d=>`
       <div class="scan-item ${d.css}" onclick="setStock('${d.code}')">
         <span class="si-code">${d.code}</span>
         <span class="si-name">${d.name}</span>
         <span class="si-price">$${d.close}</span>
         <span class="si-zone ${d.css}">${d.zone}</span>
-      </div>`).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">點擊查詢詳細</div>';
-  } catch(e) { results.innerHTML = `<div class="empty-text">失敗：${e.message}</div>`; }
-  finally { btn.disabled=false; btn.textContent='掃描'; }
+      </div>`).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">暺??亥岷閰喟敦</div>';
+  } catch(e) { results.innerHTML = `<div class="empty-text">憭望?嚗?{e.message}</div>`; }
+  finally { btn.disabled=false; btn.textContent='??'; }
 }
 
-// 技術面掃描
+// ?銵??
 async function runTechScan() {
   const topN = parseInt(document.getElementById('techTopN').value);
   const btn = document.getElementById('techBtn');
   const results = document.getElementById('techResults');
-  btn.disabled=true; btn.textContent='掃描中';
-  results.innerHTML = '<div class="empty-text">掃描中，約需數分鐘...</div>';
+  btn.disabled=true; btn.textContent='??銝?;
+  results.innerHTML = '<div class="empty-text">??銝哨?蝝??詨???..</div>';
   try {
     const res = await apiFetch(`${SERVER}/technical_scan`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -1355,47 +1359,60 @@ async function runTechScan() {
     });
     const json = await res.json();
     const data = json.data || [];
-    if (!data.length) { results.innerHTML = '<div class="empty-text">無符合條件的股票</div>'; return; }
-    results.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">找到 ${data.length} 支</div>` +
+    if (!data.length) { results.innerHTML = '<div class="empty-text">?∠泵??隞嗥??∠巨</div>'; return; }
+    results.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">?曉 ${data.length} ??/div>` +
       data.map(d=>`
         <div class="tech-item" onclick="setStock('${d.code}')">
           <div class="tech-item-top">
             <span class="si-code">${d.code}</span>
             <span style="flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
-            <span class="tech-tag bull">多頭</span>
-            <span class="tech-tag obv">OBV↑</span>
+            <span class="tech-tag bull">憭</span>
+            <span class="tech-tag obv">OBV??/span>
             <span style="font-family:monospace;font-size:10px;">$${d.close}</span>
           </div>
           <div class="tech-item-detail">
-            MA5 $${d.ma5} ／ MA20 $${d.ma20} ／ MA60 $${d.ma60}
-            ${d.foreign_cost>0?`<br>外資成本 $${d.foreign_cost} ／ 發動點 $${d.trigger} ／ 一波 $${d.p1} <span class="tech-zone si-zone ${d.zone_css}">${d.zone}</span>`:''}
+            MA5 $${d.ma5} 嚗?MA20 $${d.ma20} 嚗?MA60 $${d.ma60}
+            ${d.foreign_cost>0?`<br>憭?? $${d.foreign_cost} 嚗??澆?暺?$${d.trigger} 嚗?銝瘜?$${d.p1} <span class="tech-zone si-zone ${d.zone_css}">${d.zone}</span>`:''}
           </div>
-        </div>`).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">點擊查詢詳細</div>';
-  } catch(e) { results.innerHTML = `<div class="empty-text">失敗：${e.message}</div>`; }
-  finally { btn.disabled=false; btn.textContent='掃描'; }
+        </div>`).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">暺??亥岷閰喟敦</div>';
+  } catch(e) { results.innerHTML = `<div class="empty-text">憭望?嚗?{e.message}</div>`; }
+  finally { btn.disabled=false; btn.textContent='??'; }
 }
 
-// 籌碼掃描
+// 蝐Ⅳ??
 async function runChipScan() {
-  const days = document.getElementById('chipDays').value;
-  const minForeign = document.getElementById('chipMinForeign').value;
   const btn = document.getElementById('chipBtn');
   const results = document.getElementById('chipResults');
   const dateEl = document.getElementById('chipScanDate');
+  const minForeign = document.getElementById('chipMinForeign').value;
+
+  // 收集掃描清單：監控清單 + 常用股票 + 自訂輸入
+  const watchCodes = watchlist.map(w => w.code);
+  const quickCodes = ['2330','2317','2454','2367','6213','1802','3491'];
+  const customInput = (document.getElementById('chipCustom')?.value || '')
+    .split(/[,，\s]+/).filter(c => c.match(/^\d{4,6}$/));
+  
+  // 合併去重
+  const allCodes = [...new Set([...watchCodes, ...quickCodes, ...customInput])];
+
+  if (!allCodes.length) {
+    results.innerHTML = '<div class="empty-text">請先新增監控清單或輸入股票代號</div>';
+    return;
+  }
 
   btn.disabled = true; btn.textContent = '掃描中';
-  results.innerHTML = '<div class="empty-text">掃描中，約需10-20秒...</div>';
+  results.innerHTML = `<div class="empty-text">掃描 ${allCodes.length} 支股票中...</div>`;
 
   try {
     const res = await apiFetch(
-      `${SERVER}/chip_scan?days=${days}&min_foreign=${minForeign}`
+      `${SERVER}/chip_scan?codes=${allCodes.join(',')}&min_foreign=${minForeign}`
     );
     const json = await res.json();
     const data = json.data || [];
     dateEl.textContent = json.note || '';
 
     if (!data.length) {
-      results.innerHTML = '<div class="empty-text">無符合條件的股票<br>（通常收盤後才有資料）</div>';
+      results.innerHTML = '<div class="empty-text">無雙買超股票<br>（可增加監控清單擴大範圍）</div>';
       return;
     }
 
@@ -1412,7 +1429,7 @@ async function runChipScan() {
           <span style="color:#639922;margin-left:auto;">合計 +${d.total_net.toLocaleString()}張</span>
         </div>
       </div>`).join('') +
-      '<div style="font-size:9px;color:#bbb;margin-top:4px;">點擊查詢詳細 ｜ 收盤後資料最完整</div>';
+      '<div style="font-size:9px;color:#bbb;margin-top:4px;">點擊查詢詳細</div>';
 
   } catch(e) {
     results.innerHTML = `<div class="empty-text">失敗：${e.message}</div>`;
@@ -1420,7 +1437,7 @@ async function runChipScan() {
     btn.disabled = false; btn.textContent = '掃描';
   }
 }
-  
+
 // 跳轉工具
 function getPageBase() {
   return window.location.href.replace(/\/[^\/]*(\?.*)?$/, '');
