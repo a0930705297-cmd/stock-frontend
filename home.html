@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>股票分析工具</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0c0c0a;
+  --surface: #131311;
+  --surface2: #1a1a17;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.1);
+  --text: #e8e6df;
+  --muted: #5a5950;
+  --accent: #c8a96e;
+  --green: #8fb87a;
+  --blue: #6a9fd4;
+  --orange: #d4955a;
+  --red: #d4655a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 背景紋理 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 20%, rgba(200,169,110,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 80% 80%, rgba(106,159,212,0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 頂部 */
+header {
+  position: relative; z-index: 1;
+  padding: 48px 40px 0;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.header-label::before {
+  content: '';
+  width: 20px; height: 1px;
+  background: var(--muted);
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+h1 em {
+  font-style: normal;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+  max-width: 480px;
+}
+
+/* 分隔線 */
+.divider {
+  max-width: 960px; margin: 36px auto 0;
+  width: 100%;
+  padding: 0 40px;
+  position: relative; z-index: 1;
+}
+.divider hr {
+  border: none;
+  border-top: 1px solid var(--border2);
+}
+
+/* 工具卡片區 */
+main {
+  flex: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 32px 40px 60px;
+  position: relative; z-index: 1;
+}
+
+.section-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 24px 24px 20px;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--card-color, var(--border2));
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border2);
+  transform: translateY(-1px);
+}
+.card:hover::before { opacity: 1; }
+
+.card-icon {
+  font-size: 22px;
+  margin-bottom: 14px;
+  display: block;
+}
+
+.card-name {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.card-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.05);
+  color: var(--muted);
+  border: 1px solid var(--border2);
+}
+
+.card-desc {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+.card-tags {
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.tag {
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  border: 1px solid;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.card-arrow {
+  position: absolute;
+  bottom: 20px; right: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  transition: color 0.2s, transform 0.2s;
+}
+.card:hover .card-arrow {
+  color: var(--text);
+  transform: translate(2px, -2px);
+}
+
+/* 各卡片顏色 */
+.card-main   { --card-color: #c8a96e; }
+.card-abc    { --card-color: #8fb87a; }
+.card-chip   { --card-color: #6a9fd4; }
+.card-emerg  { --card-color: #d4955a; }
+
+.tag-gold   { color: #c8a96e; border-color: rgba(200,169,110,0.25); background: rgba(200,169,110,0.06); }
+.tag-green  { color: #8fb87a; border-color: rgba(143,184,122,0.25); background: rgba(143,184,122,0.06); }
+.tag-blue   { color: #6a9fd4; border-color: rgba(106,159,212,0.25); background: rgba(106,159,212,0.06); }
+.tag-orange { color: #d4955a; border-color: rgba(212,149,90,0.25);  background: rgba(212,149,90,0.06); }
+.tag-gray   { color: var(--muted); border-color: var(--border2);    background: rgba(255,255,255,0.03); }
+
+/* 底部 */
+footer {
+  position: relative; z-index: 1;
+  max-width: 960px; margin: 0 auto;
+  width: 100%; padding: 0 40px 32px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+}
+.footer-text {
+  font-size: 10px; color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+.footer-dots {
+  display: flex; gap: 6px; align-items: center;
+}
+.fdot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border2);
+}
+.fdot.gold   { background: rgba(200,169,110,0.5); }
+.fdot.green  { background: rgba(143,184,122,0.5); }
+.fdot.blue   { background: rgba(106,159,212,0.5); }
+.fdot.orange { background: rgba(212,149,90,0.5); }
+
+/* 動畫 */
+.card {
+  animation: fadeUp 0.4s ease both;
+}
+.card:nth-child(1) { animation-delay: 0.05s; }
+.card:nth-child(2) { animation-delay: 0.10s; }
+.card:nth-child(3) { animation-delay: 0.15s; }
+.card:nth-child(4) { animation-delay: 0.20s; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+header, .divider, main, footer {
+  animation: fadeIn 0.5s ease both;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* RWD */
+@media (max-width: 640px) {
+  header, main, footer, .divider { padding-left: 20px; padding-right: 20px; }
+  h1 { font-size: 24px; }
+  .cards { grid-template-columns: 1fr; }
+  header { padding-top: 32px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-label">股票分析工具箱</div>
+  <h1>讀懂<em>籌碼</em>的心思<br>跟著大錢走</h1>
+  <p class="subtitle">整合法人成本追蹤、ABC選股掃描、籌碼分析與興櫃研究，<br>用數據找出被大錢選中的股票。</p>
+</header>
+
+<div class="divider"><hr></div>
+
+<main>
+  <div class="section-title">選擇工具</div>
+
+  <div class="cards">
+
+    <!-- 法人成本追蹤 -->
+    <a class="card card-main" href="index.html">
+      <span class="card-icon">📊</span>
+      <div class="card-name">
+        法人成本追蹤
+        <span class="card-badge">主工具</span>
+      </div>
+      <div class="card-desc">
+        計算外資與融資的加權平均成本，結合波段密碼判斷目前位階。支援月營收趨勢、美股連動、AI 分析與發動點監控。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-gold">外資成本</span>
+        <span class="tag tag-gold">波段密碼</span>
+        <span class="tag tag-gold">融資成本</span>
+        <span class="tag tag-gray">AI分析</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
+    <!-- ABC 選股掃描 -->
+    <a class="card card-abc" href="ABC選股掃描.html">
+      <span class="card-icon">◈</span>
+      <div class="card-name">
+        ABC 選股掃描
+        <span class="card-badge">批次掃描</span>
+      </div>
+      <div class="card-desc">
+        依照 M哥 ABC 框架批次篩選股票。A 趨勢（240日線）、B1 外資吸籌、B2 量縮價穩，找出「搭大錢便車」的時機。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-green">240日線</span>
+        <span class="tag tag-green">一年新高</span>
+        <span class="tag tag-green">外資趨勢</span>
+        <span class="tag tag-green">量縮偵測</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
+    <!-- 籌碼分析 -->
+    <a class="card card-chip" href="籌碼分析.html">
+      <span class="card-icon">🔬</span>
+      <div class="card-name">
+        籌碼分析
+        <span class="card-badge">深度</span>
+      </div>
+      <div class="card-desc">
+        深入分析個股籌碼結構，觀察大戶、外資、投信的持股變化，找出籌碼集中與分散的訊號。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-blue">大戶持股</span>
+        <span class="tag tag-blue">投信動向</span>
+        <span class="tag tag-blue">籌碼集中</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
+    <!-- 興櫃分析 -->
+    <a class="card card-emerg" href="興櫃股票分析.html">
+      <span class="card-icon">🔍</span>
+      <div class="card-name">
+        興櫃股票分析
+        <span class="card-badge">興櫃</span>
+      </div>
+      <div class="card-desc">
+        篩選興櫃強勢股，條件包含成交量、股價、買賣比與 20MA 多頭訊號，快速找出興櫃市場的潛力標的。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-orange">委買委賣比</span>
+        <span class="tag tag-orange">20MA</span>
+        <span class="tag tag-orange">多頭訊號</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
+  </div>
+
+  <div class="section-title" style="margin-top:8px;">使用提示</div>
+  <div style="font-size:11px;color:var(--muted);line-height:2;max-width:560px;">
+    各工具共用同一組登入憑證，首次登入後自動記住，無需重複輸入。<br>
+    ABC掃描 → 點擊股票 → 自動跳轉法人成本追蹤查看詳細資料。<br>
+    所有資料僅供參考，不構成任何投資建議。
+  </div>
+
+</main>
+
+<footer>
+  <div class="footer-text">Stock Analysis Toolkit · 僅供個人研究使用</div>
+  <div class="footer-dots">
+    <div class="fdot gold"></div>
+    <div class="fdot green"></div>
+    <div class="fdot blue"></div>
+    <div class="fdot orange"></div>
+  </div>
+</footer>
+
+</body>
+</html>

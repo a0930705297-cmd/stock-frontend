@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ABC 選股掃描</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0f0f0d;
+  --surface: #161614;
+  --surface2: #1e1e1b;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8e6df;
+  --muted: #6b6960;
+  --accent: #c8a96e;
+  --accent2: #8fb87a;
+  --danger: #d4655a;
+  --warn: #d4955a;
+  --blue: #6a9fd4;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Noto Sans TC', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* 頂部 */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.logo span { color: var(--muted); }
+.server-status {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px; color: var(--muted);
+}
+.dot { width: 5px; height: 5px; border-radius: 50%; background: #444; flex-shrink: 0; }
+.dot.on { background: var(--accent2); box-shadow: 0 0 4px var(--accent2); }
+.dot.off { background: var(--danger); }
+.topbar-link {
+  margin-left: auto;
+  font-size: 11px; color: var(--muted);
+  text-decoration: none; border: 1px solid var(--border2);
+  padding: 4px 10px; border-radius: 3px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.topbar-link:hover { color: var(--text); border-color: var(--accent); }
+
+/* 登入 */
+#loginPage {
+  display: flex; align-items: center; justify-content: center;
+  height: 100vh;
+}
+.login-box {
+  width: 260px; text-align: center;
+}
+.login-box h2 {
+  font-family: var(--mono); font-size: 14px; font-weight: 400;
+  color: var(--accent); margin-bottom: 6px;
+}
+.login-box p { font-size: 11px; color: var(--muted); margin-bottom: 20px; }
+.login-box input {
+  width: 100%; padding: 8px 12px; font-size: 12px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); margin-bottom: 8px;
+  font-family: var(--mono);
+}
+.login-box input:focus { outline: none; border-color: var(--accent); }
+.login-box button {
+  width: 100%; padding: 8px; font-size: 12px;
+  background: var(--accent); color: var(--bg);
+  border: none; border-radius: 3px; cursor: pointer;
+  font-family: var(--sans); font-weight: 500;
+}
+.login-box button:hover { opacity: 0.9; }
+#loginErr { font-size: 11px; color: var(--danger); margin-top: 6px; }
+
+/* 主版面 */
+#mainPage { display: none; }
+
+.container { max-width: 1280px; margin: 0 auto; padding: 20px 24px; }
+
+/* ABC說明banner */
+.abc-banner {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.abc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  border-top: 2px solid;
+}
+.abc-card.a { border-top-color: var(--accent); }
+.abc-card.b { border-top-color: var(--accent2); }
+.abc-card.c { border-top-color: var(--blue); }
+.abc-letter {
+  font-family: var(--mono); font-size: 18px; font-weight: 500;
+  margin-bottom: 4px;
+}
+.abc-card.a .abc-letter { color: var(--accent); }
+.abc-card.b .abc-letter { color: var(--accent2); }
+.abc-card.c .abc-letter { color: var(--blue); }
+.abc-title { font-size: 11px; font-weight: 500; margin-bottom: 4px; }
+.abc-desc { font-size: 10px; color: var(--muted); line-height: 1.6; }
+
+/* 掃描控制區 */
+.scan-controls {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.sc-label { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+.sc-sep { width: 1px; height: 24px; background: var(--border); }
+
+.sc-group { display: flex; align-items: center; gap: 8px; }
+.sc-group select {
+  padding: 5px 8px; font-size: 11px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); font-family: var(--sans);
+}
+.sc-group select:focus { outline: none; border-color: var(--accent); }
+
+.btn-scan {
+  padding: 6px 16px; font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border2); border-radius: 3px;
+  cursor: pointer; transition: all 0.15s;
+  font-family: var(--sans); letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.btn-scan.primary {
+  background: var(--accent); color: var(--bg); border-color: var(--accent);
+}
+.btn-scan.primary:hover { opacity: 0.85; }
+.btn-scan.secondary {
+  background: transparent; color: var(--text); border-color: var(--border2);
+}
+.btn-scan.secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+.btn-scan:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 篩選選項 */
+.filter-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.filter-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; transition: all 0.15s; user-select: none;
+  color: var(--muted);
+}
+.filter-chip.active {
+  border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,0.08);
+}
+.filter-chip .fc-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+/* 結果區 */
+.results-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.results-title {
+  font-size: 11px; color: var(--muted); font-family: var(--mono);
+  letter-spacing: 0.5px;
+}
+.results-count {
+  font-size: 11px; color: var(--accent); font-family: var(--mono);
+}
+
+/* 結果表格 */
+.result-table-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse; font-size: 11px;
+}
+thead tr {
+  border-bottom: 1px solid var(--border2);
+}
+th {
+  padding: 8px 10px; text-align: left;
+  font-size: 9px; font-weight: 500; color: var(--muted);
+  letter-spacing: 0.8px; text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+th:hover { color: var(--text); }
+th.num { text-align: right; }
+td {
+  padding: 9px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: middle; white-space: nowrap;
+}
+td.num { text-align: right; font-family: var(--mono); }
+tr:hover td { background: rgba(255,255,255,0.02); }
+tr.clickable { cursor: pointer; }
+
+.code-cell { font-family: var(--mono); font-weight: 500; color: var(--accent); font-size: 12px; }
+.name-cell { color: var(--muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+.price-cell { font-family: var(--mono); font-weight: 500; }
+
+/* ABC 評分格 */
+.abc-scores { display: flex; gap: 4px; }
+.score-badge {
+  width: 22px; height: 22px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 9px; font-weight: 500;
+}
+.score-badge.pass { background: rgba(143,184,122,0.15); color: var(--accent2); border: 1px solid rgba(143,184,122,0.3); }
+.score-badge.fail { background: rgba(107,105,96,0.1); color: #444; border: 1px solid var(--border); }
+.score-badge.warn { background: rgba(212,149,90,0.12); color: var(--warn); border: 1px solid rgba(212,149,90,0.3); }
+
+/* 趨勢標籤 */
+.trend-tag {
+  padding: 2px 7px; border-radius: 2px; font-size: 9px; font-weight: 500;
+  font-family: var(--mono);
+}
+.trend-tag.bull { background: rgba(143,184,122,0.12); color: var(--accent2); border: 1px solid rgba(143,184,122,0.25); }
+.trend-tag.bear { background: rgba(212,101,90,0.1); color: var(--danger); border: 1px solid rgba(212,101,90,0.2); }
+.trend-tag.flat { background: rgba(107,105,96,0.12); color: var(--muted); border: 1px solid var(--border); }
+
+/* 一年新高標籤 */
+.newhigh-tag {
+  padding: 2px 6px; border-radius: 2px; font-size: 9px;
+  background: rgba(200,169,110,0.12); color: var(--accent);
+  border: 1px solid rgba(200,169,110,0.25);
+}
+
+/* 外資趨勢條 */
+.fi-bar { display: flex; align-items: center; gap: 5px; }
+.fi-days { font-family: var(--mono); font-size: 10px; }
+.fi-days.pos { color: var(--accent2); }
+.fi-days.neg { color: var(--danger); }
+.fi-days.flat { color: var(--muted); }
+.mini-bar-wrap { width: 36px; height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.mini-bar { height: 100%; border-radius: 2px; }
+.mini-bar.pos { background: var(--accent2); }
+.mini-bar.neg { background: var(--danger); }
+
+/* B2量縮 */
+.b2-indicator { display: flex; align-items: center; gap: 4px; }
+.b2-dot { width: 7px; height: 7px; border-radius: 50%; }
+.b2-dot.pass { background: var(--accent2); box-shadow: 0 0 4px var(--accent2); }
+.b2-dot.warn { background: var(--warn); }
+.b2-dot.fail { background: #333; }
+.b2-text { font-size: 9px; color: var(--muted); }
+
+/* 籌碼集中 */
+.chip-indicator { display: flex; align-items: center; gap: 3px; font-size: 9px; }
+.chip-up { color: var(--accent2); }
+.chip-dn { color: var(--danger); }
+.chip-na { color: var(--muted); }
+
+/* 狀態 */
+.state-box {
+  text-align: center; padding: 48px 24px;
+  color: var(--muted); font-size: 12px; line-height: 2;
+}
+.state-icon { font-size: 28px; margin-bottom: 10px; }
+
+/* 進度條 */
+.progress-wrap {
+  background: var(--surface2); border-radius: 3px;
+  height: 3px; overflow: hidden; margin-bottom: 10px;
+}
+.progress-bar {
+  height: 100%; background: var(--accent);
+  border-radius: 3px; transition: width 0.3s;
+}
+.progress-text { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-bottom: 6px; }
+
+/* 評分總覽 */
+.score-summary {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 8px;
+  margin-bottom: 16px;
+}
+.ss-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 10px 12px; text-align: center;
+}
+.ss-val { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.ss-val.gold { color: var(--accent); }
+.ss-val.green { color: var(--accent2); }
+.ss-val.muted { color: var(--muted); }
+.ss-label { font-size: 9px; color: var(--muted); margin-top: 3px; letter-spacing: 0.3px; }
+
+/* 通知 */
+.toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 10px 16px;
+  font-size: 11px; color: var(--text);
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  z-index: 200;
+}
+.toast.show { opacity: 1; }
+
+/* 分頁切換 */
+.tab-row {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  padding: 8px 16px; font-size: 11px; cursor: pointer;
+  background: transparent; border: none; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; font-family: var(--sans);
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn:hover { color: var(--text); }
+
+/* 外資排行 */
+.rank-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  margin-bottom: 16px;
+}
+.rank-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden;
+}
+.rank-card-title {
+  padding: 8px 12px; font-size: 10px; font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.rank-card-title.buy  { color: var(--danger); }
+.rank-card-title.sell { color: var(--green); }
+.rank-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px; border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.rank-row:last-child { border-bottom: none; }
+.rank-no { font-family: var(--mono); font-size: 9px; color: var(--muted); min-width: 16px; }
+.rank-code { font-family: var(--mono); font-weight: 500; color: var(--accent); min-width: 38px; }
+.rank-name { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.rank-net { font-family: var(--mono); font-size: 10px; white-space: nowrap; }
+.rank-net.pos { color: var(--danger); }
+.rank-net.neg { color: var(--green); }
+.rank-bar-wrap { width: 40px; height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.rank-bar { height: 100%; border-radius: 2px; }
+.rank-bar.pos { background: var(--danger); }
+.rank-bar.neg { background: var(--green); }
+
+/* 呼吸燈 */
+.b2-dot.breathe-snipe {
+  background: var(--blue);
+  animation: breathe-snipe 1.8s ease-in-out infinite;
+}
+@keyframes breathe-snipe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--blue), 0 0 12px rgba(106,159,212,0.4); }
+  50%       { opacity: 0.5; box-shadow: none; }
+}
+.b2-dot.breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--accent2); }
+  50%       { opacity: 0.4; box-shadow: none; }
+}
+.b2-dot.warn-breathe {
+  animation: breathe-warn 2s ease-in-out infinite;
+}
+@keyframes breathe-warn {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--warn); background: var(--warn); }
+  50%       { opacity: 0.4; box-shadow: none; }
+}
+.zone-tag {
+  padding: 1px 5px; border-radius: 2px; font-size: 9px;
+  font-family: var(--mono); white-space: nowrap;
+}
+.zone-tag.good    { background: rgba(143,184,122,0.12); color: var(--green); border: 1px solid rgba(143,184,122,0.25); }
+.zone-tag.ok      { background: rgba(106,159,212,0.12); color: var(--blue);  border: 1px solid rgba(106,159,212,0.25); }
+.zone-tag.warning { background: rgba(212,149,90,0.12);  color: var(--warn);  border: 1px solid rgba(212,149,90,0.25); }
+.zone-tag.danger  { background: rgba(212,101,90,0.12);  color: var(--red);   border: 1px solid rgba(212,101,90,0.25); }
+.zone-tag.neutral { background: rgba(107,105,96,0.1);   color: var(--muted); border: 1px solid var(--border2); }
+
+/* 產業輪動 */
+.sector-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;
+  margin-bottom: 16px;
+}
+.sector-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 10px 12px;
+}
+.sector-name { font-size: 11px; font-weight: 500; margin-bottom: 6px; }
+.sector-bars { display: flex; flex-direction: column; gap: 3px; }
+.sector-bar-row { display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--muted); }
+.sector-bar-label { min-width: 28px; }
+.sector-bar-bg { flex: 1; height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.sector-bar-fill { height: 100%; border-radius: 2px; }
+.sector-bar-fill.ab  { background: var(--accent2); }
+.sector-bar-fill.abc { background: var(--accent); }
+.sector-val { min-width: 20px; text-align: right; font-family: var(--mono); }
+
+/* 分頁 */
+.page-tabs {
+  display: flex; gap: 0; margin-bottom: 16px;
+  border-bottom: 1px solid var(--border2);
+}
+.page-tab {
+  padding: 8px 18px; font-size: 11px; cursor: pointer;
+  background: transparent; border: none; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; font-family: var(--sans); letter-spacing: 0.2px;
+}
+.page-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.page-tab:hover  { color: var(--text); }
+
+.page-content { display: none; }
+.page-content.active { display: block; }
+
+/* 模式切換 */
+.mode-switch {
+  display: flex; gap: 0; border: 1px solid var(--border2);
+  border-radius: 4px; overflow: hidden; flex-shrink: 0;
+}
+.mode-btn {
+  padding: 5px 12px; font-size: 10px; cursor: pointer;
+  background: transparent; border: none; color: var(--muted);
+  transition: all 0.15s; font-family: var(--sans);
+  white-space: nowrap;
+}
+.mode-btn.active {
+  background: var(--accent); color: var(--bg); font-weight: 500;
+}
+.mode-btn:not(.active):hover { background: var(--surface2); color: var(--text); }
+
+.mode-desc {
+  font-size: 10px; color: var(--muted); padding: 6px 10px;
+  background: var(--surface2); border-radius: 3px;
+  margin-bottom: 10px; border-left: 2px solid var(--accent);
+  line-height: 1.6;
+}
+
+/* 流動性門檻設定 */
+.threshold-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; color: var(--muted);
+}
+.threshold-row input {
+  width: 70px; padding: 4px 6px; font-size: 10px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 3px; color: var(--text); font-family: var(--mono);
+}
+
+/* 響應式 */
+@media (max-width: 768px) {
+  .abc-banner { grid-template-columns: 1fr; }
+  .score-summary { grid-template-columns: 1fr 1fr; }
+  .rank-grid { grid-template-columns: 1fr; }
+  .container { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 登入 -->
+<div id="loginPage">
+  <div class="login-box">
+    <h2>ABC 選股掃描</h2>
+    <p>輸入密碼登入</p>
+    <input type="text" id="apiBase" placeholder="後端網域" value="https://stock-backend-production-95d3.up.railway.app" />
+    <input type="password" id="loginInput" placeholder="密碼" autocomplete="off" />
+    <button onclick="doLogin()">登入</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<!-- 主頁面 -->
+<div id="mainPage">
+
+  <div class="topbar">
+    <div class="logo">ABC <span>/</span> 選股掃描</div>
+    <div class="server-status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">連線中</span>
+    </div>
+    <a class="topbar-link" id="mainAppLink" href="#" target="_blank">→ 法人成本追蹤</a>
+  </div>
+
+  <div class="container">
+
+    <!-- ABC 說明 -->
+    <div class="abc-banner">
+      <div class="abc-card a">
+        <div class="abc-letter">A</div>
+        <div class="abc-title">趨勢正確</div>
+        <div class="abc-desc">240日線向上翹 ＋ 站上一年新高<br>空頭個股上方都是賣壓</div>
+      </div>
+      <div class="abc-card b">
+        <div class="abc-letter">B</div>
+        <div class="abc-title">籌碼有人</div>
+        <div class="abc-desc">B1：外資長期持續吸籌<br>B2：量縮（凹洞量/連縮/MA20×60%）<br>＋價穩（ATR↓/布林收口/K線窄幅）<br>＋位置在法人成本附近最佳</div>
+      </div>
+      <div class="abc-card c">
+        <div class="abc-letter">C</div>
+        <div class="abc-title">信念持倉</div>
+        <div class="abc-desc">相信人類慾望不止<br>科技創新需求不會停止<br>搭大錢便車，耐心等待</div>
+      </div>
+    </div>
+
+    <!-- 分頁切換 -->
+    <div class="page-tabs">
+      <button class="page-tab active" onclick="switchTab('scan')">📊 ABC 掃描</button>
+      <button class="page-tab" onclick="switchTab('rank')">💹 外資買賣超排行</button>
+      <button class="page-tab" onclick="switchTab('sector')">🔄 類股輪動</button>
+    </div>
+
+    <!-- ── 頁1：ABC 掃描 ── -->
+    <div class="page-content active" id="tab-scan">
+
+    <!-- 掃描控制 -->
+    <div class="scan-controls">
+      <span class="sc-label">來源</span>
+      <div class="sc-group">
+        <select id="topN">
+          <option value="50">前50</option>
+          <option value="100" selected>前100</option>
+          <option value="200">前200</option>
+        </select>
+        <select id="sortMode" title="排序方式">
+          <option value="volume">成交張數</option>
+          <option value="amount">成交金額</option>
+        </select>
+        <button class="btn-scan primary" id="btnVolume" onclick="runVolumeScan()">大盤掃描</button>
+      </div>
+      <div class="sc-sep"></div>
+      <div class="sc-group">
+        <select id="scanIndustry">
+          <option value="半導體業">半導體</option>
+          <option value="電腦及週邊設備業">電腦週邊</option>
+          <option value="電子零組件業">電子零組件</option>
+          <option value="光電業">光電</option>
+          <option value="通信網路業">通信網路</option>
+          <option value="其他電子業">其他電子</option>
+          <option value="航運業">航運</option>
+          <option value="金融業">金融</option>
+          <option value="生技醫療業">生技醫療</option>
+          <option value="鋼鐵工業">鋼鐵</option>
+          <option value="太空衛星">太空衛星</option>
+          <option value="玻纖布">玻纖布</option>
+          <option value="銅箔基板">銅箔基板</option>
+          <option value="被動元件">被動元件</option>
+        </select>
+        <button class="btn-scan secondary" id="btnIndustry" onclick="runIndustryScan()">產業掃描</button>
+      </div>
+      <div class="sc-sep"></div>
+      <div class="sc-group">
+        <button class="btn-scan secondary" id="btnMemory" onclick="runMemoryScan()" title="掃描過去7天曾進過前200名、今天已退出的標的">
+          📦 追蹤股池
+          <span id="memoryCount" style="font-size:9px;color:var(--accent);"></span>
+        </button>
+        <button class="btn-scan secondary" onclick="clearMemory()" title="清除記憶庫" style="padding:6px 8px;">✕</button>
+      </div>
+      <div class="sc-sep"></div>
+      <div class="sc-group">
+        <input type="text" id="singleCode" placeholder="輸入股號" maxlength="6"
+          style="padding:5px 8px;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;color:var(--text);font-family:var(--mono);width:90px;"
+          onkeydown="if(event.key==='Enter') runSingleScan()" />
+        <button class="btn-scan secondary" onclick="runSingleScan()">單股查詢</button>
+      </div>
+    </div>
+
+    <!-- 記憶庫狀態列 -->
+    <div id="memoryBar" style="display:none;font-size:10px;color:var(--muted);margin-bottom:8px;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:3px;display:flex;align-items:center;gap:8px;">
+      <span>📦</span>
+      <span id="memoryBarText"></span>
+    </div>
+
+    <!-- 篩選 -->
+    <div class="filter-row">
+      <span style="font-size:10px;color:var(--muted);">顯示篩選：</span>
+      <div class="filter-chip active" id="chip-all" onclick="setFilter('all')"><span class="fc-dot"></span>全部</div>
+      <div class="filter-chip" id="chip-abc" onclick="setFilter('abc')"><span class="fc-dot"></span>ABC 全過</div>
+      <div class="filter-chip" id="chip-ab" onclick="setFilter('ab')"><span class="fc-dot"></span>AB 趨勢＋籌碼</div>
+      <div class="filter-chip" id="chip-a" onclick="setFilter('a')"><span class="fc-dot"></span>僅 A 趨勢</div>
+      <div class="filter-chip" id="chip-snipe" onclick="setFilter('snipe')"><span class="fc-dot"></span>🎯 狙擊區</div>
+      <div class="filter-chip" id="chip-drop" onclick="setFilter('drop')" title="排名曾在前50，現在掉到150名以後"><span class="fc-dot"></span>📉 排名大跌</div>
+    </div>
+
+    <!-- 進度 -->
+    <div id="progressWrap" style="display:none;">
+      <div class="progress-text" id="progressText">掃描中 0 / 0</div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- 評分總覽 -->
+    <div class="score-summary" id="scoreSummary" style="display:none;">
+      <div class="ss-card"><div class="ss-val muted" id="ss-total">—</div><div class="ss-label">掃描總數</div></div>
+      <div class="ss-card"><div class="ss-val gold" id="ss-abc">—</div><div class="ss-label">ABC 全過</div></div>
+      <div class="ss-card"><div class="ss-val green" id="ss-ab">—</div><div class="ss-label">AB 通過</div></div>
+      <div class="ss-card"><div class="ss-val muted" id="ss-a">—</div><div class="ss-label">僅 A 通過</div></div>
+    </div>
+
+    <!-- 結果 -->
+    <div class="results-header">
+      <div class="results-title" id="resultsTitle">等待掃描</div>
+      <div class="results-count" id="resultsCount"></div>
+    </div>
+
+    <div id="resultsArea">
+      <div class="state-box">
+        <div class="state-icon">◈</div>
+        選擇掃描來源後開始<br>
+        系統將自動計算每支股票的 ABC 指標
+      </div>
+    </div>
+
+    </div><!-- end tab-scan -->
+
+    <!-- ── 頁2：外資買賣超排行 ── -->
+    <div class="page-content" id="tab-rank">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--muted);">
+          外資前一交易日買賣超排行，資料來源 FinMind
+        </div>
+        <button class="btn-scan secondary" onclick="loadForeignRank()" id="btnRank">載入排行</button>
+      </div>
+      <div id="rankDate" style="font-size:10px;color:var(--muted);margin-bottom:10px;font-family:var(--mono);"></div>
+      <div id="rankArea">
+        <div class="state-box">
+          <div class="state-icon">💹</div>
+          點擊「載入排行」查看外資買賣超前20名
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 頁3：類股輪動 ── -->
+    <div class="page-content" id="tab-sector">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">
+        執行 ABC 掃描後，自動統計各產業通過率與外資淨買方向。<br>
+        請先在「ABC 掃描」頁執行掃描。
+      </div>
+      <div id="sectorArea">
+        <div class="state-box">
+          <div class="state-icon">🔄</div>
+          請先執行 ABC 掃描
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 設定 ────────────────────────────────────
+let SERVER = '';
+function getToken() { return localStorage.getItem('appToken') || sessionStorage.getItem('abcToken') || ''; }
+function apiFetch(url, opts = {}) {
+  return fetch(url, { ...opts, headers: { 'ngrok-skip-browser-warning':'1', 'x-token': getToken(), ...(opts.headers||{}) } });
+}
+
+// ── 登入 ─────────────────────────────────────
+async function doLogin() {
+  const base = document.getElementById('apiBase').value.trim().replace(/\/$/,'');
+  const pwd  = document.getElementById('loginInput').value.trim();
+  if (!base || !pwd) { document.getElementById('loginErr').textContent = '請填入網域與密碼'; return; }
+  try {
+    const res = await fetch(`${base}/history/2330`, { headers: { 'ngrok-skip-browser-warning':'1', 'x-token': pwd } });
+    if (res.ok) {
+      SERVER = base;
+      sessionStorage.setItem('abcToken', pwd);
+      localStorage.setItem('appToken', pwd);       // 與 index.html 共用
+      localStorage.setItem('abcServer', base);     // 記住後端網址
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('mainPage').style.display = 'block';
+      document.getElementById('mainAppLink').href = getMainUrl();
+      init();
+    } else {
+      document.getElementById('loginErr').textContent = '密碼錯誤';
+    }
+  } catch(e) { document.getElementById('loginErr').textContent = '無法連線：' + e.message; }
+}
+document.getElementById('loginInput').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// 自動恢復登入（讀 localStorage）
+const savedToken = localStorage.getItem('appToken') || sessionStorage.getItem('abcToken');
+const savedServer = localStorage.getItem('abcServer') || sessionStorage.getItem('abcServer');
+if (savedToken && savedServer) {
+  SERVER = savedServer;
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainPage').style.display = 'block';
+  document.getElementById('mainAppLink').href = getMainUrl();
+}
+
+// ── 初始化 ───────────────────────────────────
+function init() {
+  checkServer();
+  updateMemoryUI();
+}
+if (savedToken && savedServer) init();
+
+async function checkServer() {
+  try {
+    const r = await apiFetch(`${SERVER}/history/2330`);
+    if (r.ok) {
+      document.getElementById('statusDot').className = 'dot on';
+      document.getElementById('statusText').textContent = '已連線';
+    } else throw new Error();
+  } catch {
+    document.getElementById('statusDot').className = 'dot off';
+    document.getElementById('statusText').textContent = '未連線';
+  }
+}
+
+// ── 篩選狀態 ──────────────────────────────────
+let currentFilter = 'all';
+let allResults = [];
+
+function setFilter(f) {
+  currentFilter = f;
+  ['all','abc','ab','a','snipe','drop'].forEach(k => {
+    const el = document.getElementById('chip-'+k);
+    if (el) el.classList.toggle('active', k === f);
+  });
+  renderResults(filterData(allResults));
+}
+
+function filterData(data) {
+  if (currentFilter === 'abc')   return data.filter(d => d.scoreA && d.scoreB1 && d.scoreB2);
+  if (currentFilter === 'ab')    return data.filter(d => d.scoreA && d.scoreB1);
+  if (currentFilter === 'a')     return data.filter(d => d.scoreA);
+  if (currentFilter === 'snipe') return data.filter(d => d.scoreB2 && d.b2Detail.includes('狙擊'));
+  if (currentFilter === 'drop')  return data.filter(d => d.rankPrev && d.rankPrev <= 50 && d.rankToday >= 100);
+  return data;
+}
+
+// ── 記憶庫（LocalStorage）────────────────────
+const MEMORY_KEY = 'abc_stock_memory';
+const MEMORY_DAYS = 7;
+
+function loadMemory() {
+  try { return JSON.parse(localStorage.getItem(MEMORY_KEY) || '{}'); } catch { return {}; }
+}
+function saveMemory(mem) {
+  try { localStorage.setItem(MEMORY_KEY, JSON.stringify(mem)); } catch {}
+}
+function updateMemory(stocks, rankMap) {
+  const mem = loadMemory();
+  const today = new Date().toISOString().slice(0,10);
+  const cutoff = new Date(Date.now() - MEMORY_DAYS*86400000).toISOString().slice(0,10);
+
+  // 加入今日排名
+  for (const s of stocks) {
+    if (!mem[s.code]) mem[s.code] = { name: s.name, history: {} };
+    mem[s.code].history[today] = rankMap[s.code] || 999;
+    mem[s.code].name = s.name;
+  }
+  // 清除過期資料
+  for (const code of Object.keys(mem)) {
+    for (const d of Object.keys(mem[code].history || {})) {
+      if (d < cutoff) delete mem[code].history[d];
+    }
+    if (!Object.keys(mem[code].history || {}).length) delete mem[code];
+  }
+  saveMemory(mem);
+  updateMemoryUI();
+}
+function updateMemoryUI() {
+  const mem = loadMemory();
+  const count = Object.keys(mem).length;
+  const el = document.getElementById('memoryCount');
+  if (el) el.textContent = count > 0 ? ` ${count}檔` : '';
+  const bar = document.getElementById('memoryBar');
+  const barText = document.getElementById('memoryBarText');
+  if (bar && barText && count > 0) {
+    bar.style.display = 'flex';
+    barText.textContent = `追蹤股池：${count} 檔（過去${MEMORY_DAYS}天曾進前200名）`;
+  } else if (bar) {
+    bar.style.display = 'none';
+  }
+}
+function clearMemory() {
+  localStorage.removeItem(MEMORY_KEY);
+  updateMemoryUI();
+  showToast('追蹤股池已清除');
+}
+
+// ── 大盤成交量掃描 ────────────────────────────
+async function runVolumeScan() {
+  const topN     = parseInt(document.getElementById('topN').value);
+  const sortMode = document.getElementById('sortMode')?.value || 'volume';
+  setBusy(true, `大盤掃描（前${topN}名）`);
+  showProgress(0, topN, '取得大盤資料...');
+  try {
+    const volRes  = await apiFetch(`${SERVER}/market_volume`);
+    const volJson = await volRes.json();
+    let allStocks = volJson.data || [];
+
+    // 成交金額排序：close × volume
+    if (sortMode === 'amount') {
+      allStocks = allStocks
+        .map(s => ({ ...s, amount: (s.close || 0) * (s.volume || 0) }))
+        .sort((a, b) => b.amount - a.amount);
+    }
+
+    const stocks = allStocks.slice(0, topN);
+    if (!stocks.length) { setEmpty('無法取得大盤資料'); return; }
+
+    // 建立今日排名 map
+    const rankMap = {};
+    allStocks.forEach((s, i) => { rankMap[s.code] = i + 1; });
+
+    // 讀取昨日記憶庫，找出排名變化
+    const mem = loadMemory();
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+    stocks.forEach(s => {
+      s.rankToday = rankMap[s.code] || null;
+      const hist  = mem[s.code]?.history || {};
+      const dates = Object.keys(hist).sort();
+      const prevDate = dates.filter(d => d < new Date().toISOString().slice(0,10)).pop();
+      s.rankPrev = prevDate ? hist[prevDate] : null;
+    });
+
+    // 儲存到記憶庫
+    updateMemory(allStocks.slice(0, 200), rankMap);
+
+    await runABCScan(stocks);
+  } catch(e) {
+    setEmpty('掃描失敗：' + e.message);
+  } finally { setBusy(false); }
+}
+
+// ── 追蹤股池掃描 ─────────────────────────────
+async function runMemoryScan() {
+  const mem = loadMemory();
+  const codes = Object.keys(mem);
+  if (!codes.length) {
+    showToast('追蹤股池是空的，請先執行大盤掃描');
+    return;
+  }
+
+  // 取得今日大盤排名
+  setBusy(true, `追蹤股池掃描（${codes.length}檔）`);
+  showProgress(0, codes.length, '取得今日排名...');
+
+  try {
+    const volRes  = await apiFetch(`${SERVER}/market_volume`);
+    const volJson = await volRes.json();
+    const allStocks = volJson.data || [];
+    const rankMap   = {};
+    const priceMap2 = {};
+    allStocks.forEach((s, i) => {
+      rankMap[s.code]   = i + 1;
+      priceMap2[s.code] = s.close;
+    });
+
+    const stocks = codes.map(code => {
+      const info  = mem[code];
+      const hist  = info.history || {};
+      const dates = Object.keys(hist).sort();
+      const today = new Date().toISOString().slice(0,10);
+      const prevDate = dates.filter(d => d < today).pop();
+      return {
+        code,
+        name:      info.name || code,
+        close:     priceMap2[code] || 0,
+        volume:    allStocks.find(s => s.code === code)?.volume || 0,
+        rankToday: rankMap[code] || null,   // null = 今天掉出前200
+        rankPrev:  prevDate ? hist[prevDate] : null,
+      };
+    });
+
+    await runABCScan(stocks);
+  } catch(e) {
+    setEmpty('掃描失敗：' + e.message);
+  } finally { setBusy(false); }
+}
+
+// ── 產業掃描 ──────────────────────────────────
+async function runIndustryScan() {
+  const industry = document.getElementById('scanIndustry').value;
+  setBusy(true, `產業掃描：${industry}`);
+  showProgress(0, 1, '取得產業清單...');
+  try {
+    const [volRes, indRes] = await Promise.all([
+      apiFetch(`${SERVER}/market_volume`),
+      apiFetch(`${SERVER}/industry_stocks/${encodeURIComponent(industry)}`)
+    ]);
+    const volJson = await volRes.json();
+    const indJson = await indRes.json();
+    const volList = volJson.data || [];
+    const indStocks = indJson.data || [];
+    const industryCodes = new Set(indStocks.map(s => s.code));
+    const nameMap = {};
+    indStocks.forEach(s => nameMap[s.code] = s.name);
+
+    let stocks = volList.filter(v => industryCodes.has(v.code));
+    if (!stocks.length) {
+      stocks = indStocks.map(s => {
+        const v = volList.find(x => x.code === s.code);
+        return { code: s.code, name: s.name, close: v ? v.close : 0, volume: v ? v.volume : 0 };
+      });
+    }
+    stocks = stocks.map(s => ({ ...s, name: nameMap[s.code] || s.name }));
+    if (!stocks.length) { setEmpty('無產業資料'); return; }
+    await runABCScan(stocks);
+  } catch(e) {
+    setEmpty('掃描失敗：' + e.message);
+  } finally { setBusy(false); }
+}
+
+// ── 單股查詢 ──────────────────────────────────
+async function runSingleScan() {
+  const code = document.getElementById('singleCode').value.trim();
+  if (!code) return;
+  setBusy(true, `單股查詢：${code}`);
+  showProgress(0, 1, `查詢 ${code}...`);
+  try {
+    // 先抓股票名稱和現價
+    const [tickerRes, priceRes] = await Promise.all([
+      apiFetch(`${SERVER}/ticker/${code}`),
+      apiFetch(`${SERVER}/price/${code}`)
+    ]);
+    const tickerJson = await tickerRes.json();
+    const priceJson  = await priceRes.json();
+    const name  = tickerJson.name || code;
+    const priceMap = priceJson.data || {};
+    const pv = Object.values(priceMap);
+    const close = pv.length > 0 ? pv[pv.length-1].close : 0;
+
+    const result = await calcABC({ code, name, close, volume: 0 });
+    if (result) {
+      allResults = [result];
+      updateSummary(allResults);
+      renderResults(allResults);
+    } else {
+      setEmpty(`${code} 資料不足，無法計算`);
+    }
+  } catch(e) {
+    setEmpty('查詢失敗：' + e.message);
+  } finally {
+    setBusy(false);
+    hideProgress();
+  }
+}
+
+// ── ABC 核心計算 ──────────────────────────────
+async function runABCScan(stocks) {
+  allResults = [];
+  const total = stocks.length;
+  let done = 0;
+
+  for (const item of stocks) {
+    showProgress(done, total, `計算 ${item.code} ${item.name || ''}`);
+    try {
+      const result = await calcABC(item);
+      if (result) allResults.push(result);
+    } catch(e) {}
+    done++;
+    showProgress(done, total, done < total ? `計算 ${stocks[done]?.code || ''}` : '完成');
+  }
+
+  // 排序：全過 > AB > A > 其他，相同則按成交量
+  allResults.sort((a, b) => {
+    const scoreOf = d => (d.scoreA?4:0) + (d.scoreB1?2:0) + (d.scoreB2?1:0);
+    return scoreOf(b) - scoreOf(a) || (b.volume||0) - (a.volume||0);
+  });
+
+  updateSummary(allResults);
+  renderResults(filterData(allResults));
+  updateSectorAfterScan(allResults);
+  hideProgress();
+  // 掃描完成後切回掃描頁
+  switchTab('scan');
+}
+
+async function calcABC(item) {
+  const code = item.code;
+  const today = new Date();
+
+  // 抓價格資料（FinMind TaiwanStockPrice）
+  const priceRes = await apiFetch(`${SERVER}/price/${code}`);
+  const priceJson = await priceRes.json();
+  const priceMap = priceJson.data || {};
+
+  // 正確排序：直接對 key 排序，key 格式為 YYYYMMDD 字串，字典序即時間序
+  const sortedKeys = Object.keys(priceMap).sort();
+  const priceArr   = sortedKeys.map(k => priceMap[k]);
+
+  if (priceArr.length < 60) return null;
+
+  const closes = priceArr.map(p => p.close);
+
+  // 現價優先用 priceMap 最新收盤（最準確），其次才用 item.close
+  const latestPriceFromMap = priceArr[priceArr.length - 1]?.close || 0;
+  const latestClose = latestPriceFromMap > 0 ? latestPriceFromMap : (item.close || 0);
+
+  // ── A 指標 ──────────────────────────────────
+  // 240日線方向
+  const ma240 = closes.length >= 240 ? avg(closes.slice(-240)) : avg(closes);
+  const ma240_prev = closes.length >= 250 ? avg(closes.slice(-250,-10)) : avg(closes.slice(0, -10));
+  const ma240rising = ma240 > ma240_prev;
+
+  // 一年新高（近252個交易日）
+  const year252 = closes.slice(-252);
+  const yearHigh = Math.max(...year252);
+  const isYearHigh = latestClose >= yearHigh * 0.98; // 98% 以上視為接近一年新高
+
+  // MA5, MA20, MA60
+  const ma5  = avg(closes.slice(-5));
+  const ma20 = avg(closes.slice(-20));
+  const ma60 = avg(closes.slice(-60));
+  const bullAlign = ma5 > ma20 && ma20 > ma60; // 多頭排列
+
+  const scoreA = (ma240rising || bullAlign) && latestClose >= ma20;
+
+  // ── B1 指標（外資趨勢）──────────────────────
+  const foreignRes = await apiFetch(`${SERVER}/foreign/${code}`);
+  const foreignJson = await foreignRes.json();
+  const foreignRaw = foreignJson.data || [];
+
+  // 近30日外資買賣超
+  const recent30 = foreignRaw.slice(-30);
+  const buyDays = recent30.filter(d => d.buy > d.sell).length;
+  const sellDays = recent30.filter(d => d.sell > d.buy).length;
+  const netRecent = recent30.reduce((s,d) => s + (d.buy - d.sell), 0);
+
+  // 近10日 vs 近20日淨買
+  const net10 = foreignRaw.slice(-10).reduce((s,d) => s+(d.buy-d.sell),0);
+  const net20 = foreignRaw.slice(-20).reduce((s,d) => s+(d.buy-d.sell),0);
+  const foreignTrend = net10 > 0 && net20 > 0 ? 'pos' : net10 < 0 && net20 < 0 ? 'neg' : 'flat';
+  const scoreB1 = buyDays >= 15 || (foreignTrend === 'pos' && buyDays >= 10);
+
+  // ── 外資成本（移到 B2 之前，讓位置濾網可以使用）──
+  const merged = foreignRaw.map(d => {
+    const p = priceMap[d.date];
+    return p ? { ...d, close: p.close } : null;
+  }).filter(Boolean);
+
+  let holdings = 0, totalCost = 0;
+  for (const d of merged) {
+    if (d.buy > 0) { totalCost += d.buy * 1000 * d.close; holdings += d.buy * 1000; }
+    if (d.sell > 0 && holdings > 0) {
+      const s = Math.min(d.sell * 1000, holdings);
+      totalCost -= s * (totalCost / holdings);
+      holdings -= s;
+    }
+  }
+  const fCost = holdings > 0 ? totalCost / holdings : 0;
+  const trigger = fCost * 1.04;
+
+  // ── B2 指標（精確版）─────────────────────────
+  // 建議的量化邏輯：
+  // 1. 量縮：成交量 < MA20量 × 0.6，或近日為10日以來最低量，或連續3日遞減
+  // 2. 價穩：ATR降低 + K線實體縮小 + 布林帶寬收縮
+  // 3. 位置濾網：發生在法人成本 ~ 1.04x 附近才有效，1.7x附近反而是危險
+  // 4. 均線糾結：MA5/MA10/MA20 開始收斂（變盤前兆）
+
+  const recent30prices = sortedKeys.slice(-30).map(k => priceMap[k]);
+  const recentCloses   = recent30prices.map(p => p.close);
+  const recentHighs    = recent30prices.map(p => p.max   || p.close);
+  const recentLows     = recent30prices.map(p => p.min   || p.close);
+  const volumes30      = recent30prices.map(p => p.volume || 0);
+  const volsFiltered   = volumes30.filter(v => v > 0);
+
+  let scoreB2   = false;
+  let b2Detail  = '—';
+  let b2Signals = [];  // 收集命中的子訊號
+
+  if (volsFiltered.length >= 10 && recentCloses.length >= 15) {
+    const vol20avg = avg(volsFiltered.slice(-20));
+
+    // ── 量縮三判斷（任一成立即為量縮）─────────
+    // 1a. 當日量 < MA20量 × 0.6
+    const lastVol   = volumes30[volumes30.length - 1] || 0;
+    const volBelowMA = vol20avg > 0 && lastVol < vol20avg * 0.60;
+
+    // 1b. 近5日量是過去20日以來最低（凹洞量）
+    const minVol20  = Math.min(...volsFiltered.slice(-20).filter(v=>v>0));
+    const vol5avg   = avg(volsFiltered.slice(-5));
+    const volLowest = vol5avg <= minVol20 * 1.1;
+
+    // 1c. 連續3日量遞減
+    const vols3 = volumes30.slice(-3);
+    const vol3Decreasing = vols3.length === 3 && vols3[0] > vols3[1] && vols3[1] > vols3[2] && vols3[2] < vol20avg * 0.85;
+
+    const volShrink = volBelowMA || volLowest || vol3Decreasing;
+    if (volShrink) {
+      if (volLowest)      b2Signals.push('凹洞量');
+      else if (volBelowMA) b2Signals.push('量<MA20×60%');
+      else                b2Signals.push('量連縮3日');
+    }
+
+    // ── 價穩三判斷 ──────────────────────────────
+    // 2a. ATR(5) 下降：近5日 ATR < 近15日 ATR × 0.8
+    function calcATR(highs, lows, cls, n) {
+      const trs = [];
+      for (let i = 1; i < cls.length; i++) {
+        const hl = highs[i] - lows[i];
+        const hc = Math.abs(highs[i] - cls[i-1]);
+        const lc = Math.abs(lows[i] - cls[i-1]);
+        trs.push(Math.max(hl, hc, lc));
+      }
+      return avg(trs.slice(-n));
+    }
+    const atr5  = calcATR(recentHighs, recentLows, recentCloses, 5);
+    const atr15 = calcATR(recentHighs, recentLows, recentCloses, 15);
+    const atrLow = atr15 > 0 && atr5 < atr15 * 0.80;
+    if (atrLow) b2Signals.push('ATR↓');
+
+    // 2b. 價穩（雙軌判斷，任一成立）：
+    //   - 傳統：近3日每日 (High-Low)/Close < 2.5%
+    //   - 改良：近3日收盤價變動 < 1%（更能反映真正的價穩）
+    const recentBars = recent30prices.slice(-3);
+    const narrowBarsHL = recentBars.every(p => {
+      const h = p.max || p.close, l = p.min || p.close;
+      return p.close > 0 && (h - l) / p.close < 0.025;
+    });
+    // 收盤價穩定度：今日 vs 昨日收盤變動幅度
+    const closeChanges = [];
+    for (let i = recentCloses.length - 3; i < recentCloses.length; i++) {
+      if (i > 0 && recentCloses[i-1] > 0) {
+        closeChanges.push(Math.abs(recentCloses[i] - recentCloses[i-1]) / recentCloses[i-1]);
+      }
+    }
+    const narrowBarsClose = closeChanges.length >= 2 && closeChanges.every(c => c < 0.01);
+    const narrowBars = narrowBarsHL || narrowBarsClose;
+    if (narrowBars) b2Signals.push(narrowBarsClose ? '收盤價穩' : 'K線窄幅');
+
+    // 2c. 布林帶寬收縮：近5日帶寬 < 近20日帶寬均值 × 0.7
+    function bollingerBandwidth(cls, n) {
+      if (cls.length < n) return 0;
+      const slice = cls.slice(-n);
+      const mean  = avg(slice);
+      const std   = Math.sqrt(slice.reduce((s,v) => s+(v-mean)**2, 0) / n);
+      return mean > 0 ? (2 * 2 * std) / mean : 0;
+    }
+    const bw5  = bollingerBandwidth(recentCloses.slice(-5), 5);
+    const bw20 = bollingerBandwidth(recentCloses, 20);
+    const bbSqueeze = bw20 > 0 && bw5 < bw20 * 0.70;
+    if (bbSqueeze) b2Signals.push('布林收口');
+
+    const priceStable = atrLow || narrowBars || bbSqueeze;
+
+    // ── 均線糾結偵測（放寬至5%）────────────────
+    // 原本3%太嚴，突發波動會讓均線拉開但趨勢仍糾結
+    const ma5v  = avg(closes.slice(-5));
+    const ma10v = avg(closes.slice(-10));
+    const ma20v = avg(closes.slice(-20));
+    const maMax = Math.max(ma5v, ma10v, ma20v);
+    const maMin = Math.min(ma5v, ma10v, ma20v);
+    const maConverge = maMin > 0 && (maMax - maMin) / maMin < 0.05;  // 放寬至 5%
+    if (maConverge) b2Signals.push('均線糾結');
+
+    // ── 位置濾網（法人成本濾網）────────────────
+    // 狙擊區：成本 ~ 1.2x → 藍綠呼吸燈（最佳進場區）
+    // 抬轎區：>= 1.4x → 橘色呼吸燈（別人在用你抬轎）
+    let positionOk   = true;
+    let positionWarn = false;
+    let inSnipeZone  = false;   // 狙擊區
+    if (fCost > 0) {
+      const ratio = latestClose / fCost;
+      if (ratio >= 1.4) {
+        positionWarn = true;
+        b2Signals.push('⚠高位量縮');
+      } else if (ratio <= 1.2) {
+        inSnipeZone = true;
+        b2Signals.push('狙擊區✓');
+      }
+    }
+
+    // ── 綜合評分 ────────────────────────────────
+    // signalB2：純技術面（量縮+價穩），有訊號但不代表可以進場
+    // entryB2：真正的 B2 pass = 技術面 + 位置沒有警示
+    const signalB2 = volShrink && priceStable;
+    const entryB2  = signalB2 && !positionWarn;  // 高位量縮不算 pass
+    scoreB2 = entryB2;
+
+    if (signalB2) {
+      if (positionWarn) {
+        b2Detail = `量縮⚠高位`;          // 有訊號但位置危險，不算 pass
+      } else if (inSnipeZone && maConverge) {
+        b2Detail = `狙擊糾結✓`;
+      } else if (inSnipeZone) {
+        b2Detail = `狙擊區量縮✓`;
+      } else if (maConverge) {
+        b2Detail = `量縮糾結✓`;
+      } else {
+        b2Detail = `量縮價穩✓`;
+      }
+    } else if (volShrink && !priceStable) {
+      b2Detail = '量縮但波動大';
+    } else if (!volShrink && priceStable) {
+      b2Detail = '量未縮';
+    } else {
+      b2Detail = '未達條件';
+    }
+  }
+
+  // b2Score 分級：
+  // 4 = 狙擊區＋糾結（最強，藍綠呼吸燈）
+  // 3 = 狙擊區 或 糾結（藍綠呼吸燈）
+  // 2 = 一般量縮價穩 pass（綠色常亮）
+  // 1 = 高位量縮警示（有技術訊號但位置危險，橘色呼吸燈，不算 pass）
+  // 0 = 未通過
+  const b2Score = scoreB2
+    ? (b2Detail.includes('狙擊') && b2Detail.includes('糾結') ? 4
+      : b2Detail.includes('狙擊') || b2Detail.includes('糾結') ? 3
+      : 2)
+    : b2Detail.includes('⚠') ? 1   // 技術有訊號但高位，不 pass
+    : 0;
+
+  // ── 籌碼集中度（由B1資料推估）──────────────
+  // 用外資近60日持股方向：持續淨買入視為大戶增加
+  const net60 = foreignRaw.slice(-60).reduce((s,d) => s+(d.buy-d.sell),0);
+  const chipConcentrating = net60 > 0 && netRecent > 0;
+  const chipScore = chipConcentrating ? 'up' : net60 < 0 ? 'dn' : 'flat';
+
+  // ── 位階判定（用原始精確數值，不用 toFixed 後的捨去值）──
+  let zone = '—', zoneCss = 'neutral';
+  if (fCost > 0) {
+    const p1 = fCost*1.04, p2 = fCost*1.2, p3 = fCost*1.4, p4 = fCost*1.7;
+    if      (latestClose < fCost) { zone = '跌破成本';   zoneCss = 'neutral'; }
+    else if (latestClose < p1)    { zone = '醞釀期';     zoneCss = 'neutral'; }
+    else if (latestClose < p2)    { zone = '第一攻擊區'; zoneCss = 'good';    }
+    else if (latestClose < p3)    { zone = '第二攻擊區'; zoneCss = 'ok';      }
+    else if (latestClose < p4)    { zone = '極端高位';   zoneCss = 'warning'; }
+    else                          { zone = '韭菜區';     zoneCss = 'danger';  }
+  }
+
+  // ── 產業（輕量抓，快取）─────────────────────
+  let industry = item.industry || '';
+  if (!industry) {
+    try {
+      const themeRes = await apiFetch(`${SERVER}/theme/${code}`);
+      const themeJson = await themeRes.json();
+      industry = themeJson.industry || '';
+    } catch(e) {}
+  }
+
+  return {
+    code, name: item.name || code,
+    close: latestClose, volume: item.volume || 0,
+    industry,
+    rankToday: item.rankToday || null,
+    rankPrev:  item.rankPrev  || null,
+    // A
+    scoreA, ma240rising, isYearHigh, bullAlign,
+    ma5: +ma5.toFixed(1), ma20: +ma20.toFixed(1), ma60: +ma60.toFixed(1),
+    // B1
+    scoreB1, buyDays, sellDays, foreignTrend, net20,
+    // B2
+    scoreB2, b2Detail, b2Score: b2Score || 0,
+    // 籌碼
+    chipScore,
+    // 外資成本
+    fCost: fCost > 0 ? +fCost.toFixed(1) : 0,
+    trigger: trigger > 0 ? +trigger.toFixed(1) : 0,
+    zone, zoneCss,
+  };
+}
+
+// ── 渲染結果 ──────────────────────────────────
+function renderResults(data) {
+  const area = document.getElementById('resultsArea');
+  document.getElementById('resultsCount').textContent = data.length ? `${data.length} 筆` : '';
+
+  if (!data.length) {
+    area.innerHTML = `<div class="state-box"><div class="state-icon">○</div>無符合條件的股票</div>`;
+    return;
+  }
+
+  const rows = data.map(d => {
+    const abcClass = d.scoreA && d.scoreB1 && d.scoreB2 ? 'abc' : d.scoreA && d.scoreB1 ? 'ab' : d.scoreA ? 'a' : '';
+    const trendTag = d.ma240rising
+      ? `<span class="trend-tag bull">240↑</span>`
+      : `<span class="trend-tag flat">240—</span>`;
+    const newHighTag = d.isYearHigh ? `<span class="newhigh-tag">一年新高</span>` : '';
+    const bullTag = d.bullAlign ? `<span class="trend-tag bull">多頭</span>` : '';
+
+    const net20str = d.net20 >= 0
+      ? `<span class="fi-days pos">+${d.net20}</span>`
+      : `<span class="fi-days neg">${d.net20}</span>`;
+    const barW = Math.min(Math.abs(d.buyDays - 15) / 15 * 100, 100);
+    const barCls = d.scoreB1 ? 'pos' : 'neg';
+
+    const b2dot = d.b2Score >= 3 ? 'pass'
+                : d.b2Score === 2 ? 'pass'
+                : d.b2Score === 1 ? 'warn'
+                : d.b2Detail.includes('量縮') ? 'warn'
+                : 'fail';
+    // score>=2 才是真正 pass；score=1 是高位警示，用 warn 樣式
+    const b2BadgeCss = d.b2Score >= 2 ? 'pass'
+                     : d.b2Score === 1 ? 'warn'
+                     : d.b2Detail.includes('量縮') ? 'warn'
+                     : 'fail';
+    // 呼吸燈 class
+    const b2Breathe = d.b2Score === 4 ? ' breathe-snipe'   // 狙擊＋糾結：藍綠強閃
+                    : d.b2Score === 3 ? ' breathe-snipe'   // 狙擊或糾結：藍綠
+                    : d.b2Score === 1 ? ' warn-breathe'    // 高位警示：橘色
+                    : '';
+
+    const chipHtml = d.chipScore === 'up'
+      ? `<span class="chip-up">大戶↑</span>`
+      : d.chipScore === 'dn'
+      ? `<span class="chip-dn">大戶↓</span>`
+      : `<span class="chip-na">—</span>`;
+
+    const costStr = d.fCost > 0 ? `$${d.fCost}` : '—';
+    const trigStr = d.trigger > 0 ? `$${d.trigger}` : '—';
+    const overTrig = d.fCost > 0 && d.close >= d.trigger;
+
+    // 位階（已在 calcABC 用精確數值算好）
+    const zoneTag = d.zone !== '—' && d.zone
+      ? `<span class="zone-tag ${d.zoneCss}">${d.zone}</span>`
+      : '—';
+
+    return `<tr class="clickable" onclick="goToMain('${d.code}')">
+      <td><span class="code-cell">${d.code}</span></td>
+      <td><span class="name-cell">${d.name}</span></td>
+      <td class="num"><span class="price-cell">${d.close.toFixed(1)}</span></td>
+      <td>
+        <div class="abc-scores">
+          <div class="score-badge ${d.scoreA?'pass':'fail'}" title="A：趨勢">A</div>
+          <div class="score-badge ${d.scoreB1?'pass':'fail'}" title="B1：外資吸籌">B1</div>
+          <div class="score-badge ${b2BadgeCss}" title="B2：量縮（MA20×60%/凹洞量/連縮3日）＋價穩（ATR↓/K線窄/布林收口）">B2</div>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          ${trendTag}${newHighTag}${bullTag}
+        </div>
+      </td>
+      <td>
+        <div class="fi-bar">
+          ${net20str}
+          <div style="font-size:9px;color:var(--muted);margin-left:2px;">(${d.buyDays}/30日)</div>
+        </div>
+      </td>
+      <td>
+        <div class="b2-indicator">
+          <div class="b2-dot ${b2dot}${b2Breathe}"></div>
+          <span class="b2-text">${d.b2Detail}</span>
+        </div>
+      </td>
+      <td>
+        <div class="chip-indicator">${chipHtml}</div>
+      </td>
+      <td class="num" style="color:var(--muted)">${costStr}</td>
+      <td class="num" style="${overTrig?'color:var(--accent2)':'color:var(--muted)'}">${trigStr}</td>
+      <td>${zoneTag}</td>
+      <td>${(() => {
+        if (!d.rankToday) return '<span style="color:var(--muted);font-size:9px;">—</span>';
+        const prev = d.rankPrev;
+        const cur  = d.rankToday;
+        if (!prev) return `<span style="font-family:var(--mono);font-size:10px;color:var(--muted);">#${cur}</span>`;
+        const diff = prev - cur; // 正數 = 排名上升（數字變小）
+        const arrow = diff > 0
+          ? `<span style="color:var(--danger);font-size:9px;">↑${diff}</span>`
+          : diff < 0
+          ? `<span style="color:var(--green);font-size:9px;">↓${Math.abs(diff)}</span>`
+          : '';
+        const dropBadge = prev <= 50 && cur >= 100
+          ? `<span style="font-size:8px;background:rgba(212,149,90,0.15);color:var(--warn);border-radius:2px;padding:1px 3px;margin-left:2px;">熱退</span>`
+          : '';
+        return `<span style="font-family:var(--mono);font-size:10px;">#${cur}</span> ${arrow}${dropBadge}`;
+      })()}</td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `
+    <div class="result-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>代號</th>
+            <th>名稱</th>
+            <th class="num">股價</th>
+            <th>ABC評分</th>
+            <th>A 趨勢</th>
+            <th>B1 外資</th>
+            <th>B2 量縮</th>
+            <th>籌碼</th>
+            <th class="num">外資成本</th>
+            <th class="num">發動點</th>
+            <th>位階</th>
+            <th>排名</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:0 4px;">
+      點擊任一列 → 跳轉到法人成本追蹤查詢詳細資料
+    </div>`;
+}
+
+function getMainUrl() {
+  // 前端 index.html 跟 ABC選股掃描.html 在同一個資料夾
+  // 用當前頁面的 origin + pathname 推算
+  const base = window.location.href.replace(/\/[^\/]*$/, '');
+  return `${base}/index.html`;
+}
+
+function goToMain(code) {
+  localStorage.setItem('abc_jump_code', code);
+  window.open(getMainUrl(), '_blank');
+  showToast(`已開啟 ${code} 的詳細查詢`);
+}
+
+// ── 總覽更新 ──────────────────────────────────
+function updateSummary(data) {
+  const abcCount = data.filter(d => d.scoreA && d.scoreB1 && d.scoreB2).length;
+  const abCount  = data.filter(d => d.scoreA && d.scoreB1 && !d.scoreB2).length;
+  const aCount   = data.filter(d => d.scoreA && !d.scoreB1).length;
+  document.getElementById('ss-total').textContent = data.length;
+  document.getElementById('ss-abc').textContent   = abcCount;
+  document.getElementById('ss-ab').textContent    = abCount;
+  document.getElementById('ss-a').textContent     = aCount;
+  document.getElementById('scoreSummary').style.display = 'grid';
+}
+
+// ── 進度條 ────────────────────────────────────
+function showProgress(done, total, msg) {
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('progressText').textContent = `${msg}（${done} / ${total}）`;
+  document.getElementById('progressBar').style.width = total > 0 ? `${done/total*100}%` : '0%';
+}
+function hideProgress() {
+  document.getElementById('progressWrap').style.display = 'none';
+}
+
+// ── 工具 ──────────────────────────────────────
+function setBusy(on, label='') {
+  document.getElementById('btnVolume').disabled = on;
+  document.getElementById('btnIndustry').disabled = on;
+  if (on) {
+    document.getElementById('resultsTitle').textContent = label;
+    document.getElementById('resultsCount').textContent = '';
+    document.getElementById('scoreSummary').style.display = 'none';
+  } else {
+    document.getElementById('resultsTitle').textContent = '掃描完成';
+  }
+}
+function setEmpty(msg) {
+  document.getElementById('resultsArea').innerHTML =
+    `<div class="state-box"><div class="state-icon">⚠</div>${msg}</div>`;
+  hideProgress();
+}
+function avg(arr) {
+  if (!arr.length) return 0;
+  return arr.reduce((a,b) => a+b, 0) / arr.length;
+}
+function fmtDate(d) {
+  return d.toISOString().slice(0,10);
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── 分頁切換 ──────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.page-tab').forEach((btn, i) => {
+    const tabs = ['scan','rank','sector'];
+    btn.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.page-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+
+  // 切到產業輪動時自動渲染
+  if (name === 'sector' && allResults.length > 0) {
+    renderSectorRotation(allResults);
+  }
+}
+
+// ── 外資買賣超排行 ────────────────────────────
+async function loadForeignRank() {
+  const btn = document.getElementById('btnRank');
+  const area = document.getElementById('rankArea');
+  btn.disabled = true;
+  btn.textContent = '載入中...';
+  area.innerHTML = '<div class="state-box"><div class="state-icon" style="animation:spin 1s linear infinite;display:inline-block">↻</div><br>載入中...</div>';
+
+  try {
+    const res = await apiFetch(`${SERVER}/foreign_rank`);
+    const json = await res.json();
+
+    if (json.error || (!json.buy_top?.length && !json.sell_top?.length)) {
+      area.innerHTML = `<div class="state-box"><div class="state-icon">⚠</div>${json.error || '暫無資料，請於交易日後查詢'}</div>`;
+      return;
+    }
+
+    document.getElementById('rankDate').textContent =
+      `資料日期：${json.date || '最近交易日'} ／ 涵蓋 ${json.total_stocks || 0} 支個股`;
+
+    renderForeignRank(json.buy_top || [], json.sell_top || []);
+
+  } catch(e) {
+    area.innerHTML = `<div class="state-box"><div class="state-icon">⚠</div>載入失敗：${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '重新整理';
+  }
+}
+
+function renderForeignRank(buyTop, sellTop) {
+  const area = document.getElementById('rankArea');
+  const maxBuy  = Math.max(...buyTop.map(d => Math.abs(d.net)), 1);
+  const maxSell = Math.max(...sellTop.map(d => Math.abs(d.net)), 1);
+
+  const buyRows = buyTop.map((d, i) => `
+    <div class="rank-row" style="cursor:pointer" onclick="jumpToStock('${d.code}')">
+      <span class="rank-no">${i+1}</span>
+      <span class="rank-code">${d.code}</span>
+      <span class="rank-name">${d.name}</span>
+      <div class="rank-bar-wrap"><div class="rank-bar pos" style="width:${Math.abs(d.net)/maxBuy*100}%"></div></div>
+      <span class="rank-net pos">+${d.net.toLocaleString()}</span>
+    </div>`).join('');
+
+  const sellRows = sellTop.map((d, i) => `
+    <div class="rank-row" style="cursor:pointer" onclick="jumpToStock('${d.code}')">
+      <span class="rank-no">${i+1}</span>
+      <span class="rank-code">${d.code}</span>
+      <span class="rank-name">${d.name}</span>
+      <div class="rank-bar-wrap"><div class="rank-bar neg" style="width:${Math.abs(d.net)/maxSell*100}%"></div></div>
+      <span class="rank-net neg">${d.net.toLocaleString()}</span>
+    </div>`).join('');
+
+  area.innerHTML = `
+    <div class="rank-grid">
+      <div class="rank-card">
+        <div class="rank-card-title buy">▲ 外資買超前20（張）</div>
+        ${buyRows}
+      </div>
+      <div class="rank-card">
+        <div class="rank-card-title sell">▼ 外資賣超前20（張）</div>
+        ${sellRows}
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--muted);">點擊個股 → 跳轉法人成本追蹤</div>`;
+}
+
+function jumpToStock(code) {
+  localStorage.setItem('abc_jump_code', code);
+  window.open(getMainUrl(), '_blank');
+  showToast(`已開啟 ${code}`);
+}
+
+// ── 產業輪動 ──────────────────────────────────
+function renderSectorRotation(data) {
+  const area = document.getElementById('sectorArea');
+  if (!data.length) {
+    area.innerHTML = '<div class="state-box"><div class="state-icon">🔄</div>請先執行 ABC 掃描</div>';
+    return;
+  }
+
+  // 按產業分組（用 industry 欄位，若無則用主題）
+  const sectorMap = {};
+  for (const d of data) {
+    const ind = d.industry || '其他';
+    if (!sectorMap[ind]) {
+      sectorMap[ind] = { industry: ind, total: 0, aPass: 0, abPass: 0, abcPass: 0, netBuy: 0, stocks: [] };
+    }
+    const s = sectorMap[ind];
+    s.total++;
+    if (d.scoreA)              s.aPass++;
+    if (d.scoreA && d.scoreB1) s.abPass++;
+    if (d.scoreA && d.scoreB1 && d.scoreB2) s.abcPass++;
+    s.netBuy += (d.net20 || 0);
+    s.stocks.push(d.code);
+  }
+
+  const sectors = Object.values(sectorMap)
+    .filter(s => s.total >= 2)
+    .sort((a, b) => b.abPass - a.abPass);
+
+  if (!sectors.length) {
+    area.innerHTML = '<div class="state-box"><div class="state-icon">🔄</div>產業資料不足（需各產業至少2支）</div>';
+    return;
+  }
+
+  const maxAB = Math.max(...sectors.map(s => s.abPass), 1);
+
+  const cards = sectors.map(s => {
+    const abRate  = Math.round(s.abPass  / s.total * 100);
+    const abcRate = Math.round(s.abcPass / s.total * 100);
+    const netSign = s.netBuy >= 0 ? '+' : '';
+    const netColor = s.netBuy >= 0 ? 'var(--danger)' : 'var(--green)';
+    return `
+      <div class="sector-card">
+        <div class="sector-name" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>${s.industry}</span>
+          <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">${s.total}支</span>
+        </div>
+        <div class="sector-bars">
+          <div class="sector-bar-row">
+            <span class="sector-bar-label" style="color:var(--accent2);">AB</span>
+            <div class="sector-bar-bg"><div class="sector-bar-fill ab" style="width:${s.abPass/maxAB*100}%"></div></div>
+            <span class="sector-val" style="color:var(--accent2);">${s.abPass}</span>
+          </div>
+          <div class="sector-bar-row">
+            <span class="sector-bar-label" style="color:var(--accent);">ABC</span>
+            <div class="sector-bar-bg"><div class="sector-bar-fill abc" style="width:${s.abcPass/maxAB*100}%"></div></div>
+            <span class="sector-val" style="color:var(--accent);">${s.abcPass}</span>
+          </div>
+          <div class="sector-bar-row" style="margin-top:2px;">
+            <span class="sector-bar-label">外資</span>
+            <span style="font-family:var(--mono);font-size:9px;color:${netColor};">${netSign}${s.netBuy.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  area.innerHTML = `
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">
+      共 ${sectors.length} 個產業，依 AB通過數 排序。外資淨買 = 近20日累積買賣超（張）。
+    </div>
+    <div class="sector-grid">${cards}</div>`;
+}
+
+// ── 掃描完成後更新產業輪動 ───────────────────
+function updateSectorAfterScan(data) {
+  // 若使用者已在產業輪動頁面，立即更新
+  const sectorTab = document.getElementById('tab-sector');
+  if (sectorTab && sectorTab.classList.contains('active')) {
+    renderSectorRotation(data);
+  }
+  // 否則下次切換時會自動更新（switchTab 有處理）
+}
+</script>
+</body>
+</html>

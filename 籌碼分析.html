@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>籌碼分析</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  background: #f8f8f6;
+  color: #1a1a1a;
+  min-height: 100vh;
+}
+
+/* 頂部 */
+.top-bar {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.top-bar h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; }
+.top-bar .stock-name { font-size: 14px; font-weight: 600; }
+.top-bar .stock-code { font-size: 11px; color: #999; font-family: monospace; }
+.top-bar .stock-price { font-size: 14px; font-weight: 600; font-family: monospace; margin-left: 4px; }
+.search-wrap { display: flex; gap: 5px; margin-left: auto; }
+.search-wrap input {
+  padding: 5px 9px; font-size: 11px;
+  border: 1px solid #ddd; border-radius: 3px;
+  width: 90px; background: #fafafa;
+}
+.search-wrap input:focus { outline: none; border-color: #999; }
+.search-wrap button {
+  padding: 5px 10px; font-size: 11px;
+  border: 1px solid #e0e0e0; border-radius: 3px;
+  background: #1a1a1a; color: #fff; cursor: pointer;
+}
+.status-dot { width: 5px; height: 5px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+.status-dot.green { background: #639922; }
+
+/* 主容器 */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 14px 16px;
+}
+
+/* 卡片 */
+.card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.card-title {
+  font-size: 10px; font-weight: 600; color: #999;
+  letter-spacing: 0.6px; text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.update-time { font-size: 9px; color: #bbb; font-weight: 400; }
+
+/* 籌碼表格 */
+.chips-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+@media (min-width: 600px) {
+  .chips-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 800px) {
+  .chips-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.chip-item {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 3px;
+  padding: 8px 10px;
+  border-left: 2px solid #ddd;
+}
+.chip-item.positive { border-left-color: #E24B4A; }
+.chip-item.negative { border-left-color: #1D9E75; }
+.chip-item.neutral  { border-left-color: #bbb; }
+
+.chip-label { font-size: 9px; color: #999; margin-bottom: 3px; }
+.chip-value {
+  font-size: 13px; font-weight: 600; font-family: monospace;
+}
+.chip-value.up   { color: #E24B4A; }
+.chip-value.down { color: #1D9E75; }
+.chip-value.flat { color: #666; }
+.chip-sub { font-size: 9px; color: #bbb; margin-top: 2px; }
+
+/* 分析卡片 */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.signal-box {
+  border-radius: 3px;
+  padding: 8px 10px;
+  border: 1px solid #eee;
+}
+.signal-box.bull { background: #f5fbee; border-color: #d5eab5; }
+.signal-box.bear { background: #fff5f5; border-color: #fdd; }
+.signal-box.neutral { background: #f8f8f8; border-color: #eee; }
+
+.signal-title { font-size: 10px; font-weight: 600; margin-bottom: 4px; }
+.signal-desc { font-size: 10px; color: #555; line-height: 1.6; }
+
+/* 法人明細表 */
+.detail-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.detail-table th {
+  padding: 5px 8px; text-align: right; font-size: 9px;
+  font-weight: 400; color: #999; border-bottom: 1px solid #eee;
+}
+.detail-table th:first-child { text-align: left; }
+.detail-table td {
+  padding: 6px 8px; text-align: right; font-family: monospace;
+  border-bottom: 1px solid #f5f5f5;
+}
+.detail-table td:first-child { text-align: left; font-family: sans-serif; color: #555; }
+.detail-table tbody tr:last-child td { border-bottom: none; }
+.detail-table tbody tr:hover td { background: #fafafa; }
+td.pos { color: #E24B4A; }
+td.neg { color: #1D9E75; }
+
+/* 狀態 */
+.loading-text { font-size: 11px; color: #bbb; text-align: center; padding: 30px; }
+.empty-state { text-align: center; padding: 40px; color: #bbb; font-size: 11px; }
+.error-text { font-size: 11px; color: #E24B4A; text-align: center; padding: 20px; }
+
+/* 來源備注 */
+.note-text { font-size: 9px; color: #bbb; line-height: 1.6; margin-top: 6px; }
+
+/* 快速選股 */
+.quick-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.qp {
+  padding: 2px 8px; font-size: 10px;
+  border: 1px solid #e8e8e8; border-radius: 2px;
+  cursor: pointer; color: #666; background: #fff;
+}
+.qp:hover { background: #f5f5f5; }
+
+/* 指標解讀區塊 */
+.interpret-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.interpret-item {
+  display: flex; gap: 6px; align-items: flex-start;
+  padding: 6px 8px;
+  background: #fafafa; border: 1px solid #f0f0f0; border-radius: 3px;
+  font-size: 10px;
+}
+.interpret-icon { font-size: 13px; flex-shrink: 0; }
+.interpret-body {}
+.interpret-title { font-weight: 600; margin-bottom: 1px; }
+.interpret-desc { color: #666; line-height: 1.5; }
+
+/* 來源標籤 */
+.source-badge {
+  font-size: 9px; padding: 1px 5px; border-radius: 2px;
+  background: #eee; color: #888;
+}
+.source-badge.twse { background: #e8f0fb; color: #185FA5; }
+.source-badge.finmind { background: #eaf3de; color: #3B6D11; }
+</style>
+</head>
+<body>
+
+<!-- 頂部 -->
+<div class="top-bar">
+  <a href="index.html" style="font-size:11px;color:#999;text-decoration:none;margin-right:4px;">← 法人成本</a>
+  <h1>籌碼分析</h1>
+  <span class="status-dot" id="statusDot"></span>
+  <span id="stockTitle" style="font-size:13px;color:#999;">← 輸入股票代號</span>
+  <div class="search-wrap">
+    <input type="text" id="codeInput" placeholder="股票代號" maxlength="6" />
+    <button onclick="loadChips()">查詢</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 快速選股 -->
+  <div style="margin-bottom:10px;">
+    <div class="quick-picks">
+      <span style="font-size:9px;color:#bbb;align-self:center;">常用</span>
+      <button class="qp" onclick="setCode('2330')">2330</button>
+      <button class="qp" onclick="setCode('2317')">2317</button>
+      <button class="qp" onclick="setCode('2454')">2454</button>
+      <button class="qp" onclick="setCode('2367')">2367</button>
+      <button class="qp" onclick="setCode('6213')">6213</button>
+      <button class="qp" onclick="setCode('1802')">1802</button>
+      <button class="qp" onclick="setCode('3491')">3491</button>
+    </div>
+  </div>
+
+  <!-- 主內容 -->
+  <div id="mainContent">
+    <div class="empty-state">輸入股票代號開始查詢籌碼</div>
+  </div>
+
+</div>
+
+<script>
+// ── SERVER 設定 ──
+function getServer() {
+  return localStorage.getItem('stockServerUrl') || 'https://stock-backend-production-95d3.up.railway.app';
+}
+const SERVER = getServer();
+
+function getToken() {
+  // sessionStorage（同分頁登入）或 localStorage（跨分頁共用）
+  return sessionStorage.getItem('appToken') || localStorage.getItem('appToken') || '';
+}
+
+function apiFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      'ngrok-skip-browser-warning': '1',
+      'x-token': getToken(),
+      ...(options.headers || {})
+    }
+  });
+}
+
+function timeout(ms) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error('請求逾時')), ms));
+}
+
+async function apiFetchJson(url, ms = 15000) {
+  const res = await Promise.race([apiFetch(url), timeout(ms)]);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// 從 URL 讀取參數
+function getUrlParam(key) {
+  return new URLSearchParams(window.location.search).get(key) || '';
+}
+
+function setCode(code) {
+  document.getElementById('codeInput').value = code;
+  loadChips();
+}
+
+document.getElementById('codeInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadChips();
+});
+
+// 格式化張數
+function fmtShares(n) {
+  if (!n && n !== 0) return '—';
+  const abs = Math.abs(n);
+  return abs.toLocaleString() + '張';
+}
+
+// 判斷正負
+function signClass(n) {
+  if (n > 0) return 'up';
+  if (n < 0) return 'down';
+  return 'flat';
+}
+function borderClass(n) {
+  if (n > 0) return 'positive';
+  if (n < 0) return 'negative';
+  return 'neutral';
+}
+
+// 格式化顯示值
+function fmtVal(n, suffix = '張') {
+  if (n == null || n === '' || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+  return sign + abs.toLocaleString() + suffix;
+}
+
+async function loadChips() {
+  const code = document.getElementById('codeInput').value.trim();
+  if (!code) return;
+
+  // 更新 URL（不跳頁）
+  history.replaceState(null, '', `?code=${code}`);
+
+  document.getElementById('mainContent').innerHTML =
+    '<div class="loading-text">載入籌碼資料中...</div>';
+  document.getElementById('stockTitle').textContent = code;
+
+  try {
+    const chipsJson = await apiFetchJson(`${SERVER}/chips/${code}`, 30000);
+    let tickerJson = {};
+    try {
+      tickerJson = await apiFetchJson(`${SERVER}/ticker/${code}`, 3000);
+    } catch(e) {
+      tickerJson = { name: code };
+    }
+
+    const stockName = tickerJson.name || code;
+    const d = chipsJson.data || {};
+    const source = chipsJson.source || 'twse';
+    const dataDate = chipsJson.date || '';
+
+    document.getElementById('stockTitle').innerHTML =
+      `<span style="font-weight:600;font-size:14px;">${stockName}</span>
+       <span style="color:#999;font-size:11px;font-family:monospace;margin-left:4px;">${code}</span>
+       ${d.price ? `<span style="font-family:monospace;font-size:13px;font-weight:600;margin-left:6px;">$${d.price?.toFixed(1)}</span>` : ''}`;
+    document.getElementById('statusDot').className = 'status-dot green';
+
+    // 計算解讀
+    const institutionals = (d.foreign_net || 0) + (d.invest_trust_net || 0) + (d.dealer_net || 0);
+    const mainForce = d.main_net || 0;
+    const marginBal = d.margin_balance || 0;
+    const shortBal  = d.short_balance || 0;
+
+    // 位階解讀
+    function interpret(items) {
+      return items.map(item => `
+        <div class="interpret-item">
+          <span class="interpret-icon">${item.icon}</span>
+          <div class="interpret-body">
+            <div class="interpret-title">${item.title}</div>
+            <div class="interpret-desc">${item.desc}</div>
+          </div>
+        </div>`).join('');
+    }
+
+    const interpretItems = [
+      {
+        icon: d.foreign_net > 0 ? '🟢' : d.foreign_net < 0 ? '🔴' : '⚪',
+        title: '外資動向',
+        desc: d.foreign_net > 0
+          ? `外資買超 ${Math.abs(d.foreign_net).toLocaleString()} 張，籌碼偏多。`
+          : d.foreign_net < 0
+          ? `外資賣超 ${Math.abs(d.foreign_net).toLocaleString()} 張，注意賣壓。`
+          : '外資持平，觀察。'
+      },
+      {
+        icon: d.invest_trust_net > 0 ? '🟢' : d.invest_trust_net < 0 ? '🔴' : '⚪',
+        title: '投信動向',
+        desc: d.invest_trust_net > 0
+          ? `投信買超 ${Math.abs(d.invest_trust_net).toLocaleString()} 張，法人聯買訊號。`
+          : d.invest_trust_net < 0
+          ? `投信賣超 ${Math.abs(d.invest_trust_net).toLocaleString()} 張。`
+          : '投信持平。'
+      },
+      {
+        icon: mainForce > 0 ? '🟢' : mainForce < 0 ? '🟡' : '⚪',
+        title: '主力動向',
+        desc: mainForce > 0
+          ? `主力買超 ${Math.abs(mainForce).toLocaleString()} 張，積極介入。`
+          : mainForce < 0
+          ? `主力賣超 ${Math.abs(mainForce).toLocaleString()} 張，留意出貨。`
+          : '主力持平。'
+      },
+      {
+        icon: d.margin_change < 0 ? '🟢' : d.margin_change > 0 ? '🔴' : '⚪',
+        title: '融資狀況',
+        desc: d.margin_change < 0
+          ? `融資減少 ${Math.abs(d.margin_change || 0).toLocaleString()} 張，籌碼趨乾淨。`
+          : d.margin_change > 0
+          ? `融資增加 ${Math.abs(d.margin_change || 0).toLocaleString()} 張，散戶追高需注意。`
+          : '融資持平。'
+      },
+    ];
+
+    document.getElementById('mainContent').innerHTML = `
+
+      <!-- 今日籌碼總覽 -->
+      <div class="card">
+        <div class="card-title">
+          今日籌碼總覽
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span class="source-badge ${source}">${source === 'twse' ? 'TWSE' : 'FinMind'}</span>
+            <span class="update-time">${dataDate || '今日'} 資料</span>
+          </div>
+        </div>
+        <div class="chips-grid">
+
+          <!-- 成交量 -->
+          <div class="chip-item neutral">
+            <div class="chip-label">成交量</div>
+            <div class="chip-value flat">${d.volume != null ? d.volume.toLocaleString() + '張' : '—'}</div>
+            <div class="chip-sub">當日總成交</div>
+          </div>
+
+          <!-- 主力 -->
+          <div class="chip-item ${borderClass(mainForce)}">
+            <div class="chip-label">主力</div>
+            <div class="chip-value ${signClass(mainForce)}">${mainForce > 0 ? '小買' : mainForce < 0 ? '小賣' : '持平'}${mainForce !== 0 ? Math.abs(mainForce).toLocaleString() + '張' : ''}</div>
+            <div class="chip-sub">主力買賣超</div>
+          </div>
+
+          <!-- 家數差 -->
+          <div class="chip-item ${borderClass(d.family_diff)}">
+            <div class="chip-label">家數差</div>
+            <div class="chip-value ${signClass(d.family_diff)}">${d.family_diff != null ? (d.family_diff > 0 ? '+' : '') + d.family_diff + '間' : '—'}</div>
+            <div class="chip-sub">買賣家數差</div>
+          </div>
+
+          <!-- 籌碼集中度 -->
+          <div class="chip-item ${d.concentration > 0 ? 'positive' : 'neutral'}">
+            <div class="chip-label">籌碼集中</div>
+            <div class="chip-value ${d.concentration > 2 ? 'up' : d.concentration > 0 ? 'flat' : 'flat'}">
+              ${d.concentration != null ? (d.concentration > 2 ? '高度' : d.concentration > 0 ? '中度' : '低度') + d.concentration.toFixed(2) + '%' : '—'}
+            </div>
+            <div class="chip-sub">集中度指標</div>
+          </div>
+
+          <!-- 外資 -->
+          <div class="chip-item ${borderClass(d.foreign_net)}">
+            <div class="chip-label">外資</div>
+            <div class="chip-value ${signClass(d.foreign_net)}">${d.foreign_net > 0 ? '小買' : d.foreign_net < 0 ? '小賣' : '持平'}${d.foreign_net != null && d.foreign_net !== 0 ? Math.abs(d.foreign_net).toLocaleString() + '張' : ''}</div>
+            <div class="chip-sub">外資買賣超</div>
+          </div>
+
+          <!-- 投信 -->
+          <div class="chip-item ${borderClass(d.invest_trust_net)}">
+            <div class="chip-label">投信</div>
+            <div class="chip-value ${signClass(d.invest_trust_net)}">${d.invest_trust_net > 0 ? '小買' : d.invest_trust_net < 0 ? '小賣' : '持平'}${d.invest_trust_net != null && d.invest_trust_net !== 0 ? Math.abs(d.invest_trust_net).toLocaleString() + '張' : ''}</div>
+            <div class="chip-sub">投信買賣超</div>
+          </div>
+
+          <!-- 自營商 -->
+          <div class="chip-item ${borderClass(d.dealer_net)}">
+            <div class="chip-label">自營商</div>
+            <div class="chip-value ${signClass(d.dealer_net)}">${d.dealer_net > 0 ? '小買' : d.dealer_net < 0 ? '小賣' : '持平'}${d.dealer_net != null && d.dealer_net !== 0 ? Math.abs(d.dealer_net).toLocaleString() + '張' : ''}</div>
+            <div class="chip-sub">自營買賣超</div>
+          </div>
+
+          <!-- 中實戶 -->
+          <div class="chip-item ${borderClass(d.mid_holder)}">
+            <div class="chip-label">中實戶</div>
+            <div class="chip-value ${signClass(d.mid_holder)}">${d.mid_holder != null ? (d.mid_holder >= 0 ? '買進 ' : '賣出 ') + Math.abs(d.mid_holder).toLocaleString() + '張' : '—'}</div>
+            <div class="chip-sub">大戶動向</div>
+          </div>
+
+          <!-- 八大官股 -->
+          <div class="chip-item ${borderClass(d.gov_net)}">
+            <div class="chip-label">八大官股</div>
+            <div class="chip-value ${signClass(d.gov_net)}">${d.gov_net != null ? (d.gov_net >= 0 ? '買進 ' : '賣出 ') + Math.abs(d.gov_net).toLocaleString() + '張' : '—'}</div>
+            <div class="chip-sub">官股合計</div>
+          </div>
+
+          <!-- 融資 -->
+          <div class="chip-item ${d.margin_change < 0 ? 'negative' : d.margin_change > 0 ? 'positive' : 'neutral'}">
+            <div class="chip-label">融資</div>
+            <div class="chip-value ${d.margin_change < 0 ? 'down' : d.margin_change > 0 ? 'up' : 'flat'}">${d.margin_change != null ? (d.margin_change >= 0 ? '增加' : '減少') + Math.abs(d.margin_change).toLocaleString() + '張' : '—'}</div>
+            <div class="chip-sub">餘額 ${d.margin_balance != null ? d.margin_balance.toLocaleString() : '—'}張</div>
+          </div>
+
+          <!-- 融券 -->
+          <div class="chip-item ${d.short_change > 0 ? 'positive' : d.short_change < 0 ? 'negative' : 'neutral'}">
+            <div class="chip-label">融券</div>
+            <div class="chip-value ${d.short_change > 0 ? 'up' : d.short_change < 0 ? 'down' : 'flat'}">${d.short_change != null ? (d.short_change >= 0 ? '增加' : '減少') + Math.abs(d.short_change).toLocaleString() + '張' : '—'}</div>
+            <div class="chip-sub">餘額 ${d.short_balance != null ? d.short_balance.toLocaleString() : '—'}張</div>
+          </div>
+
+          <!-- 券資比 -->
+          <div class="chip-item ${d.short_margin_ratio > 20 ? 'positive' : 'neutral'}">
+            <div class="chip-label">券資比</div>
+            <div class="chip-value ${d.short_margin_ratio > 20 ? 'up' : 'flat'}">${d.short_margin_ratio != null ? d.short_margin_ratio.toFixed(2) + '%' : '—'}</div>
+            <div class="chip-sub">${d.short_margin_ratio > 25 ? '空方籌碼偏多' : d.short_margin_ratio > 10 ? '中性' : '空單偏少'}</div>
+          </div>
+
+          <!-- 借券賣 -->
+          <div class="chip-item ${borderClass(d.borrow_sell_change)}">
+            <div class="chip-label">借券賣</div>
+            <div class="chip-value ${signClass(d.borrow_sell_change)}">${d.borrow_sell_change != null ? (d.borrow_sell_change >= 0 ? '增加' : '減少') + Math.abs(d.borrow_sell_change).toLocaleString() + '張' : '—'}</div>
+            <div class="chip-sub">借券餘額 ${d.borrow_sell_balance != null ? d.borrow_sell_balance.toLocaleString() : '—'}張</div>
+          </div>
+
+          <!-- 當沖 -->
+          <div class="chip-item neutral">
+            <div class="chip-label">當沖量</div>
+            <div class="chip-value flat">${d.day_trade_volume != null ? d.day_trade_volume.toLocaleString() + '張' : '—'}</div>
+            <div class="chip-sub">當沖率 ${d.day_trade_ratio != null ? d.day_trade_ratio.toFixed(2) + '%' : '—'}</div>
+          </div>
+
+          <!-- 周轉率 -->
+          <div class="chip-item neutral">
+            <div class="chip-label">周轉率</div>
+            <div class="chip-value flat">${d.turnover_rate != null ? d.turnover_rate.toFixed(2) + '%' : '—'}</div>
+            <div class="chip-sub">換手活躍度</div>
+          </div>
+
+          <!-- 三大法人合計 -->
+          <div class="chip-item ${borderClass(institutionals)}">
+            <div class="chip-label">三大法人合計</div>
+            <div class="chip-value ${signClass(institutionals)}">${institutionals > 0 ? '+' : ''}${institutionals.toLocaleString()}張</div>
+            <div class="chip-sub">外資+投信+自營</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 法人籌碼解讀 -->
+      <div class="card">
+        <div class="card-title">法人籌碼解讀</div>
+        <div class="interpret-grid">
+          ${interpret(interpretItems)}
+        </div>
+      </div>
+
+      <!-- 近期法人動向 -->
+      ${chipsJson.history && chipsJson.history.length > 0 ? `
+      <div class="card">
+        <div class="card-title">近 10 日三大法人買賣超</div>
+        <table class="detail-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>外資</th>
+              <th>投信</th>
+              <th>自營商</th>
+              <th>合計</th>
+              <th>收盤</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${chipsJson.history.slice(-10).reverse().map(h => {
+              const total = (h.foreign_net||0) + (h.invest_trust_net||0) + (h.dealer_net||0);
+              return `<tr>
+                <td>${h.date ? h.date.slice(5) : '—'}</td>
+                <td class="${h.foreign_net>=0?'pos':'neg'}">${h.foreign_net>=0?'+':''}${(h.foreign_net||0).toLocaleString()}</td>
+                <td class="${h.invest_trust_net>=0?'pos':'neg'}">${h.invest_trust_net>=0?'+':''}${(h.invest_trust_net||0).toLocaleString()}</td>
+                <td class="${h.dealer_net>=0?'pos':'neg'}">${h.dealer_net>=0?'+':''}${(h.dealer_net||0).toLocaleString()}</td>
+                <td class="${total>=0?'pos':'neg'}">${total>=0?'+':''}${total.toLocaleString()}</td>
+                <td>$${h.close?.toFixed(1)||'—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>` : ''}
+
+      <!-- 融資融券歷史 -->
+      ${chipsJson.margin_history && chipsJson.margin_history.length > 0 ? `
+      <div class="card">
+        <div class="card-title">近 10 日融資融券</div>
+        <table class="detail-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>融資餘額</th>
+              <th>融資增減</th>
+              <th>融券餘額</th>
+              <th>融券增減</th>
+              <th>券資比</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${chipsJson.margin_history.slice(-10).reverse().map(h => `
+              <tr>
+                <td>${h.date ? h.date.slice(5) : '—'}</td>
+                <td>${(h.margin_balance||0).toLocaleString()}</td>
+                <td class="${(h.margin_change||0)>=0?'pos':'neg'}">${(h.margin_change||0)>=0?'+':''}${(h.margin_change||0).toLocaleString()}</td>
+                <td>${(h.short_balance||0).toLocaleString()}</td>
+                <td class="${(h.short_change||0)>=0?'pos':'neg'}">${(h.short_change||0)>=0?'+':''}${(h.short_change||0).toLocaleString()}</td>
+                <td>${h.short_margin_ratio != null ? h.short_margin_ratio.toFixed(1) + '%' : '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : ''}
+
+      <div class="note-text">
+        * 三大法人：TWSE 公開資料 ✓　融資融券：TWSE ✓　籌碼集中度：統計計算　當沖率：TWSE ✓<br>
+        * 資料以收盤後更新為準，盤中數據可能不完整。僅供參考，不構成投資建議。
+      </div>
+    `;
+
+  } catch(err) {
+    document.getElementById('mainContent').innerHTML =
+      `<div class="error-text">載入失敗：${err.message}</div>`;
+  }
+}
+
+// 初始化：從 URL 讀取股票代號（跨頁連動）
+window.addEventListener('DOMContentLoaded', () => {
+  const code = getUrlParam('code');
+  if (code) {
+    document.getElementById('codeInput').value = code;
+    // 若已有 token 直接查詢
+    if (getToken()) {
+      loadChips();
+    } else {
+      // 未登入就導回主頁
+      document.getElementById('mainContent').innerHTML =
+        '<div class="empty-state">請先在主頁面登入後再開啟此頁<br><a href="外資成本追蹤.html" style="color:#378ADD;">← 返回主頁</a></div>';
+    }
+  }
+});
+</script>
+</body>
+</html>
