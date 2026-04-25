@@ -544,7 +544,7 @@ async function fetchAndRender(code) {
 // ── 主渲染 ────────────────────────────────────────────────────────
 function renderPanel(code, name, d) {
   const { outer, inner, total, ratio, r_outer, r_inner, r_ratio,
-          latest_price, trade_count, updated_at, trades } = d;
+          latest_price, close_price, close_date, trade_count, updated_at, trades } = d;
 
   // 全日信號
   const allBull = ratio >= 55;
@@ -591,14 +591,16 @@ function renderPanel(code, name, d) {
       <span class="tick-side ${t.side}">${t.side === 'outer' ? '外盤' : '內盤'}</span>
     </div>`).join('');
 
+  const isClosePrice = !!(close_date);  // 非交易時段，顯示的是收盤價
   const priceDisplay = latest_price ? `$${latest_price.toFixed(2)}` : '—';
+  const priceSuffix  = isClosePrice ? `<span style="font-size:9px;color:#555;margin-left:4px;">${close_date} 收盤</span>` : '';
 
   document.getElementById('rightPanel').innerHTML = `
     <!-- 股票標頭 -->
     <div class="stock-header">
       <span class="s-name">${name}</span>
       <span class="s-code">${code}</span>
-      <span class="s-price">${priceDisplay}</span>
+      <span class="s-price">${priceDisplay}${priceSuffix}</span>
       <span class="s-updated">${updated_at || ''}</span>
     </div>
 
@@ -690,7 +692,7 @@ function renderPanel(code, name, d) {
     <!-- 說明 -->
     <div class="note">
       * 全日外盤/內盤比：Fugle <code>intraday/volumes</code> 的 volumeAtAsk／volumeAtBid，為 Fugle 直接統計，數值精確。<br>
-      * 近30筆滾動：Fugle <code>intraday/trades?limit=500&sort=asc</code> 逐筆 Tick Rule 推估——成交價 &gt; 前一筆 → 外盤；&lt; → 內盤；相同 → 沿用前一筆。筆數少、時效高，適合盤中動能判斷。<br>
+      * 近30筆滾動：Fugle <code>intraday/trades?limit=500&sort=desc</code> 先抓最新500筆，再本地轉成舊到新做 Tick Rule 推估——成交價 &gt; 前一筆 → 外盤；&lt; → 內盤；相同 → 沿用前一筆。筆數少、時效高，適合盤中動能判斷。<br>
       * 量的單位為 Fugle 回傳的 size（成交單量），非張數，僅供相對比較使用，不構成投資建議。
     </div>
   `;
