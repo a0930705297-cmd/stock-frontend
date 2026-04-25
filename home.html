@@ -218,11 +218,13 @@ main {
 .card-abc    { --card-color: #8fb87a; }
 .card-chip   { --card-color: #6a9fd4; }
 .card-emerg  { --card-color: #d4955a; }
+.card-tick   { --card-color: #b87a9f; }
 
 .tag-gold   { color: #c8a96e; border-color: rgba(200,169,110,0.25); background: rgba(200,169,110,0.06); }
 .tag-green  { color: #8fb87a; border-color: rgba(143,184,122,0.25); background: rgba(143,184,122,0.06); }
 .tag-blue   { color: #6a9fd4; border-color: rgba(106,159,212,0.25); background: rgba(106,159,212,0.06); }
 .tag-orange { color: #d4955a; border-color: rgba(212,149,90,0.25);  background: rgba(212,149,90,0.06); }
+.tag-purple { color: #b87a9f; border-color: rgba(184,122,159,0.25); background: rgba(184,122,159,0.06); }
 .tag-gray   { color: var(--muted); border-color: var(--border2);    background: rgba(255,255,255,0.03); }
 
 /* 底部 */
@@ -250,6 +252,7 @@ footer {
 .fdot.green  { background: rgba(143,184,122,0.5); }
 .fdot.blue   { background: rgba(106,159,212,0.5); }
 .fdot.orange { background: rgba(212,149,90,0.5); }
+.fdot.purple { background: rgba(184,122,159,0.5); }
 
 /* 動畫 */
 .card {
@@ -259,6 +262,7 @@ footer {
 .card:nth-child(2) { animation-delay: 0.10s; }
 .card:nth-child(3) { animation-delay: 0.15s; }
 .card:nth-child(4) { animation-delay: 0.20s; }
+.card:nth-child(5) { animation-delay: 0.25s; }
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
@@ -371,6 +375,25 @@ header, .divider, main, footer {
       <span class="card-arrow">↗</span>
     </a>
 
+    <!-- 內外盤比 -->
+    <a class="card card-tick" href="內外盤比.html">
+      <span class="card-icon">📈</span>
+      <div class="card-name">
+        即時內外盤比
+        <span class="card-badge">盤中</span>
+      </div>
+      <div class="card-desc">
+        用 Tick Rule 逐筆計算內外盤比，即時判斷主動買盤或賣盤主導。支援全日統計與近30筆滾動窗口，盤中決策更精準。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-purple">Tick Rule</span>
+        <span class="tag tag-purple">滾動窗口</span>
+        <span class="tag tag-purple">15秒更新</span>
+        <span class="tag tag-gray">逐筆明細</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
   </div>
 
   <div class="section-title" style="margin-top:8px;">使用提示</div>
@@ -389,6 +412,7 @@ header, .divider, main, footer {
     <div class="fdot green"></div>
     <div class="fdot blue"></div>
     <div class="fdot orange"></div>
+    <div class="fdot purple"></div>
   </div>
 </footer>
 

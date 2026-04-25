@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>即時內外盤比</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  background: #0f0f0f;
+  color: #e0e0e0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── 登入頁 ── */
+#loginPage {
+  display: flex; align-items: center; justify-content: center;
+  height: 100vh; background: #0f0f0f;
+}
+.login-box { width: 260px; text-align: center; }
+.login-box h1 { font-size: 14px; font-weight: 500; margin-bottom: 4px; color: #e0e0e0; letter-spacing: 0.5px; }
+.login-box p { font-size: 11px; color: #555; margin-bottom: 20px; }
+.login-box input {
+  width: 100%; padding: 8px 12px; font-size: 12px;
+  border: 1px solid #2a2a2a; border-radius: 4px;
+  background: #1a1a1a; color: #e0e0e0; margin-bottom: 8px;
+}
+.login-box input:focus { outline: none; border-color: #444; }
+.login-box button {
+  width: 100%; padding: 8px; font-size: 12px;
+  border: 1px solid #333; border-radius: 4px;
+  background: #1f1f1f; color: #e0e0e0; cursor: pointer;
+}
+.login-box button:hover { background: #2a2a2a; }
+#loginError { font-size: 11px; color: #e05050; margin-top: 6px; }
+
+/* ── 主版面 ── */
+#mainPage { display: none; height: 100vh; overflow: hidden; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100vh;
+}
+
+/* ── 左欄 ── */
+.left {
+  background: #111;
+  border-right: 1px solid #1e1e1e;
+  display: flex; flex-direction: column;
+  height: 100vh; overflow: hidden;
+}
+
+.left-header {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+.left-header h1 { font-size: 13px; font-weight: 500; color: #ccc; letter-spacing: 0.3px; }
+.server-status { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 10px; color: #555; }
+.status-dot { width: 5px; height: 5px; border-radius: 50%; background: #333; flex-shrink: 0; }
+.status-dot.green { background: #4a9; }
+.status-dot.red { background: #c44; }
+
+/* 搜尋 */
+.search-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+.search-row { display: flex; gap: 5px; margin-bottom: 6px; }
+.search-row input {
+  flex: 1; padding: 6px 8px; font-size: 12px; letter-spacing: 1px;
+  border: 1px solid #222; border-radius: 3px;
+  background: #181818; color: #e0e0e0;
+}
+.search-row input:focus { outline: none; border-color: #444; }
+.search-row button {
+  padding: 6px 10px; font-size: 11px;
+  border: 1px solid #333; border-radius: 3px;
+  background: #222; color: #ccc; cursor: pointer;
+}
+.search-row button:hover { background: #2a2a2a; }
+.quick-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.qp {
+  padding: 2px 8px; font-size: 10px;
+  border: 1px solid #222; border-radius: 2px;
+  cursor: pointer; color: #666; background: #181818;
+  font-family: monospace;
+}
+.qp:hover { color: #aaa; border-color: #333; }
+
+/* 監控清單 */
+.watch-section {
+  flex: 1; overflow-y: auto; padding: 10px 12px;
+}
+.watch-section::-webkit-scrollbar { width: 3px; }
+.watch-section::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+.section-label {
+  font-size: 9px; font-weight: 600; color: #444;
+  letter-spacing: 0.8px; text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.section-label span { cursor: pointer; color: #333; }
+.section-label span:hover { color: #777; }
+
+.watch-add { display: flex; gap: 4px; margin-bottom: 8px; }
+.watch-add input {
+  flex: 1; padding: 4px 6px; font-size: 11px;
+  border: 1px solid #222; border-radius: 2px;
+  background: #181818; color: #ddd;
+}
+.watch-add button {
+  padding: 4px 8px; font-size: 11px;
+  border: 1px solid #222; border-radius: 2px;
+  background: #1e1e1e; color: #aaa; cursor: pointer;
+}
+.watch-add button:hover { background: #252525; }
+
+.watch-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px; border-radius: 3px;
+  margin-bottom: 3px;
+  background: #161616; border: 1px solid #1e1e1e;
+  cursor: pointer;
+}
+.watch-item:hover { border-color: #2a2a2a; background: #1a1a1a; }
+.watch-item.selected { border-color: #3a3a3a; background: #1e1e1e; }
+.wi-code { font-weight: 600; min-width: 35px; font-family: monospace; font-size: 11px; color: #ccc; }
+.wi-name { flex: 1; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.wi-ratio { font-size: 11px; font-family: monospace; font-weight: 600; }
+.wi-ratio.bull { color: #e05050; }
+.wi-ratio.bear { color: #3aaa6a; }
+.wi-ratio.neutral { color: #555; }
+.wi-remove { color: #2a2a2a; cursor: pointer; font-size: 10px; }
+.wi-remove:hover { color: #c44; }
+
+/* 自動更新 */
+.auto-section {
+  padding: 8px 12px;
+  border-top: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+.auto-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: #555;
+}
+.auto-row input[type=checkbox] { cursor: pointer; accent-color: #555; }
+.countdown { font-family: monospace; color: #3aaa6a; font-size: 10px; margin-left: auto; }
+.last-update { font-size: 9px; color: #333; margin-top: 3px; }
+
+/* ── 右欄 ── */
+.right {
+  background: #0f0f0f;
+  overflow-y: auto;
+  height: 100vh;
+  padding: 16px;
+}
+.right::-webkit-scrollbar { width: 4px; }
+.right::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+.empty-state {
+  display: flex; align-items: center; justify-content: center;
+  height: 60%; color: #2a2a2a; font-size: 12px;
+}
+
+/* 股票標頭 */
+.stock-header {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;
+}
+.s-name { font-size: 16px; font-weight: 600; color: #ddd; }
+.s-code { font-size: 11px; color: #444; font-family: monospace; }
+.s-price { font-size: 16px; font-weight: 600; font-family: monospace; margin-left: auto; color: #e0e0e0; }
+.s-updated { font-size: 9px; color: #333; align-self: flex-end; }
+
+/* 主進度條 */
+.bar-card {
+  background: #141414; border: 1px solid #1e1e1e; border-radius: 6px;
+  padding: 14px 16px; margin-bottom: 10px;
+}
+.bar-label-row {
+  display: flex; justify-content: space-between;
+  font-size: 10px; margin-bottom: 6px;
+}
+.bar-label-row .inner-label { color: #3aaa6a; font-weight: 500; }
+.bar-label-row .outer-label { color: #e05050; font-weight: 500; }
+
+.main-bar {
+  height: 32px; border-radius: 4px; overflow: hidden;
+  display: flex; background: #0f0f0f;
+  border: 1px solid #1e1e1e;
+}
+.bar-i {
+  background: #1a4a32;
+  display: flex; align-items: center; justify-content: flex-start;
+  padding-left: 8px;
+  font-size: 13px; font-weight: 700; color: #3aaa6a;
+  transition: width 0.5s ease;
+  min-width: 28px; overflow: hidden;
+}
+.bar-o {
+  flex: 1; background: #4a1a1a;
+  display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 8px;
+  font-size: 13px; font-weight: 700; color: #e05050;
+  transition: width 0.5s ease;
+  min-width: 28px; overflow: hidden;
+}
+.bar-meta {
+  display: flex; justify-content: space-between;
+  margin-top: 5px; font-size: 10px; color: #444;
+}
+
+/* 指標區 */
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.metric {
+  background: #141414; border: 1px solid #1e1e1e; border-radius: 4px;
+  padding: 10px 12px;
+}
+.metric-label { font-size: 9px; color: #444; margin-bottom: 4px; letter-spacing: 0.3px; }
+.metric-value { font-size: 20px; font-weight: 700; font-family: monospace; }
+.metric-value.bull { color: #e05050; }
+.metric-value.bear { color: #3aaa6a; }
+.metric-value.neutral { color: #666; }
+.metric-sub { font-size: 9px; color: #333; margin-top: 3px; }
+
+/* 四格指標 */
+.four-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.fm {
+  background: #141414; border: 1px solid #1e1e1e; border-radius: 4px;
+  padding: 8px 10px;
+}
+.fm-label { font-size: 9px; color: #444; margin-bottom: 3px; }
+.fm-value { font-size: 13px; font-weight: 600; font-family: monospace; color: #bbb; }
+
+/* 信號框 */
+.signal {
+  border-radius: 4px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: 11px; line-height: 1.7;
+}
+.signal.bull { background: #1a0f0f; border: 1px solid #3a1515; }
+.signal.bear { background: #0f1a13; border: 1px solid #153a20; }
+.signal.neutral { background: #141414; border: 1px solid #1e1e1e; }
+.signal-title { font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+.signal.bull .signal-title { color: #e05050; }
+.signal.bear .signal-title { color: #3aaa6a; }
+.signal.neutral .signal-title { color: #666; }
+.signal-desc { color: #666; }
+
+/* 近30筆窗口 */
+.window-section {
+  background: #141414; border: 1px solid #1e1e1e; border-radius: 6px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.window-title {
+  font-size: 9px; color: #444; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.window-title span { color: #3aaa6a; font-size: 10px; }
+.mini-bar {
+  height: 18px; border-radius: 3px; overflow: hidden;
+  display: flex; margin-bottom: 5px;
+}
+.mini-i {
+  background: #1a4a32;
+  display: flex; align-items: center; padding-left: 6px;
+  font-size: 10px; font-weight: 600; color: #3aaa6a;
+  transition: width 0.4s ease; min-width: 20px;
+}
+.mini-o {
+  flex: 1; background: #4a1a1a;
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 6px;
+  font-size: 10px; font-weight: 600; color: #e05050;
+  transition: width 0.4s ease; min-width: 20px;
+}
+.window-meta { display: flex; justify-content: space-between; font-size: 10px; color: #333; }
+.window-meta .wm-bull { color: #3aaa6a; }
+.window-meta .wm-bear { color: #e05050; }
+
+/* 逐筆清單 */
+.tick-section {
+  background: #141414; border: 1px solid #1e1e1e; border-radius: 6px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.tick-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.tick-title { font-size: 9px; color: #444; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
+.tick-count { font-size: 9px; color: #333; }
+
+.tick-list { max-height: 200px; overflow-y: auto; }
+.tick-list::-webkit-scrollbar { width: 3px; }
+.tick-list::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+.tick-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 50px 45px;
+  align-items: center; gap: 6px;
+  padding: 3px 0; border-bottom: 1px solid #181818;
+  font-size: 10px;
+}
+.tick-row:last-child { border-bottom: none; }
+.tick-time { color: #333; font-family: monospace; font-size: 9px; }
+.tick-price { font-family: monospace; font-weight: 600; color: #bbb; }
+.tick-vol { color: #444; text-align: right; font-family: monospace; }
+.tick-side {
+  font-size: 9px; padding: 1px 5px; border-radius: 2px;
+  font-weight: 600; text-align: center;
+}
+.tick-side.outer { background: #4a1a1a; color: #e05050; }
+.tick-side.inner { background: #1a4a32; color: #3aaa6a; }
+
+/* 說明 */
+.note {
+  font-size: 9px; color: #2a2a2a; line-height: 1.7; padding: 8px 0;
+}
+
+.loading-text { font-size: 11px; color: #333; text-align: center; padding: 30px; }
+.error-text { font-size: 11px; color: #c44; background: #1a0f0f; border: 1px solid #3a1515; border-radius: 4px; padding: 10px 12px; }
+</style>
+</head>
+<body>
+
+<!-- 登入 -->
+<div id="loginPage">
+  <div class="login-box">
+    <h1>即時內外盤比</h1>
+    <p>Tick Rule 逐筆計算</p>
+    <input type="password" id="loginInput" placeholder="密碼" autocomplete="off" />
+    <button onclick="doLogin()">登入</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- 主頁面 -->
+<div id="mainPage">
+  <div class="layout">
+
+    <!-- 左欄 -->
+    <div class="left">
+      <div class="left-header">
+        <h1>內外盤比分析</h1>
+        <div class="server-status">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">連線中...</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;">
+          <a href="index.html" style="font-size:9px;padding:2px 6px;border-radius:2px;text-decoration:none;color:#aaa;border:1px solid #222;background:#181818;">法人成本</a>
+          <a href="內外盤比.html" style="font-size:9px;padding:2px 6px;border-radius:2px;text-decoration:none;color:#ccc;border:1px solid #444;background:#2a2a2a;">內外盤比</a>
+          <a href="ABC選股掃描.html" style="font-size:9px;padding:2px 6px;border-radius:2px;text-decoration:none;color:#aaa;border:1px solid #222;background:#181818;">ABC掃描</a>
+          <a href="籌碼分析.html" style="font-size:9px;padding:2px 6px;border-radius:2px;text-decoration:none;color:#aaa;border:1px solid #222;background:#181818;">籌碼分析</a>
+          <a href="興櫃股票分析.html" style="font-size:9px;padding:2px 6px;border-radius:2px;text-decoration:none;color:#aaa;border:1px solid #222;background:#181818;">興櫃</a>
+        </div>
+      </div>
+
+      <!-- 搜尋 -->
+      <div class="search-section">
+        <div class="search-row">
+          <input type="text" id="stockInput" placeholder="股票代號" maxlength="6" />
+          <button onclick="loadStock(document.getElementById('stockInput').value.trim())">查詢</button>
+        </div>
+        <div class="quick-picks">
+          <span style="font-size:9px;color:#333;align-self:center;">常用</span>
+          <button class="qp" onclick="loadStock('2330')">2330</button>
+          <button class="qp" onclick="loadStock('2317')">2317</button>
+          <button class="qp" onclick="loadStock('2454')">2454</button>
+          <button class="qp" onclick="loadStock('2367')">2367</button>
+          <button class="qp" onclick="loadStock('6213')">6213</button>
+          <button class="qp" onclick="loadStock('1802')">1802</button>
+          <button class="qp" onclick="loadStock('3491')">3491</button>
+          <button class="qp" onclick="loadStock('2382')">2382</button>
+        </div>
+      </div>
+
+      <!-- 監控清單 -->
+      <div class="watch-section">
+        <div class="section-label">
+          🔍 監控清單
+          <span onclick="refreshAll()">↻</span>
+        </div>
+        <div class="watch-add">
+          <input type="text" id="watchInput" placeholder="代號" maxlength="6" />
+          <button onclick="addWatch()">+</button>
+        </div>
+        <div id="watchItems"><div style="font-size:10px;color:#2a2a2a;padding:4px 0;">尚未新增監控</div></div>
+      </div>
+
+      <!-- 自動更新 -->
+      <div class="auto-section">
+        <div class="auto-row">
+          <input type="checkbox" id="autoUpdate" checked onchange="toggleAuto()" />
+          <label for="autoUpdate" style="cursor:pointer;">自動更新</label>
+          <span class="countdown" id="countdown">15s</span>
+        </div>
+        <div class="last-update" id="lastUpdate"></div>
+      </div>
+    </div>
+
+    <!-- 右欄 -->
+    <div class="right" id="rightPanel">
+      <div class="empty-state">← 輸入股票代號開始分析</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── 設定 ──────────────────────────────────────────────────────────
+const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:8000'
+  : 'https://fafafa168.win';
+
+function getToken() { return sessionStorage.getItem('appToken') || localStorage.getItem('appToken') || ''; }
+
+function apiFetch(url) {
+  return fetch(url, {
+    headers: { 'ngrok-skip-browser-warning': '1', 'x-token': getToken() }
+  });
+}
+
+// ── 登入 ──────────────────────────────────────────────────────────
+async function doLogin() {
+  const pwd = document.getElementById('loginInput').value.trim();
+  if (!pwd) return;
+  try {
+    const res = await fetch(`${SERVER}/history/2330`, {
+      headers: { 'ngrok-skip-browser-warning': '1', 'x-token': pwd }
+    });
+    if (res.ok) {
+      sessionStorage.setItem('appToken', pwd);
+      localStorage.setItem('appToken', pwd);
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('mainPage').style.display = 'block';
+      init();
+    } else {
+      document.getElementById('loginError').textContent = '密碼錯誤';
+    }
+  } catch(e) {
+    document.getElementById('loginError').textContent = '無法連線';
+  }
+}
+document.getElementById('loginInput').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// 已登入就直接進
+if (getToken()) {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainPage').style.display = 'block';
+}
+
+// ── 伺服器狀態 ────────────────────────────────────────────────────
+async function checkServer() {
+  try {
+    const res = await apiFetch(`${SERVER}/history/2330`);
+    if (res.ok) {
+      document.getElementById('statusDot').className = 'status-dot green';
+      document.getElementById('statusText').textContent = '已連線';
+    } else throw new Error();
+  } catch {
+    document.getElementById('statusDot').className = 'status-dot red';
+    document.getElementById('statusText').textContent = '未連線';
+  }
+}
+
+// ── 狀態 ──────────────────────────────────────────────────────────
+let currentCode = '';
+let currentName = '';
+let autoTimer = null;
+let countdownTimer = null;
+let countdownVal = 15;
+
+// ── 搜尋 ──────────────────────────────────────────────────────────
+document.getElementById('stockInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadStock(e.target.value.trim());
+});
+document.getElementById('watchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addWatch();
+});
+
+async function loadStock(code) {
+  if (!code) return;
+  code = code.toUpperCase();
+  document.getElementById('stockInput').value = code;
+  currentCode = code;
+
+  document.getElementById('rightPanel').innerHTML = '<div class="loading-text">載入中...</div>';
+
+  // 先抓股票名稱
+  try {
+    const tickerRes = await apiFetch(`${SERVER}/ticker/${code}`);
+    const tickerJson = await tickerRes.json();
+    currentName = tickerJson.name || code;
+  } catch(e) {
+    currentName = code;
+  }
+
+  await fetchAndRender(code);
+  resetCountdown();
+}
+
+// ── 抓資料 + 渲染 ─────────────────────────────────────────────────
+async function fetchAndRender(code) {
+  if (!code) return;
+  try {
+    const res = await apiFetch(`${SERVER}/tick_ratio/${code}`);
+    const data = await res.json();
+
+    if (data.error && !data.outer && !data.inner) {
+      document.getElementById('rightPanel').innerHTML = `
+        <div style="padding:16px;">
+          <div class="stock-header">
+            <span class="s-name">${currentName}</span>
+            <span class="s-code">${code}</span>
+          </div>
+          <div class="error-text">⚠️ ${data.error}</div>
+          <div class="note" style="margin-top:10px;">
+            可能原因：目前非交易時段、股票代號有誤，或 Fugle API 無逐筆資料（部分股票不提供）。<br>
+            交易時間：週一～週五 09:00～13:30
+          </div>
+        </div>`;
+      return;
+    }
+
+    renderPanel(code, currentName, data);
+    document.getElementById('lastUpdate').textContent =
+      `更新 ${new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
+
+    // 同步更新左欄監控清單
+    updateWatchBadge(code, data.r_ratio);
+
+  } catch(e) {
+    document.getElementById('rightPanel').innerHTML =
+      `<div class="loading-text" style="color:#c44;">錯誤：${e.message}</div>`;
+  }
+}
+
+// ── 主渲染 ────────────────────────────────────────────────────────
+function renderPanel(code, name, d) {
+  const { outer, inner, total, ratio, r_outer, r_inner, r_ratio,
+          latest_price, trade_count, updated_at, trades } = d;
+
+  // 全日信號
+  const allBull = ratio >= 55;
+  const allBear = ratio <= 45;
+
+  // 近30筆信號（更敏感）
+  const rBull = r_ratio >= 60;
+  const rBear = r_ratio <= 40;
+
+  // 信號文字
+  let signalCls, signalTitle, signalDesc;
+  if (rBull && allBull) {
+    signalCls = 'bull';
+    signalTitle = '🔴 強力外盤主導';
+    signalDesc = `近30筆外盤比達 ${r_ratio}%，全日亦呈外盤優勢 ${ratio}%。主動買盤積極，短線偏多。`;
+  } else if (rBear && allBear) {
+    signalCls = 'bear';
+    signalTitle = '🟢 強力內盤主導';
+    signalDesc = `近30筆內盤比達 ${100-r_ratio}%，全日亦呈內盤優勢 ${100-ratio}%。主動賣壓沉重，短線偏空。`;
+  } else if (rBull) {
+    signalCls = 'bull';
+    signalTitle = '🔴 近期外盤轉強';
+    signalDesc = `近30筆外盤比 ${r_ratio}%，但全日僅 ${ratio}%，近期買盤明顯加速，動能轉多。`;
+  } else if (rBear) {
+    signalCls = 'bear';
+    signalTitle = '🟢 近期內盤轉強';
+    signalDesc = `近30筆內盤比 ${100-r_ratio}%，但全日僅 ${100-ratio}%，近期賣壓明顯增加，動能轉空。`;
+  } else {
+    signalCls = 'neutral';
+    signalTitle = '⚪ 多空膠著';
+    signalDesc = `近30筆外盤比 ${r_ratio}%，全日 ${ratio}%，買賣勢均力敵，暫無明確方向。`;
+  }
+
+  // 主進度條寬度
+  const iW = Math.max(10, Math.min(90, 100 - ratio));
+  const rIW = Math.max(10, Math.min(90, 100 - r_ratio));
+
+  // 逐筆明細（最新50筆，倒序）
+  const tickRows = (trades || []).slice().reverse().slice(0, 50).map(t => `
+    <div class="tick-row">
+      <span class="tick-time">${t.time || '—'}</span>
+      <span class="tick-price">$${t.price.toFixed(2)}</span>
+      <span class="tick-vol">${(t.size ?? t.volume ?? 0).toLocaleString()}</span>
+      <span class="tick-side ${t.side}">${t.side === 'outer' ? '外盤' : '內盤'}</span>
+    </div>`).join('');
+
+  const priceDisplay = latest_price ? `$${latest_price.toFixed(2)}` : '—';
+
+  document.getElementById('rightPanel').innerHTML = `
+    <!-- 股票標頭 -->
+    <div class="stock-header">
+      <span class="s-name">${name}</span>
+      <span class="s-code">${code}</span>
+      <span class="s-price">${priceDisplay}</span>
+      <span class="s-updated">${updated_at || ''}</span>
+    </div>
+
+    <!-- 全日內外盤主進度條 -->
+    <div class="bar-card">
+      <div class="bar-label-row">
+        <span class="inner-label">內盤（主動賣）${(100 - ratio).toFixed(1)}%</span>
+        <span style="font-size:9px;color:#333;">全日 ${total.toLocaleString()} 量</span>
+        <span class="outer-label">${ratio.toFixed(1)}% 外盤（主動買）</span>
+      </div>
+      <div class="main-bar">
+        <div class="bar-i" style="width:${iW}%">${(100-ratio).toFixed(0)}%</div>
+        <div class="bar-o">${ratio.toFixed(0)}%</div>
+      </div>
+      <div class="bar-meta">
+        <span>內盤 ${inner.toLocaleString()} 量</span>
+        <span>共 ${trade_count} 筆成交</span>
+        <span>外盤 ${outer.toLocaleString()} 量</span>
+      </div>
+    </div>
+
+    <!-- 兩大指標 -->
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">全日外盤比</div>
+        <div class="metric-value ${allBull ? 'bull' : allBear ? 'bear' : 'neutral'}">${ratio.toFixed(1)}%</div>
+        <div class="metric-sub">外盤 / 總成交量</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">近30筆外盤比（滾動）</div>
+        <div class="metric-value ${rBull ? 'bull' : rBear ? 'bear' : 'neutral'}">${r_ratio.toFixed(1)}%</div>
+        <div class="metric-sub">即時動能，比全日敏感</div>
+      </div>
+    </div>
+
+    <!-- 四格細節 -->
+    <div class="four-metrics">
+      <div class="fm">
+        <div class="fm-label">外盤量</div>
+        <div class="fm-value">${outer.toLocaleString()}</div>
+      </div>
+      <div class="fm">
+        <div class="fm-label">內盤量</div>
+        <div class="fm-value">${inner.toLocaleString()}</div>
+      </div>
+      <div class="fm">
+        <div class="fm-label">近30筆外盤</div>
+        <div class="fm-value">${r_outer.toLocaleString()}</div>
+      </div>
+      <div class="fm">
+        <div class="fm-label">近30筆內盤</div>
+        <div class="fm-value">${r_inner.toLocaleString()}</div>
+      </div>
+    </div>
+
+    <!-- 近30筆滾動窗口 -->
+    <div class="window-section">
+      <div class="window-title">
+        近30筆滾動窗口
+        <span>比全日更敏感，適合盤中決策</span>
+      </div>
+      <div class="mini-bar">
+        <div class="mini-i" style="width:${rIW}%">${(100-r_ratio).toFixed(0)}%</div>
+        <div class="mini-o">${r_ratio.toFixed(0)}%</div>
+      </div>
+      <div class="window-meta">
+        <span class="wm-bull">內盤 ${r_inner.toLocaleString()} 量</span>
+        <span class="wm-bear">外盤 ${r_outer.toLocaleString()} 量</span>
+      </div>
+    </div>
+
+    <!-- 信號 -->
+    <div class="signal ${signalCls}">
+      <div class="signal-title">${signalTitle}</div>
+      <div class="signal-desc">${signalDesc}</div>
+    </div>
+
+    <!-- 逐筆明細 -->
+    <div class="tick-section">
+      <div class="tick-header">
+        <span class="tick-title">逐筆成交明細（最新50筆）</span>
+        <span class="tick-count">共 ${trade_count} 筆</span>
+      </div>
+      <div class="tick-list">
+        ${tickRows || '<div style="font-size:10px;color:#333;padding:8px 0;">無逐筆資料</div>'}
+      </div>
+    </div>
+
+    <!-- 說明 -->
+    <div class="note">
+      * 全日外盤/內盤比：Fugle <code>intraday/volumes</code> 的 volumeAtAsk／volumeAtBid，為 Fugle 直接統計，數值精確。<br>
+      * 近30筆滾動：Fugle <code>intraday/trades?limit=500&sort=asc</code> 逐筆 Tick Rule 推估——成交價 &gt; 前一筆 → 外盤；&lt; → 內盤；相同 → 沿用前一筆。筆數少、時效高，適合盤中動能判斷。<br>
+      * 量的單位為 Fugle 回傳的 size（成交單量），非張數，僅供相對比較使用，不構成投資建議。
+    </div>
+  `;
+}
+
+// ── 監控清單 ──────────────────────────────────────────────────────
+let watchlist = JSON.parse(localStorage.getItem('tickWatchlist') || '[]');
+
+function saveWatch() { localStorage.setItem('tickWatchlist', JSON.stringify(watchlist)); }
+
+async function addWatch() {
+  const code = document.getElementById('watchInput').value.trim().toUpperCase();
+  if (!code || watchlist.find(w => w.code === code)) return;
+
+  let name = code;
+  try {
+    const res = await apiFetch(`${SERVER}/ticker/${code}`);
+    const j = await res.json();
+    name = j.name || code;
+  } catch(e) {}
+
+  watchlist.push({ code, name, r_ratio: null });
+  saveWatch();
+  document.getElementById('watchInput').value = '';
+  renderWatchlist();
+  fetchWatchItem(watchlist.length - 1);
+}
+
+function removeWatch(i) {
+  watchlist.splice(i, 1);
+  saveWatch();
+  renderWatchlist();
+}
+
+function renderWatchlist() {
+  const el = document.getElementById('watchItems');
+  if (!watchlist.length) {
+    el.innerHTML = '<div style="font-size:10px;color:#2a2a2a;padding:4px 0;">尚未新增監控</div>';
+    return;
+  }
+  el.innerHTML = watchlist.map((w, i) => {
+    const r = w.r_ratio;
+    const cls = r === null ? 'neutral' : r >= 60 ? 'bull' : r <= 40 ? 'bear' : 'neutral';
+    const txt = r === null ? '—' : `${r.toFixed(0)}%`;
+    const isSelected = w.code === currentCode;
+    return `<div class="watch-item ${isSelected ? 'selected' : ''}" onclick="loadStock('${w.code}')">
+      <span class="wi-code">${w.code}</span>
+      <span class="wi-name">${w.name}</span>
+      <span class="wi-ratio ${cls}">${txt}</span>
+      <span class="wi-remove" onclick="event.stopPropagation();removeWatch(${i})">✕</span>
+    </div>`;
+  }).join('');
+}
+
+async function fetchWatchItem(i) {
+  const w = watchlist[i];
+  if (!w) return;
+  try {
+    const res = await apiFetch(`${SERVER}/tick_ratio/${w.code}`);
+    const data = await res.json();
+    if (!data.error) {
+      watchlist[i].r_ratio = data.r_ratio;
+      saveWatch();
+      renderWatchlist();
+    }
+  } catch(e) {}
+}
+
+async function refreshAll() {
+  for (let i = 0; i < watchlist.length; i++) await fetchWatchItem(i);
+}
+
+function updateWatchBadge(code, r_ratio) {
+  const i = watchlist.findIndex(w => w.code === code);
+  if (i >= 0) {
+    watchlist[i].r_ratio = r_ratio;
+    saveWatch();
+    renderWatchlist();
+  }
+}
+
+// ── 自動更新計時器 ────────────────────────────────────────────────
+function resetCountdown() {
+  countdownVal = 15;
+  document.getElementById('countdown').textContent = '15s';
+}
+
+function toggleAuto() {
+  const checked = document.getElementById('autoUpdate').checked;
+  if (checked) startAuto();
+  else stopAuto();
+}
+
+function startAuto() {
+  stopAuto();
+  countdownVal = 15;
+  countdownTimer = setInterval(() => {
+    countdownVal--;
+    document.getElementById('countdown').textContent = `${countdownVal}s`;
+    if (countdownVal <= 0) {
+      countdownVal = 15;
+      if (currentCode) fetchAndRender(currentCode);
+      refreshAll();
+    }
+  }, 1000);
+}
+
+function stopAuto() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  document.getElementById('countdown').textContent = '—';
+}
+
+// ── 初始化 ────────────────────────────────────────────────────────
+function init() {
+  checkServer();
+  renderWatchlist();
+  if (watchlist.length > 0) refreshAll();
+  if (document.getElementById('autoUpdate').checked) startAuto();
+}
+
+if (getToken()) init();
+</script>
+</body>
+</html>
