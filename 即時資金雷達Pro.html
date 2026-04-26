@@ -200,6 +200,10 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
 .cfg-inp{width:58px;background:var(--c2);border:1px solid var(--bd);color:var(--tx);
   font-size:12px;padding:3px 7px;border-radius:6px;outline:none;text-align:right;}
 .cfg-note{font-size:11px;color:var(--mu);line-height:1.7;padding:9px 13px;}
+.cfg-status{font-size:11px;color:var(--mu);line-height:1.6;padding:0 13px 10px;}
+.cfg-status.ok{color:var(--ot);}
+.cfg-status.warn{color:var(--or);}
+.cfg-status.err{color:var(--in);}
 .nav{display:flex;background:var(--c1);border-top:1px solid var(--bd);flex-shrink:0;}
 .navi{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
   padding:8px 0 7px;font-size:10px;color:var(--mu);cursor:pointer;transition:.12s;}
@@ -256,7 +260,7 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
     <div class="card">
       <div class="card-hd">
         <span class="card-hd-ico">📊</span>
-        <span class="card-hd-ttl">當日題材排行</span>
+        <span class="card-hd-ttl">當日產業排行</span>
         <span class="card-hd-sub" id="updTime">—</span>
       </div>
       <div class="fc">
@@ -292,7 +296,7 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
   </div>
   <div class="page" id="p1">
     <div class="sbar">
-      <input class="sinput" id="sinput" type="text" placeholder="股票代號 or 產業名稱" inputmode="numeric">
+      <input class="sinput" id="sinput" type="text" placeholder="股票代號或產業名稱" inputmode="text">
       <button class="sbtn" onclick="doSearch()">查詢</button>
     </div>
     <div id="sres" style="margin-top:3px;"></div>
@@ -321,12 +325,41 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
         <div class="cfg-row"><span class="cfg-rl">強烈流入警示（億）</span><input class="cfg-inp" type="number" id="alertThr" value="30"></div>
         <div class="cfg-row"><span class="cfg-rl">聲音警示</span><input type="checkbox" id="sndOn" style="width:16px;height:16px;accent-color:var(--ac);"></div>
       </div>
+      <div class="cfg-lbl">Discord 警示</div>
+      <div class="cfg-card">
+        <div class="cfg-row">
+          <span class="cfg-rl">產業流入門檻（億）</span>
+          <input class="cfg-inp" type="number" id="discordIndThr" value="20">
+        </div>
+        <div class="cfg-row">
+          <span class="cfg-rl">個股流入門檻（億）</span>
+          <input class="cfg-inp" type="number" id="discordStockThr" value="5">
+        </div>
+        <div class="cfg-row">
+          <span class="cfg-rl">每次更新自動推播</span>
+          <input type="checkbox" id="discordAuto" checked style="width:16px;height:16px;accent-color:var(--ac);">
+        </div>
+        <div class="cfg-row" style="padding-top:6px;padding-bottom:6px;">
+          <button id="testDiscordBtn" onclick="testDiscord()"
+            style="font-size:12px;padding:5px 12px;border-radius:6px;
+            background:var(--ac);color:#fff;border:none;cursor:pointer;width:100%;">
+            📡 發送 Discord 測試訊息
+          </button>
+        </div>
+        <div class="cfg-status" id="discordStatus">Discord 狀態：等待檢查</div>
+        <div style="padding:0 13px 10px;font-size:10px;color:var(--mu);line-height:1.7;">
+          需在 Railway Variables 設定：<br>
+          <code style="color:var(--bl);">DISCORD_WEBHOOK = https://discord.com/api/webhooks/...</code><br>
+          門檻單位皆為「億」，更新後會依設定自動檢查一次
+        </div>
+      </div>
       <div class="cfg-lbl">資料說明</div>
       <div class="cfg-card">
         <div class="cfg-note">
           ● 資金流向 = 成交金額 × 漲跌方向（漲→流入，跌→流出）<br>
           ● 法人籌碼來自 FinMind 三大法人資料<br>
           ● 後端快取 5 分鐘，全量掃描約需 15–30 秒<br>
+          ● 目前總覽以產業為主，題材聚合未啟用<br>
           ● 僅供參考，不構成投資建議
         </div>
       </div>
@@ -340,6 +373,7 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
 </div>
 <script>
 let SRV='',TOK='',lastData=null,autoTmr=null,prevTopIn=[];
+const SETTINGS_KEY='flowRadarProSettings';
 const SN={"2330":"台積電","2303":"聯電","2317":"鴻海","2344":"華邦電","2454":"聯發科","2379":"瑞昱","2383":"台光電","2395":"研華","2382":"廣達","2357":"華碩","2376":"技嘉","3706":"神達","2337":"旺宏","5347":"世界","3034":"聯詠","8150":"南茂","3037":"欣詮","6770":"力積電","2458":"義隆","3189":"崇越電","6230":"超眾","2049":"上銀","3443":"創意","3481":"群創","2408":"南亞科","8046":"南電","2313":"華通","3044":"健鼎","2301":"光寶科","4938":"和碩","6658":"聯策","3324":"雙鴻","2312":"金寶","8021":"尖點","2615":"萬海","2603":"長榮","2609":"陽明","2610":"華航","2618":"長榮航","2886":"兆豐金","2881":"富邦金","2882":"國泰金","2884":"玉山金","2891":"中信金","6285":"啟碁","3491":"昇達科","5388":"中磊","2412":"中華電","1802":"台玻","1815":"富喬","5340":"建榮","4924":"德宏","4438":"廣越","6213":"聯茂","6274":"台燿","2002":"中鋼","2006":"東和鋼","1301":"台塑","1303":"南亞","1326":"台化","3035":"智原","6669":"緯穎","8210":"勤誠","3701":"大眾控","6831":"迦科","1717":"長興","6224":"聚鼎","2492":"華新科","2428":"興勤","2478":"大毅","3026":"禾伸堂","6449":"鈺邦","2375":"凱美","3191":"雲嘉南","6284":"佳邦","8043":"蜜望實","2327":"國巨","3008":"大立光","2308":"台達電","1504":"東元","2883":"開發金","2885":"元大金","2890":"永豐金","2887":"台新金","2892":"第一金","4958":"臻鼎-KY","3092":"鴻碩","5483":"中美晶","7717":"萊德光電","2441":"超豐"};
 const sn=c=>SN[c]||c;
 
@@ -387,9 +421,57 @@ function goTab(i){
   document.querySelectorAll('.navi').forEach((n,j)=>n.classList.toggle('on',i===j));
 }
 
+function setDiscordStatus(msg, level=''){
+  const el=document.getElementById('discordStatus');
+  if(!el)return;
+  el.className='cfg-status'+(level?` ${level}`:'');
+  el.textContent=msg;
+}
+
 function fy(v){const a=Math.abs(v),s=v<0?'-':'+';if(a>=10000)return s+(a/10000).toFixed(1)+'兆';if(a>=1)return s+a.toFixed(2)+'億';return s+(a*100).toFixed(0)+'百萬';}
 function fya(v){const a=Math.abs(v);return a>=1?a.toFixed(2)+'億':(a*100).toFixed(0)+'百萬';}
 const api=p=>fetch(`${SRV}${p}`,{headers:{'x-token':TOK}});
+const apiPost=p=>fetch(`${SRV}${p}`,{method:'POST',headers:{'x-token':TOK}});
+
+function saveSettings(){
+  const data={
+    autoSel:document.getElementById('autoSel')?.value||'180',
+    alertThr:document.getElementById('alertThr')?.value||'30',
+    sndOn:!!document.getElementById('sndOn')?.checked,
+    discordIndThr:document.getElementById('discordIndThr')?.value||'20',
+    discordStockThr:document.getElementById('discordStockThr')?.value||'5',
+    discordAuto:!!document.getElementById('discordAuto')?.checked,
+  };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
+}
+
+function loadSettings(){
+  try{
+    const raw=localStorage.getItem(SETTINGS_KEY);
+    if(!raw)return;
+    const data=JSON.parse(raw);
+    if(data.autoSel!=null)document.getElementById('autoSel').value=data.autoSel;
+    if(data.alertThr!=null)document.getElementById('alertThr').value=data.alertThr;
+    if(data.sndOn!=null)document.getElementById('sndOn').checked=!!data.sndOn;
+    if(data.discordIndThr!=null)document.getElementById('discordIndThr').value=data.discordIndThr;
+    if(data.discordStockThr!=null)document.getElementById('discordStockThr').value=data.discordStockThr;
+    if(data.discordAuto!=null)document.getElementById('discordAuto').checked=!!data.discordAuto;
+  }catch(e){}
+}
+
+function bindSettings(){
+  ['autoSel','alertThr','sndOn','discordIndThr','discordStockThr','discordAuto'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.addEventListener('change',()=>{
+      saveSettings();
+      if(id==='autoSel')setAuto();
+      if(id==='discordAuto'){
+        setDiscordStatus(el.checked?'Discord 狀態：自動監控已啟用':'Discord 狀態：自動監控已暫停', el.checked?'ok':'warn');
+      }
+    });
+  });
+}
 
 async function loadFlow(){
   try{
@@ -398,7 +480,12 @@ async function loadFlow(){
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     lastData=d;renderAll(d);checkAlerts(d);
-    document.getElementById('updTime').textContent=d.updated_at||'—';
+    const meta=[
+      d.updated_at||'—',
+      d.scanned?`掃描 ${d.scanned} 檔`:'',
+      d.cached?'快取':'即時'
+    ].filter(Boolean).join(' ｜ ');
+    document.getElementById('updTime').textContent=meta||'—';
     return true;
   }catch(e){toast('載入失敗：'+e.message,false);return false;}
 }
@@ -406,7 +493,7 @@ async function loadFlow(){
 function renderAll(d){renderTheme(d);renderStocks(d);renderIC(d);}
 
 function renderTheme(d){
-  const all=[...Object.values(d.industry||{}),...Object.values(d.theme||{})].filter(v=>v.in_amount+v.out_amount>0);
+  const all=Object.values(d.industry||{}).filter(v=>v.in_amount+v.out_amount>0);
   const inT=[...all].sort((a,b)=>b.net_amount-a.net_amount).slice(0,5);
   const otT=[...all].sort((a,b)=>a.net_amount-b.net_amount).slice(0,5);
   const mk=(arr,cls)=>arr.map((v,i)=>`<div class="fi" onclick="goIndustry('${v.name}')"><span class="fi-rk">${i+1}.</span><span class="fi-nm">${v.name}</span><span class="fi-vl ${cls}">${fy(v.net_amount)}</span><span class="fi-ar">›</span></div>`).join('')||'<div class="empty">無資料</div>';
@@ -422,19 +509,20 @@ function renderStocks(d){
 }
 
 function renderIC(d){
-  const all=[...Object.values(d.industry||{}),...Object.values(d.theme||{})].filter(v=>v.in_amount+v.out_amount>0.5).sort((a,b)=>b.net_amount-a.net_amount).slice(0,10);
+  const all=Object.values(d.industry||{}).filter(v=>v.in_amount+v.out_amount>0.5).sort((a,b)=>b.net_amount-a.net_amount).slice(0,10);
   const tw=new Date(Date.now()+(new Date().getTimezoneOffset()+480)*60000);
   const ts=String(tw.getHours()).padStart(2,'0')+':'+String(tw.getMinutes()).padStart(2,'0');
   document.getElementById('icList').innerHTML=all.map(v=>{
     const isIn=v.net_amount>=0,conc=v.concentration||0,cd=conc>=70?'高度集中':conc>=40?'中度集中':'低度集中';
-    const tabCls=v.type==='theme'?'t':'i',tabTxt=v.type==='theme'?'主題':'產業';
+    const tabCls='i',tabTxt='產業';
     const id='ic_'+v.name.replace(/\W/g,'_');
-    const prev=Math.abs(v.net_amount*0.15);
+    const prevChange=v.prev_change;
+    const prevText=prevChange==null?'〔首次掃描〕':`〔較上次 ${prevChange>=0?'↑':'↓'}${fya(prevChange)}〕`;
     const srows=(v.stocks||[]).map((s,i)=>{
       const tot=v.in_amount+v.out_amount||1,pct=Math.round(Math.abs(s.net_flow)/tot*100);
       return`<div class="ic-srow"><span class="ic-sn">${i+1}.</span><span class="ic-sc">${s.code} ${sn(s.code)}</span><span class="ic-sg ${s.chg_pct>0?'up':'dn'}">${s.chg_pct>0?'+':''}${s.chg_pct.toFixed(2)}%</span><span class="ic-sp"> ${s.price.toFixed(1)}</span><div class="ic-sf"><div class="ic-sv ${s.net_flow>0?'in':'out'}">${s.net_flow>0?'流入':'流出'} ${fya(s.net_flow)}</div><div class="ic-spc">佔${pct}%</div></div></div>`;
     }).join('');
-    return`<div class="ic" id="${id}"><div class="ic-hd"><div class="ictabs"><span class="ictab g">一般</span><span class="ictab ${tabCls}">${tabTxt}</span></div><span class="ic-nm">${v.name}</span><span class="ic-sig ${isIn?'in':'out'}">● 資金${isIn?'流入':'流出'}<span class="ic-sigbg ${isIn?'in':'out'}">⚡ ${v.stock_count}</span></span></div><div class="ic-time">${ts}</div><div class="ic-body" onclick="togIC('${id}')"><div class="ic-amt ${isIn?'in':'out'}">淨額：${fy(v.net_amount)}<span class="ic-prev ${isIn?'up':''}">〔較上次 ↑${fya(prev)}〕</span></div><div class="ic-detail">流入：${fya(v.in_amount)} ｜ 流出：${fya(v.out_amount)}</div><div class="ic-conc">資金集中度：${conc}%（${cd}）</div><div class="ic-tog" id="${id}_tog">▼ 展開前 ${(v.stocks||[]).length} 大個股</div></div><div class="ic-stocks">${srows}</div></div>`;
+    return`<div class="ic" id="${id}"><div class="ic-hd"><div class="ictabs"><span class="ictab ${tabCls}">${tabTxt}</span></div><span class="ic-nm">${v.name}</span><span class="ic-sig ${isIn?'in':'out'}">● 資金${isIn?'流入':'流出'}<span class="ic-sigbg ${isIn?'in':'out'}">⚡ ${v.stock_count}</span></span></div><div class="ic-time">${ts}</div><div class="ic-body" onclick="togIC('${id}')"><div class="ic-amt ${isIn?'in':'out'}">淨額：${fy(v.net_amount)}<span class="ic-prev ${prevChange!=null?(prevChange>=0?'up':'') : ''}">${prevText}</span></div><div class="ic-detail">流入：${fya(v.in_amount)} ｜ 流出：${fya(v.out_amount)}</div><div class="ic-conc">資金集中度：${conc}%（${cd}）</div><div class="ic-tog" id="${id}_tog">▼ 展開前 ${(v.stocks||[]).length} 大個股</div></div><div class="ic-stocks">${srows}</div></div>`;
   }).join('')||'<div class="empty">請點擊重新整理載入資料</div>';
 }
 
@@ -461,13 +549,14 @@ async function searchCode(code,el){
   if(!r.ok)throw new Error('HTTP '+r.status);
   const d=await r.json();if(d.error)throw new Error(d.error);
   const lat=d.latest||{},isIn=(lat.chg_pct||0)>=0;
+  const belongs=(d.belongs_to||[]).map(b=>b.name).filter(Boolean);
   const maxI=Math.max(Math.abs(lat.foreign_net||0),Math.abs(lat.trust_net||0),Math.abs(lat.dealer_net||0),1);
   const bar=v=>{const p=Math.abs(v)/maxI*100,c=v>=0?'p':'n';return`<div class="ibar-bg"><div class="ibar-fill ${c}" style="width:${p}%"></div></div>`;};
   const tls=(d.timeline||[]).slice(0,8).map(row=>{
     const ri=row.chg_pct>=0,ds=row.date.slice(5).replace('-','/'),id='tl_'+row.date;
-    return`<div class="tl" id="${id}"><div class="tl-hd" onclick="document.getElementById('${id}').classList.toggle('open')"><span class="tl-ind">${(d.belongs_to||[]).map(b=>b.name).slice(0,2).join(' / ')||'—'}</span><span class="tl-tab">一般</span><span class="tl-px">${row.price.toFixed(1)}</span><span class="tl-dt">${ds}</span><span class="tl-ar">›</span></div><div class="tl-body"><div class="tl-frow"><span class="dot ${ri?'in':'out'}"></span><span class="tl-fv ${ri?'in':'out'}">${ri?'流入':'流出'} ${fya(row.amount)}</span></div><div class="tl-net">題材淨額：${fy(row.net_flow)}</div>${row.foreign_net?`<div class="tl-fi ${row.foreign_net>0?'in':'out'}">較上次流入↑${Math.abs(row.foreign_net).toLocaleString()} 張</div>`:''}</div><div class="tl-exp"><div style="padding:3px 0 5px;font-size:11px;color:var(--mu)">法人明細</div><div style="font-size:11px;color:${row.foreign_net>=0?'var(--in)':'var(--ot)'}">外資：${row.foreign_net>0?'+':''}${row.foreign_net.toLocaleString()} 張</div><div style="font-size:11px;color:${row.trust_net>=0?'var(--in)':'var(--ot)'}">投信：${row.trust_net>0?'+':''}${row.trust_net.toLocaleString()} 張</div><div style="font-size:11px;color:${row.dealer_net>=0?'var(--in)':'var(--ot)'}">自營：${row.dealer_net>0?'+':''}${row.dealer_net.toLocaleString()} 張</div></div></div>`;
+    return`<div class="tl" id="${id}"><div class="tl-hd" onclick="document.getElementById('${id}').classList.toggle('open')"><span class="tl-ind">${belongs.slice(0,2).join(' / ')||'—'}</span><span class="tl-tab">一般</span><span class="tl-px">${row.price.toFixed(1)}</span><span class="tl-dt">${ds}</span><span class="tl-ar">›</span></div><div class="tl-body"><div class="tl-frow"><span class="dot ${ri?'in':'out'}"></span><span class="tl-fv ${ri?'in':'out'}">${ri?'流入':'流出'} ${fya(row.amount)}</span></div><div class="tl-net">淨額：${fy(row.net_flow)}</div>${row.inst_total?`<div class="tl-fi ${row.inst_total>0?'in':'out'}">法人合計 ${row.inst_total>0?'+':''}${row.inst_total.toLocaleString()} 張</div>`:''}</div><div class="tl-exp"><div style="padding:3px 0 5px;font-size:11px;color:var(--mu)">法人明細</div><div style="font-size:11px;color:${row.foreign_net>=0?'var(--in)':'var(--ot)'}">外資：${row.foreign_net>0?'+':''}${row.foreign_net.toLocaleString()} 張</div><div style="font-size:11px;color:${row.trust_net>=0?'var(--in)':'var(--ot)'}">投信：${row.trust_net>0?'+':''}${row.trust_net.toLocaleString()} 張</div><div style="font-size:11px;color:${row.dealer_net>=0?'var(--in)':'var(--ot)'}">自營：${row.dealer_net>0?'+':''}${row.dealer_net.toLocaleString()} 張</div></div></div>`;
   }).join('');
-  el.innerHTML=`<div class="sdc"><div class="sdc-r1"><div class="sdc-code">${code} ${d.name}</div><div class="sdc-price">${(lat.price||0).toFixed(1)}</div></div><div class="sdc-r2"><span class="sdc-pct ${isIn?'up':'dn'}">${isIn?'+':''}${(lat.chg_pct||0).toFixed(2)}%</span><span class="sdc-sig ${isIn?'in':'out'}">● 資金${isIn?'流入':'流出'}</span></div><div class="sdc-meta"><div class="sdc-m">成交額：<span>${(lat.amount||0).toFixed(2)} 億</span></div><div class="sdc-m">出現題材：<span>${(d.belongs_to||[]).length} 個</span></div><div class="sdc-m">訊號次數：<span>${(d.timeline||[]).length} 次</span></div><div class="sdc-m">題材：<span>${(d.belongs_to||[]).map(b=>b.name).slice(0,2).join('、')||'—'}</span></div></div></div><div class="ibar"><div class="ibar-ttl">今日法人籌碼（張）</div><div class="ibar-row"><span class="ibar-lbl">外資</span>${bar(lat.foreign_net||0)}<span class="ibar-v ${(lat.foreign_net||0)>=0?'p':'n'}">${(lat.foreign_net||0)>0?'+':''}${(lat.foreign_net||0).toLocaleString()}</span></div><div class="ibar-row"><span class="ibar-lbl">投信</span>${bar(lat.trust_net||0)}<span class="ibar-v ${(lat.trust_net||0)>=0?'p':'n'}">${(lat.trust_net||0)>0?'+':''}${(lat.trust_net||0).toLocaleString()}</span></div><div class="ibar-row"><span class="ibar-lbl">自營</span>${bar(lat.dealer_net||0)}<span class="ibar-v ${(lat.dealer_net||0)>=0?'p':'n'}">${(lat.dealer_net||0)>0?'+':''}${(lat.dealer_net||0).toLocaleString()}</span></div></div><div class="tl-lbl">各題材流向明細（點擊展開法人資料）</div>${tls||'<div class="empty">無歷史流向資料</div>'}`;
+  el.innerHTML=`<div class="sdc"><div class="sdc-r1"><div class="sdc-code">${code} ${d.name}</div><div class="sdc-price">${(lat.price||0).toFixed(1)}</div></div><div class="sdc-r2"><span class="sdc-pct ${isIn?'up':'dn'}">${isIn?'+':''}${(lat.chg_pct||0).toFixed(2)}%</span><span class="sdc-sig ${isIn?'in':'out'}">● 資金${isIn?'流入':'流出'}</span></div><div class="sdc-meta"><div class="sdc-m">成交額：<span>${(lat.amount||0).toFixed(2)} 億</span></div><div class="sdc-m">分類數：<span>${belongs.length} 個</span></div><div class="sdc-m">訊號次數：<span>${(d.timeline||[]).length} 次</span></div><div class="sdc-m">分類：<span>${belongs.slice(0,2).join('、')||'—'}</span></div></div></div><div class="ibar"><div class="ibar-ttl">最近法人籌碼（張）</div><div class="ibar-row"><span class="ibar-lbl">外資</span>${bar(lat.foreign_net||0)}<span class="ibar-v ${(lat.foreign_net||0)>=0?'p':'n'}">${(lat.foreign_net||0)>0?'+':''}${(lat.foreign_net||0).toLocaleString()}</span></div><div class="ibar-row"><span class="ibar-lbl">投信</span>${bar(lat.trust_net||0)}<span class="ibar-v ${(lat.trust_net||0)>=0?'p':'n'}">${(lat.trust_net||0)>0?'+':''}${(lat.trust_net||0).toLocaleString()}</span></div><div class="ibar-row"><span class="ibar-lbl">自營</span>${bar(lat.dealer_net||0)}<span class="ibar-v ${(lat.dealer_net||0)>=0?'p':'n'}">${(lat.dealer_net||0)>0?'+':''}${(lat.dealer_net||0).toLocaleString()}</span></div></div><div class="tl-lbl">近 20 日流向明細（點擊展開法人資料）</div>${tls||'<div class="empty">無歷史流向資料</div>'}`;
 }
 
 async function searchInd(name,el){
@@ -475,7 +564,7 @@ async function searchInd(name,el){
   if(!r.ok)throw new Error('HTTP '+r.status);
   const d=await r.json();if(d.error)throw new Error(d.error);
   const isIn=d.net_amount>=0;
-  const srows=(d.stocks||[]).map((s,i)=>`<div class="tl-erow"><span class="tl-ec">${i+1}. ${s.code} ${sn(s.code)}</span><span class="tl-eg ${s.chg_pct>=0?'up':'dn'}">${s.chg_pct>=0?'+':''}${s.chg_pct.toFixed(2)}%</span><span class="tl-ep"> ${s.price.toFixed(1)}</span><div class="tl-er"><div class="tl-ef" style="color:${s.net_flow>=0?'var(--in)':'var(--ot)'}">〔${s.net_flow>=0?'流入':'流出'} ${fya(s.net_flow)} 佔${s.pct||0}%〕</div><div class="tl-epc">法人合計 ${s.inst_total>0?'+':''}${(s.inst_total||0).toLocaleString()} 張</div></div></div>`).join('');
+  const srows=(d.stocks||[]).map((s,i)=>`<div class="tl-erow"><span class="tl-ec">${i+1}. ${s.code} ${sn(s.code)}</span><span class="tl-eg ${s.chg_pct>=0?'up':'dn'}">${s.chg_pct>=0?'+':''}${s.chg_pct.toFixed(2)}%</span><span class="tl-ep"> ${s.price.toFixed(1)}</span><div class="tl-er"><div class="tl-ef" style="color:${s.net_flow>=0?'var(--in)':'var(--ot)'}">〔${s.net_flow>=0?'流入':'流出'} ${fya(s.net_flow)} 佔${s.pct||0}%〕</div><div class="tl-epc">成交額 ${fya(s.amount||0)}</div></div></div>`).join('');
   el.innerHTML=`<div class="tl open" style="margin:10px 12px;"><div class="tl-hd"><span class="tl-ind">${name}</span><span class="tl-tab">產業</span><span style="margin-left:auto;font-size:10px;color:var(--mu)">${d.updated_at}</span></div><div class="tl-body"><div class="tl-frow"><span class="dot ${isIn?'in':'out'}"></span><span class="tl-fv ${isIn?'in':'out'}">淨額 ${fy(d.net_amount)}</span></div><div class="tl-net">流入：${fya(d.in_amount)} ｜ 流出：${fya(d.out_amount)}</div></div><div class="tl-exp" style="display:block;"><div style="font-size:11px;color:var(--mu);margin-bottom:5px;">前 ${(d.stocks||[]).length} 大影響個股：</div>${srows||'<div class="empty">無個股資料</div>'}</div></div>`;
 }
 
@@ -496,16 +585,67 @@ function checkAlerts(d){
 
 function toast(msg,isIn){const e=document.createElement('div');e.className='toast'+(isIn?' in':'');e.textContent=msg;document.body.appendChild(e);setTimeout(()=>e.remove(),2500);}
 
+// 呼叫後端 /flow/monitor，讓後端決定要不要推 Discord
+async function trigMonitor(){
+  if(!SRV)return;
+  if(!document.getElementById('discordAuto')?.checked){
+    setDiscordStatus('Discord 狀態：自動監控已暫停','warn');
+    return;
+  }
+  const indThr  =document.getElementById('discordIndThr')?.value||20;
+  const stockThr=document.getElementById('discordStockThr')?.value||5;
+  setDiscordStatus(`Discord 狀態：檢查中（產業 ${indThr} 億 / 個股 ${stockThr} 億）`);
+  try{
+    const r=await apiPost(`/flow/monitor?ind_thr=${indThr}&stock_thr=${stockThr}`);
+    if(r.ok){
+      const d=await r.json();
+      if(d.alerted>0)toast(`📡 Discord 推播 ${d.alerted} 則警示`,true);
+      if(!d.discord_set)toast('⚠️ DISCORD_WEBHOOK 環境變數未設定',false);
+      if(!d.discord_set)setDiscordStatus('Discord 狀態：未設定 DISCORD_WEBHOOK','err');
+      else if(d.alerted>0)setDiscordStatus(`Discord 狀態：${d.checked_at} 已推播 ${d.alerted} 則警示`,'ok');
+      else setDiscordStatus(`Discord 狀態：${d.checked_at} 已檢查，無新警示`,'ok');
+    }else{
+      setDiscordStatus(`Discord 狀態：監控呼叫失敗 (${r.status})`,'err');
+    }
+  }catch(e){setDiscordStatus('Discord 狀態：監控連線失敗','err');}
+}
+
+// 測試 Discord
+async function testDiscord(){
+  if(!SRV)return;
+  const btn=document.getElementById('testDiscordBtn');
+  btn.textContent='發送中...';btn.disabled=true;
+  setDiscordStatus('Discord 狀態：正在發送測試訊息');
+  try{
+    const r=await apiPost('/flow/test_discord');
+    const d=await r.json();
+    if(d.ok){
+      toast('✅ Discord 測試訊息已發送！',true);
+      setDiscordStatus('Discord 狀態：測試訊息已送出','ok');
+    }else{
+      toast('❌ '+d.error,false);
+      setDiscordStatus(`Discord 狀態：${d.error||'測試失敗'}`,'err');
+    }
+  }catch(e){
+    toast('❌ 連線失敗',false);
+    setDiscordStatus('Discord 狀態：測試連線失敗','err');
+  }
+  btn.textContent='📡 發送 Discord 測試訊息';btn.disabled=false;
+}
+
 async function trigRefresh(){
   if(!SRV)return;
   const b=document.getElementById('rbtn');b.classList.add('spin');b.style.pointerEvents='none';
   const ok=await loadFlow();
-  if(ok)toast('已更新 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true);
+  if(ok){
+    toast('已更新 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true);
+    await trigMonitor(); // 更新後同步觸發 Discord 監控
+  }
   b.classList.remove('spin');b.style.pointerEvents='';
 }
 function setAuto(){clearInterval(autoTmr);const s=parseInt(document.getElementById('autoSel').value);if(s>0)autoTmr=setInterval(trigRefresh,s*1000);}
-function init(){trigRefresh();setAuto();}
-window.addEventListener('load',()=>{if(SRV)init();});
+function init(){loadSettings();bindSettings();setDiscordStatus(document.getElementById('discordAuto')?.checked?'Discord 狀態：自動監控已啟用':'Discord 狀態：自動監控已暫停',document.getElementById('discordAuto')?.checked?'ok':'warn');trigRefresh();setAuto();}
+window.addEventListener('load',()=>{if(SRV)init();else{loadSettings();bindSettings();setDiscordStatus(document.getElementById('discordAuto')?.checked?'Discord 狀態：自動監控已啟用':'Discord 狀態：自動監控已暫停',document.getElementById('discordAuto')?.checked?'ok':'warn');}});
 </script>
 </body>
 </html>
