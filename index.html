@@ -166,9 +166,33 @@ body {
   font-size: 9px; padding: 1px 4px; border-radius: 2px;
   white-space: nowrap;
 }
-.wi-badge.alert { background: #E24B4A; color: #fff; }
-.wi-badge.safe { background: #639922; color: #fff; }
+.wi-badge.alert   { background: #E24B4A; color: #fff; }
+.wi-badge.safe    { background: #639922; color: #fff; }
+.wi-badge.below   { background: #7070C0; color: #fff; }
+.wi-badge.ready   { background: #C08820; color: #fff; }
 .wi-badge.loading { background: #eee; color: #999; }
+
+/* 成本背離警示 */
+.deviation-bar {
+  border-radius: 3px; padding: 8px 12px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.deviation-bar.danger  { background: #fff0f0; border: 1px solid #f5c0c0; }
+.deviation-bar.warning { background: #fffaf0; border: 1px solid #f5dfa0; }
+.deviation-bar.safe    { background: #f0fff5; border: 1px solid #b5e8c8; }
+.dev-icon  { font-size: 16px; flex-shrink: 0; }
+.dev-body  { flex: 1; }
+.dev-title { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.dev-desc  { font-size: 10px; color: #555; line-height: 1.5; }
+.dev-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.dev-badge { font-size: 9px; padding: 2px 7px; border-radius: 2px; font-family: monospace; }
+.dev-badge.red    { background: #fde; color: #A32D2D; border: 1px solid #f5c0c0; }
+.dev-badge.orange { background: #fdf0e0; color: #854F0B; border: 1px solid #f5dfa0; }
+.dev-badge.green  { background: #eaf3de; color: #3B6D11; border: 1px solid #c5e0a0; }
+
+/* 監控清單三態 */
+.watch-item.below { background: #f8f8ff; border-color: #d0d0f0; }
+.watch-item.ready { background: #fffdf0; border-color: #f0e8b0; }
 .wi-remove { color: #ccc; cursor: pointer; font-size: 10px; flex-shrink: 0; }
 .wi-remove:hover { color: #E24B4A; }
 
@@ -752,34 +776,37 @@ async function loadStock() {
   document.getElementById('rightPanel').innerHTML = '<div class="loading-text">載入中...</div>';
 
   try {
-    const [tickerRes, historyRes, foreignRes, marginRes, priceRes, themeRes, revenueRes] = await Promise.all([
+    const [tickerRes, historyRes, foreignRes, marginRes, priceRes, themeRes, revenueRes, itRes] = await Promise.all([
       apiFetch(`${SERVER}/ticker/${code}`),
       apiFetch(`${SERVER}/history/${code}`),
       apiFetch(`${SERVER}/foreign/${code}`),
       apiFetch(`${SERVER}/margin/${code}`),
       apiFetch(`${SERVER}/price/${code}`),
       apiFetch(`${SERVER}/theme/${code}`),
-      apiFetch(`${SERVER}/revenue/${code}`)
+      apiFetch(`${SERVER}/revenue/${code}`),
+      apiFetch(`${SERVER}/invest_trust/${code}`)
     ]);
 
-    const tickerJson = await tickerRes.json();
+    const tickerJson  = await tickerRes.json();
     const historyJson = await historyRes.json();
     const foreignJson = await foreignRes.json();
-    const marginJson = await marginRes.json();
-    const priceJson = await priceRes.json();
-    const themeJson = await themeRes.json();
+    const marginJson  = await marginRes.json();
+    const priceJson   = await priceRes.json();
+    const themeJson   = await themeRes.json();
     const revenueJson = await revenueRes.json();
+    const itJson      = await itRes.json();
 
     const stockName = tickerJson.name || code;
     window._stockName = stockName;
-    const candles = historyJson.data || [];
-    const foreignRaw = foreignJson.data || [];
-    const marginRaw = marginJson.data || [];
-    const priceMap = priceJson.data || {};
-    const themes = themeJson.themes || [];
-    const industry = themeJson.industry || '';
-    const usStocks = themeJson.us_stocks || [];
+    const candles     = historyJson.data || [];
+    const foreignRaw  = foreignJson.data || [];
+    const marginRaw   = marginJson.data  || [];
+    const priceMap    = priceJson.data   || {};
+    const themes      = themeJson.themes || [];
+    const industry    = themeJson.industry || '';
+    const usStocks    = themeJson.us_stocks || [];
     const revenueData = revenueJson.data || [];
+    const itRaw       = itJson.data || [];
 
     if (!candles.length) {
       document.getElementById('rightPanel').innerHTML = '<div class="empty-state"><p>找不到股票資料</p></div>';
@@ -800,6 +827,16 @@ async function loadStock() {
     const fTrend = checkTrend(foreignHistory);
     const fAccum = checkAccumulate(foreignHistory);
     const fPw = fCost > 0 ? calcPassword(fCost, latestPrice) : null;
+
+    // 投信成本（同外資加權平均成本邏輯）
+    const itRows    = mergeForeignWithPrice(itRaw, priceMap);
+    const itHistory = calcCost(itRows);
+    const hasIT     = itHistory.length > 0;
+    const itLatest  = hasIT ? itHistory[itHistory.length-1] : null;
+    const itCost    = itLatest ? itLatest.cost : 0;
+    const itDiff    = latestPrice - itCost;
+    const itPct     = itCost > 0 ? itDiff / itCost * 100 : 0;
+    const itPw      = itCost > 0 ? calcPassword(itCost, latestPrice) : null;
 
     // 融資
     const marginRows = mergeMarginWithPrice(marginRaw, priceMap);
@@ -909,6 +946,53 @@ async function loadStock() {
           </div>
         </div>
       </div>
+
+      <!-- 成本背離警示（以投信成本為主） -->
+      ${(() => {
+        const alerts = [];
+        if (itCost > 0) {
+          const r = latestPrice / itCost;
+          if (r >= 1.7) alerts.push({ type:'danger', src:'投信', cost:itCost, ratio:r,
+            msg:`現價已達投信成本 ${r.toFixed(2)}x，進入韭菜收割區，法人隨時可能出貨。` });
+          else if (r >= 1.4) alerts.push({ type:'warning', src:'投信', cost:itCost, ratio:r,
+            msg:`現價達投信成本 ${r.toFixed(2)}x，處於極端高位，追高風險高。` });
+        }
+        if (fCost > 0) {
+          const r = latestPrice / fCost;
+          if (r >= 1.7) alerts.push({ type:'danger', src:'外資', cost:fCost, ratio:r,
+            msg:`現價達外資成本 ${r.toFixed(2)}x，超漲區。` });
+          else if (r >= 1.4) alerts.push({ type:'warning', src:'外資', cost:fCost, ratio:r,
+            msg:`現價達外資成本 ${r.toFixed(2)}x，高位警示。` });
+        }
+        if (!alerts.length) {
+          if (itCost > 0 || fCost > 0) {
+            const items = [];
+            if (itCost > 0) items.push(`投信成本 $${itCost.toFixed(1)}（×${(latestPrice/itCost).toFixed(2)}）`);
+            if (fCost  > 0) items.push(`外資成本 $${fCost.toFixed(1)}（×${(latestPrice/fCost).toFixed(2)}）`);
+            return `<div class="deviation-bar safe">
+              <div class="dev-icon">✅</div>
+              <div class="dev-body">
+                <div class="dev-title">成本背離正常</div>
+                <div class="dev-desc">現價尚未觸及韭菜區（×1.7），風險相對可控。</div>
+                <div class="dev-badges">${items.map(s=>`<span class="dev-badge green">${s}</span>`).join('')}</div>
+              </div>
+            </div>`;
+          }
+          return '';
+        }
+        const top = alerts.sort((a,b)=>b.ratio-a.ratio)[0];
+        const icon  = top.type==='danger' ? '🚨' : '⚠️';
+        const title = top.type==='danger' ? '⚠ 超漲區警示！韭菜收割區' : '注意：高位背離警示';
+        const bCss  = top.type==='danger' ? 'red' : 'orange';
+        return `<div class="deviation-bar ${top.type}">
+          <div class="dev-icon">${icon}</div>
+          <div class="dev-body">
+            <div class="dev-title">${title}</div>
+            <div class="dev-desc">${alerts.map(a=>a.msg).join('<br>')}</div>
+            <div class="dev-badges">${alerts.map(a=>`<span class="dev-badge ${bCss}">${a.src}成本 $${a.cost.toFixed(1)} → 現價 ×${a.ratio.toFixed(2)}</span>`).join('')}</div>
+          </div>
+        </div>`;
+      })()}
 
       <!-- 兩欄：外資＋融資 -->
       <div class="two-col">
@@ -1105,14 +1189,26 @@ function renderWatchlist() {
   const c = document.getElementById('watchlistItems');
   if (!watchlist.length) { c.innerHTML = '<div class="empty-text">尚未新增監控</div>'; return; }
   c.innerHTML = watchlist.map((w,i) => {
-    const triggered = w.currentPrice>0&&w.triggerPrice>0&&w.currentPrice>=w.triggerPrice;
-    const hasData = w.currentPrice>0;
-    const cls = !hasData?'':triggered?'alert':'safe';
-    const badge = !hasData?'loading':triggered?'alert':'safe';
-    const badgeText = !hasData?'載入中':triggered?'⚡突破':'未發動';
+    const hasData = w.currentPrice > 0;
+    const fCostW  = w.foreignCost  || 0;
+    const trigger = w.triggerPrice || 0;
+    const price   = w.currentPrice || 0;
+    let cls, badge, badgeText;
+    if (!hasData) {
+      cls = ''; badge = 'loading'; badgeText = '載入中';
+    } else if (fCostW > 0 && price < fCostW) {
+      cls = 'below'; badge = 'below'; badgeText = '↓跌破成本';
+    } else if (trigger > 0 && price >= trigger) {
+      cls = 'alert'; badge = 'alert'; badgeText = '⚡突破發動';
+    } else if (fCostW > 0 && price >= fCostW) {
+      cls = 'ready'; badge = 'ready'; badgeText = '⏳醞釀中';
+    } else {
+      cls = 'safe'; badge = 'safe'; badgeText = '持平';
+    }
+    const costInfo = fCostW > 0 ? ` 成本$${fCostW.toFixed(1)}` : '';
     return `<div class="watch-item ${cls}">
       <span class="wi-code">${w.code}</span>
-      <span class="wi-name">${w.name}${hasData?` $${w.currentPrice.toFixed(1)}`:''}${hasData&&w.triggerPrice>0?` ›${w.triggerPrice.toFixed(1)}`:''}</span>
+      <span class="wi-name">${w.name}${hasData?` $${price.toFixed(1)}`:''}${costInfo}</span>
       <span class="wi-badge ${badge}">${badgeText}</span>
       <span class="wi-remove" onclick="removeWatch(${i})">✕</span>
     </div>`;
