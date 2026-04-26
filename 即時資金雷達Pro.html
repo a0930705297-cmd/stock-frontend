@@ -315,8 +315,8 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
           <select class="cfg-sel" id="autoSel" onchange="setAuto()">
             <option value="0">關閉</option>
             <option value="60">1 分鐘</option>
-            <option value="180" selected>3 分鐘</option>
-            <option value="300">5 分鐘</option>
+          <option value="180" selected>3 分鐘</option>
+          <option value="300">5 分鐘</option>
           </select>
         </div>
       </div>
@@ -350,7 +350,7 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
         <div style="padding:0 13px 10px;font-size:10px;color:var(--mu);line-height:1.7;">
           需在 Railway Variables 設定：<br>
           <code style="color:var(--bl);">DISCORD_WEBHOOK = https://discord.com/api/webhooks/...</code><br>
-          門檻單位皆為「億」，更新後會依設定自動檢查一次
+          門檻單位皆為「億」，更新後會依設定自動檢查一次，僅盤中推播
         </div>
       </div>
       <div class="cfg-lbl">資料說明</div>
@@ -358,8 +358,9 @@ body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
         <div class="cfg-note">
           ● 資金流向 = 成交金額 × 漲跌方向（漲→流入，跌→流出）<br>
           ● 法人籌碼來自 FinMind 三大法人資料<br>
-          ● 後端快取 5 分鐘，全量掃描約需 15–30 秒<br>
+          ● 後端快取 3 分鐘，全量掃描約需 15–30 秒<br>
           ● 目前總覽以產業為主，題材聚合未啟用<br>
+          ● Discord 僅在盤中（09:00–13:30）自動推播，盤後只更新畫面不推播<br>
           ● 僅供參考，不構成投資建議
         </div>
       </div>
@@ -601,7 +602,8 @@ async function trigMonitor(){
       const d=await r.json();
       if(d.alerted>0)toast(`📡 Discord 推播 ${d.alerted} 則警示`,true);
       if(!d.discord_set)toast('⚠️ DISCORD_WEBHOOK 環境變數未設定',false);
-      if(!d.discord_set)setDiscordStatus('Discord 狀態：未設定 DISCORD_WEBHOOK','err');
+      if(d.market_live===false)setDiscordStatus(`Discord 狀態：${d.checked_at} 非盤中，已跳過推播`,'warn');
+      else if(!d.discord_set)setDiscordStatus('Discord 狀態：未設定 DISCORD_WEBHOOK','err');
       else if(d.alerted>0)setDiscordStatus(`Discord 狀態：${d.checked_at} 已推播 ${d.alerted} 則警示`,'ok');
       else setDiscordStatus(`Discord 狀態：${d.checked_at} 已檢查，無新警示`,'ok');
     }else{
