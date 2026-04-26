@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>即時資金雷達</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+:root{
+  --bg:#0d1117;--c1:#161b22;--c2:#1c2230;
+  --bd:rgba(255,255,255,.07);--bd2:rgba(255,255,255,.13);
+  --tx:#e6edf3;--mu:#8b949e;--dm:#30363d;
+  --in:#f85149;--in2:rgba(248,81,73,.13);
+  --ot:#3fb950;--ot2:rgba(63,185,80,.11);
+  --bl:#58a6ff;--bl2:rgba(88,166,255,.12);
+  --or:#f0883e;--or2:rgba(240,136,62,.12);
+  --ac:#388bfd;--r:12px;--r2:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:'Noto Sans TC',-apple-system,sans-serif;color:var(--tx);
+  max-width:430px;margin:0 auto;display:flex;flex-direction:column;font-size:13px;}
+#loginOverlay{position:fixed;inset:0;background:var(--bg);z-index:900;
+  display:flex;align-items:center;justify-content:center;}
+.lbox{width:300px;background:var(--c1);border:1px solid var(--bd2);
+  border-radius:var(--r);padding:28px 22px;text-align:center;}
+.llogo{font-size:20px;font-weight:700;margin-bottom:2px;}
+.lsub{font-size:11px;color:var(--mu);margin-bottom:18px;}
+.linput{width:100%;padding:9px 12px;margin-bottom:8px;border-radius:var(--r2);
+  background:var(--bg);border:1px solid var(--bd2);color:var(--tx);
+  font-size:14px;font-family:inherit;outline:none;}
+.linput:focus{border-color:var(--ac);}
+.lbtn{width:100%;padding:10px;border-radius:var(--r2);background:var(--ac);
+  color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;}
+.lerr{font-size:11px;color:var(--in);margin-top:6px;min-height:16px;}
+.top{background:var(--bg);border-bottom:1px solid var(--bd2);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px 10px;flex-shrink:0;}
+.top-title{font-size:18px;font-weight:700;letter-spacing:-.3px;}
+.top-r{display:flex;align-items:center;gap:8px;}
+.mkt{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;border:1px solid;}
+.mkt.live{border-color:var(--ot);color:var(--ot);}
+.mkt.off{border-color:var(--mu);color:var(--mu);}
+#clock{font-size:12px;color:var(--mu);}
+.rbtn{width:28px;height:28px;border-radius:var(--r2);background:var(--c2);
+  border:1px solid var(--bd);color:var(--mu);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:.15s;}
+.rbtn.spin{animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.tabs{display:flex;border-bottom:1px solid var(--bd);background:var(--bg);flex-shrink:0;}
+.tab{flex:1;padding:9px 0;font-size:13px;font-weight:500;color:var(--mu);
+  text-align:center;cursor:pointer;border-bottom:2px solid transparent;transition:.15s;}
+.tab.on{color:var(--tx);border-bottom-color:var(--ac);}
+.pages{flex:1;overflow:hidden;position:relative;}
+.page{position:absolute;inset:0;overflow-y:auto;display:none;padding-bottom:68px;}
+.page.on{display:block;}
+.page::-webkit-scrollbar{width:2px;}
+.page::-webkit-scrollbar-thumb{background:var(--dm);}
+.card{background:var(--c1);border:1px solid var(--bd);border-radius:var(--r);
+  margin:10px 12px;overflow:hidden;}
+.card-hd{padding:11px 14px 9px;display:flex;align-items:center;gap:7px;
+  border-bottom:1px solid var(--bd);}
+.card-hd-ico{font-size:15px;}
+.card-hd-ttl{font-size:14px;font-weight:700;}
+.card-hd-sub{font-size:10px;color:var(--mu);margin-left:auto;}
+.fc{display:grid;grid-template-columns:1fr 1fr;}
+.fcc{padding:10px 11px;}
+.fcc:first-child{border-right:1px solid var(--bd);}
+.fcc-ttl{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;margin-bottom:7px;}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.dot.in{background:var(--in);}.dot.out{background:var(--ot);}
+.fi{display:flex;align-items:center;gap:4px;padding:4px;
+  border-radius:6px;cursor:pointer;font-size:11px;transition:.1s;margin:1px -4px;}
+.fi:hover{background:var(--c2);}
+.fi-rk{color:var(--mu);min-width:14px;font-size:10px;}
+.fi-nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fi-vl{font-weight:700;white-space:nowrap;}
+.fi-vl.in{color:var(--in);}.fi-vl.out{color:var(--ot);}
+.fi-ar{font-size:9px;color:var(--dm);}
+.sc{display:grid;grid-template-columns:1fr 1fr;}
+.scc:first-child{border-right:1px solid var(--bd);}
+.scc-ttl{padding:7px 12px 4px;font-size:10px;font-weight:700;
+  display:flex;align-items:center;gap:3px;}
+.si{display:flex;align-items:flex-start;padding:5px 10px;gap:5px;
+  cursor:pointer;transition:.1s;border-top:1px solid var(--bd);}
+.si:hover{background:var(--c2);}
+.si-rk{color:var(--mu);font-size:10px;min-width:13px;padding-top:1px;}
+.si-bd{flex:1;min-width:0;}
+.si-cd{font-size:11px;font-weight:700;line-height:1.3;}
+.si-cg{font-size:10px;font-weight:600;}
+.si-cg.up{color:var(--in);}.si-cg.dn{color:var(--ot);}
+.si-am{font-size:11px;font-weight:700;white-space:nowrap;}
+.si-am.in{color:var(--in);}.si-am.out{color:var(--ot);}
+.ic{background:var(--c1);border:1px solid var(--bd);border-radius:var(--r);
+  margin:0 12px 8px;overflow:hidden;transition:.15s;}
+.ic:hover{border-color:var(--bd2);}
+.ic-hd{padding:10px 12px 6px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.ictabs{display:flex;gap:3px;}
+.ictab{font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;}
+.ictab.g{background:var(--bl2);color:var(--bl);}
+.ictab.i{background:var(--ot2);color:var(--ot);}
+.ictab.t{background:var(--or2);color:var(--or);}
+.ic-nm{font-size:13px;font-weight:700;margin-left:2px;}
+.ic-sig{margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;font-weight:700;}
+.ic-sig.in{color:var(--in);}.ic-sig.out{color:var(--ot);}
+.ic-sigbg{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;}
+.ic-sigbg.in{background:var(--in2);color:var(--in);}
+.ic-sigbg.out{background:var(--ot2);color:var(--ot);}
+.ic-time{font-size:10px;color:var(--mu);padding:0 12px 5px;}
+.ic-body{padding:8px 12px 10px;border-top:1px solid var(--bd);cursor:pointer;user-select:none;}
+.ic-amt{font-size:17px;font-weight:700;margin-bottom:2px;display:flex;align-items:baseline;gap:6px;}
+.ic-amt.in{color:var(--in);}.ic-amt.out{color:var(--ot);}
+.ic-prev{font-size:11px;color:var(--mu);font-weight:400;}
+.ic-prev.up{color:var(--in);}
+.ic-detail{font-size:11px;color:var(--mu);margin-bottom:2px;}
+.ic-conc{font-size:11px;color:var(--mu);}
+.ic-tog{font-size:11px;color:var(--bl);margin-top:5px;}
+.ic-stocks{display:none;border-top:1px solid var(--bd);padding:6px 12px 4px;}
+.ic.open .ic-stocks{display:block;}
+.ic-srow{display:flex;align-items:center;gap:5px;padding:5px 0;
+  border-bottom:1px solid var(--bd);font-size:11px;}
+.ic-srow:last-child{border-bottom:none;}
+.ic-sn{font-size:10px;color:var(--mu);min-width:14px;}
+.ic-sc{font-weight:700;color:var(--bl);min-width:72px;}
+.ic-sg{font-weight:600;}
+.ic-sg.up{color:var(--in);}.ic-sg.dn{color:var(--ot);}
+.ic-sp{color:var(--mu);}
+.ic-sf{margin-left:auto;text-align:right;}
+.ic-sv{font-weight:700;}
+.ic-sv.in{color:var(--in);}.ic-sv.out{color:var(--ot);}
+.ic-spc{font-size:10px;color:var(--mu);}
+.sbar{display:flex;gap:7px;padding:11px 12px 0;}
+.sinput{flex:1;padding:9px 12px;background:var(--c1);border:1px solid var(--bd);
+  border-radius:10px;color:var(--tx);font-size:15px;outline:none;font-family:inherit;}
+.sinput:focus{border-color:var(--ac);}
+.sbtn{padding:9px 15px;border-radius:10px;background:var(--ac);color:#fff;
+  font-size:14px;font-weight:600;border:none;cursor:pointer;}
+.sdc{background:var(--c2);border:1px solid var(--bd);border-radius:var(--r);
+  margin:10px 12px 6px;padding:14px;}
+.sdc-r1{display:flex;justify-content:space-between;margin-bottom:3px;}
+.sdc-code{font-size:16px;font-weight:700;}
+.sdc-price{font-size:16px;font-weight:700;}
+.sdc-r2{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.sdc-pct{font-size:15px;font-weight:700;}
+.sdc-pct.up{color:var(--in);}.sdc-pct.dn{color:var(--ot);}
+.sdc-sig{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:700;}
+.sdc-sig.in{color:var(--in);}.sdc-sig.out{color:var(--ot);}
+.sdc-meta{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+.sdc-m{font-size:11px;color:var(--mu);}
+.sdc-m span{color:var(--tx);font-weight:500;}
+.ibar{background:var(--c1);border:1px solid var(--bd);border-radius:var(--r2);
+  margin:0 12px 8px;padding:9px 12px;}
+.ibar-ttl{font-size:10px;color:var(--mu);margin-bottom:7px;}
+.ibar-row{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:11px;}
+.ibar-lbl{color:var(--mu);min-width:36px;}
+.ibar-bg{flex:1;height:5px;background:var(--dm);border-radius:3px;overflow:hidden;}
+.ibar-fill{height:100%;border-radius:3px;}
+.ibar-fill.p{background:var(--in);}.ibar-fill.n{background:var(--ot);}
+.ibar-v{min-width:52px;text-align:right;font-weight:600;font-size:11px;}
+.ibar-v.p{color:var(--in);}.ibar-v.n{color:var(--ot);}
+.tl-lbl{font-size:10px;color:var(--mu);padding:3px 12px 5px;}
+.tl{background:var(--c1);border:1px solid var(--bd);border-radius:var(--r);
+  margin:0 12px 7px;overflow:hidden;}
+.tl.open{border-color:var(--ac);}
+.tl-hd{padding:9px 12px;cursor:pointer;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.tl-ind{font-size:12px;font-weight:700;}
+.tl-tab{font-size:9px;padding:1px 6px;border-radius:4px;background:var(--bl2);color:var(--bl);font-weight:700;}
+.tl-px{font-size:12px;font-weight:700;margin-left:auto;}
+.tl-dt{font-size:10px;color:var(--mu);}
+.tl-ar{font-size:10px;color:var(--mu);transition:.2s;}
+.tl.open .tl-ar{transform:rotate(90deg);}
+.tl-body{padding:6px 12px 9px;border-top:1px solid var(--bd);}
+.tl-frow{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
+.tl-fv{font-size:14px;font-weight:700;}
+.tl-fv.in{color:var(--in);}.tl-fv.out{color:var(--ot);}
+.tl-net{font-size:11px;color:var(--mu);margin-bottom:2px;}
+.tl-fi{font-size:11px;}
+.tl-fi.in{color:var(--in);}.tl-fi.out{color:var(--ot);}
+.tl-exp{display:none;border-top:1px solid var(--bd);padding:6px 12px 8px;}
+.tl.open .tl-exp{display:block;}
+.tl-erow{display:flex;align-items:center;gap:5px;padding:4px 0;
+  border-top:1px solid var(--bd);font-size:11px;}
+.tl-ec{font-weight:700;color:var(--bl);min-width:68px;}
+.tl-eg{font-weight:600;}
+.tl-eg.up{color:var(--in);}.tl-eg.dn{color:var(--ot);}
+.tl-ep{color:var(--mu);}
+.tl-er{margin-left:auto;text-align:right;}
+.tl-ef{color:var(--mu);}
+.tl-epc{font-size:10px;color:var(--dm);}
+.cfg{padding:10px 12px 0;}
+.cfg-lbl{font-size:10px;color:var(--mu);letter-spacing:.07em;text-transform:uppercase;
+  margin-bottom:4px;padding:0 2px;}
+.cfg-card{background:var(--c1);border:1px solid var(--bd);border-radius:var(--r);
+  overflow:hidden;margin-bottom:12px;}
+.cfg-row{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;}
+.cfg-row+.cfg-row{border-top:1px solid var(--bd);}
+.cfg-rl{font-size:13px;}
+.cfg-sel{background:var(--c2);border:1px solid var(--bd);color:var(--tx);
+  font-size:12px;padding:3px 7px;border-radius:6px;outline:none;font-family:inherit;}
+.cfg-inp{width:58px;background:var(--c2);border:1px solid var(--bd);color:var(--tx);
+  font-size:12px;padding:3px 7px;border-radius:6px;outline:none;text-align:right;}
+.cfg-note{font-size:11px;color:var(--mu);line-height:1.7;padding:9px 13px;}
+.nav{display:flex;background:var(--c1);border-top:1px solid var(--bd);flex-shrink:0;}
+.navi{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 0 7px;font-size:10px;color:var(--mu);cursor:pointer;transition:.12s;}
+.navi.on{color:var(--ac);}
+.navi-ico{font-size:20px;}
+.toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);
+  background:var(--c2);border:1px solid var(--bd2);border-radius:10px;
+  padding:7px 16px;font-size:12px;z-index:400;white-space:nowrap;
+  animation:tIn .2s ease;pointer-events:none;}
+.toast.in{border-color:var(--in);color:var(--in);}
+@keyframes tIn{from{opacity:0;transform:translateX(-50%) translateY(5px);}}
+.alert-bar{position:fixed;top:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:430px;
+  background:linear-gradient(135deg,rgba(248,81,73,.95),rgba(180,30,30,.95));
+  color:#fff;padding:10px 14px;font-size:13px;font-weight:600;
+  display:flex;align-items:center;gap:7px;z-index:600;
+  animation:abIn .3s ease;cursor:pointer;}
+@keyframes abIn{from{transform:translateX(-50%) translateY(-100%);}}
+.alert-x{margin-left:auto;opacity:.7;font-size:15px;}
+.load{text-align:center;padding:22px;color:var(--mu);font-size:12px;}
+.ld{display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--mu);margin:0 2px;animation:bo 1s ease-in-out infinite;}
+.ld:nth-child(2){animation-delay:.16s;}.ld:nth-child(3){animation-delay:.32s;}
+@keyframes bo{0%,80%,100%{transform:scale(.7);opacity:.4}40%{transform:scale(1.1);opacity:1}}
+.empty{text-align:center;padding:28px;color:var(--mu);font-size:12px;}
+</style>
+</head>
+<body>
+<div id="loginOverlay">
+  <div class="lbox">
+    <div class="llogo">⚡ 即時資金雷達</div>
+    <div class="lsub">連線到你的 Railway 後端</div>
+    <input class="linput" id="lsrv" type="url" placeholder="https://xxxx.railway.app">
+    <input class="linput" id="lpwd" type="password" placeholder="x-token 密碼">
+    <button class="lbtn" onclick="doLogin()">連線登入</button>
+    <div class="lerr" id="lerr"></div>
+  </div>
+</div>
+<div class="top">
+  <div class="top-title">即時資金雷達</div>
+  <div class="top-r">
+    <span class="mkt off" id="mkt">收盤後</span>
+    <span id="clock">--:--</span>
+    <button class="rbtn" id="rbtn" onclick="trigRefresh()">↻</button>
+  </div>
+</div>
+<div class="tabs">
+  <div class="tab on" onclick="goTab(0)">資金流向</div>
+  <div class="tab"    onclick="goTab(1)">搜尋</div>
+  <div class="tab"    onclick="goTab(2)">設定</div>
+</div>
+<div class="pages">
+  <div class="page on" id="p0">
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-hd-ico">📊</span>
+        <span class="card-hd-ttl">當日題材排行</span>
+        <span class="card-hd-sub" id="updTime">—</span>
+      </div>
+      <div class="fc">
+        <div class="fcc">
+          <div class="fcc-ttl"><span class="dot in"></span>資金流入 TOP5</div>
+          <div id="fcIn"><div class="load"><span class="ld"></span><span class="ld"></span><span class="ld"></span></div></div>
+        </div>
+        <div class="fcc">
+          <div class="fcc-ttl"><span class="dot out"></span>資金流出 TOP5</div>
+          <div id="fcOut"><div class="load"><span class="ld"></span><span class="ld"></span><span class="ld"></span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-hd-ico">🏆</span>
+        <span class="card-hd-ttl">當日個股排行</span>
+        <span class="card-hd-sub">點擊查詢</span>
+      </div>
+      <div class="sc">
+        <div class="scc">
+          <div class="scc-ttl"><span class="dot in"></span><span style="color:var(--in)">流入 TOP5</span></div>
+          <div id="scIn"></div>
+        </div>
+        <div class="scc">
+          <div class="scc-ttl"><span class="dot out"></span><span style="color:var(--ot)">流出 TOP5</span></div>
+          <div id="scOut"></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:3px 12px 2px;font-size:9px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;">產業流向詳細</div>
+    <div id="icList"></div>
+  </div>
+  <div class="page" id="p1">
+    <div class="sbar">
+      <input class="sinput" id="sinput" type="text" placeholder="股票代號 or 產業名稱" inputmode="numeric">
+      <button class="sbtn" onclick="doSearch()">查詢</button>
+    </div>
+    <div id="sres" style="margin-top:3px;"></div>
+  </div>
+  <div class="page" id="p2">
+    <div class="cfg" style="margin-top:3px;">
+      <div class="cfg-lbl">連線</div>
+      <div class="cfg-card">
+        <div class="cfg-row"><span class="cfg-rl">伺服器</span><span style="font-size:11px;color:var(--mu);" id="cfgSrv">—</span></div>
+        <div class="cfg-row"><button onclick="doLogout()" style="font-size:12px;color:var(--in);background:none;border:none;cursor:pointer;">重新登入</button></div>
+      </div>
+      <div class="cfg-lbl">自動更新</div>
+      <div class="cfg-card">
+        <div class="cfg-row">
+          <span class="cfg-rl">更新間隔</span>
+          <select class="cfg-sel" id="autoSel" onchange="setAuto()">
+            <option value="0">關閉</option>
+            <option value="60">1 分鐘</option>
+            <option value="180" selected>3 分鐘</option>
+            <option value="300">5 分鐘</option>
+          </select>
+        </div>
+      </div>
+      <div class="cfg-lbl">警示設定</div>
+      <div class="cfg-card">
+        <div class="cfg-row"><span class="cfg-rl">強烈流入警示（億）</span><input class="cfg-inp" type="number" id="alertThr" value="30"></div>
+        <div class="cfg-row"><span class="cfg-rl">聲音警示</span><input type="checkbox" id="sndOn" style="width:16px;height:16px;accent-color:var(--ac);"></div>
+      </div>
+      <div class="cfg-lbl">資料說明</div>
+      <div class="cfg-card">
+        <div class="cfg-note">
+          ● 資金流向 = 成交金額 × 漲跌方向（漲→流入，跌→流出）<br>
+          ● 法人籌碼來自 FinMind 三大法人資料<br>
+          ● 後端快取 5 分鐘，全量掃描約需 15–30 秒<br>
+          ● 僅供參考，不構成投資建議
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="nav">
+  <div class="navi on" id="nav0" onclick="goTab(0)"><span class="navi-ico">📈</span>資金流向</div>
+  <div class="navi"    id="nav1" onclick="goTab(1)"><span class="navi-ico">🔍</span>搜尋</div>
+  <div class="navi"    id="nav2" onclick="goTab(2)"><span class="navi-ico">⚙️</span>設定</div>
+</div>
+<script>
+let SRV='',TOK='',lastData=null,autoTmr=null,prevTopIn=[];
+const SN={"2330":"台積電","2303":"聯電","2317":"鴻海","2344":"華邦電","2454":"聯發科","2379":"瑞昱","2383":"台光電","2395":"研華","2382":"廣達","2357":"華碩","2376":"技嘉","3706":"神達","2337":"旺宏","5347":"世界","3034":"聯詠","8150":"南茂","3037":"欣詮","6770":"力積電","2458":"義隆","3189":"崇越電","6230":"超眾","2049":"上銀","3443":"創意","3481":"群創","2408":"南亞科","8046":"南電","2313":"華通","3044":"健鼎","2301":"光寶科","4938":"和碩","6658":"聯策","3324":"雙鴻","2312":"金寶","8021":"尖點","2615":"萬海","2603":"長榮","2609":"陽明","2610":"華航","2618":"長榮航","2886":"兆豐金","2881":"富邦金","2882":"國泰金","2884":"玉山金","2891":"中信金","6285":"啟碁","3491":"昇達科","5388":"中磊","2412":"中華電","1802":"台玻","1815":"富喬","5340":"建榮","4924":"德宏","4438":"廣越","6213":"聯茂","6274":"台燿","2002":"中鋼","2006":"東和鋼","1301":"台塑","1303":"南亞","1326":"台化","3035":"智原","6669":"緯穎","8210":"勤誠","3701":"大眾控","6831":"迦科","1717":"長興","6224":"聚鼎","2492":"華新科","2428":"興勤","2478":"大毅","3026":"禾伸堂","6449":"鈺邦","2375":"凱美","3191":"雲嘉南","6284":"佳邦","8043":"蜜望實","2327":"國巨","3008":"大立光","2308":"台達電","1504":"東元","2883":"開發金","2885":"元大金","2890":"永豐金","2887":"台新金","2892":"第一金","4958":"臻鼎-KY","3092":"鴻碩","5483":"中美晶","7717":"萊德光電","2441":"超豐"};
+const sn=c=>SN[c]||c;
+
+async function doLogin(){
+  const sv=document.getElementById('lsrv').value.trim().replace(/\/$/,'');
+  const pw=document.getElementById('lpwd').value.trim();
+  if(!sv||!pw){document.getElementById('lerr').textContent='請填入伺服器與密碼';return;}
+  document.getElementById('lerr').textContent='連線中...';
+  try{
+    const r=await fetch(`${sv}/flow/status`,{headers:{'x-token':pw}});
+    if(r.status===401){document.getElementById('lerr').textContent='密碼錯誤';return;}
+    if(!r.ok){document.getElementById('lerr').textContent='連線失敗 '+r.status;return;}
+    SRV=sv;TOK=pw;
+    localStorage.setItem('fr_s',sv);localStorage.setItem('fr_t',pw);
+    document.getElementById('loginOverlay').style.display='none';
+    document.getElementById('cfgSrv').textContent=sv;
+    init();
+  }catch(e){document.getElementById('lerr').textContent='無法連線：'+e.message;}
+}
+function doLogout(){localStorage.removeItem('fr_s');localStorage.removeItem('fr_t');location.reload();}
+document.getElementById('lpwd').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+(()=>{
+  const sv=localStorage.getItem('fr_s'),tk=localStorage.getItem('fr_t');
+  if(sv&&tk){
+    document.getElementById('lsrv').value=sv;document.getElementById('lpwd').value=tk;
+    SRV=sv;TOK=tk;
+    document.getElementById('loginOverlay').style.display='none';
+    document.getElementById('cfgSrv').textContent=sv;
+  }
+})();
+
+function tick(){
+  const tw=new Date(Date.now()+(new Date().getTimezoneOffset()+480)*60000);
+  document.getElementById('clock').textContent=String(tw.getHours()).padStart(2,'0')+':'+String(tw.getMinutes()).padStart(2,'0');
+  const m=tw.getHours()*60+tw.getMinutes(),wd=tw.getDay(),el=document.getElementById('mkt');
+  if(wd>=1&&wd<=5&&m>=540&&m<810){el.className='mkt live';el.textContent='盤中';}
+  else if(wd>=1&&wd<=5&&m>=510&&m<540){el.className='mkt live';el.textContent='盤前';}
+  else{el.className='mkt off';el.textContent='收盤後';}
+}
+setInterval(tick,15000);tick();
+
+function goTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('on',i===j));
+  document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',i===j));
+  document.querySelectorAll('.navi').forEach((n,j)=>n.classList.toggle('on',i===j));
+}
+
+function fy(v){const a=Math.abs(v),s=v<0?'-':'+';if(a>=10000)return s+(a/10000).toFixed(1)+'兆';if(a>=1)return s+a.toFixed(2)+'億';return s+(a*100).toFixed(0)+'百萬';}
+function fya(v){const a=Math.abs(v);return a>=1?a.toFixed(2)+'億':(a*100).toFixed(0)+'百萬';}
+const api=p=>fetch(`${SRV}${p}`,{headers:{'x-token':TOK}});
+
+async function loadFlow(){
+  try{
+    const r=await api('/flow/summary');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    lastData=d;renderAll(d);checkAlerts(d);
+    document.getElementById('updTime').textContent=d.updated_at||'—';
+    return true;
+  }catch(e){toast('載入失敗：'+e.message,false);return false;}
+}
+
+function renderAll(d){renderTheme(d);renderStocks(d);renderIC(d);}
+
+function renderTheme(d){
+  const all=[...Object.values(d.industry||{}),...Object.values(d.theme||{})].filter(v=>v.in_amount+v.out_amount>0);
+  const inT=[...all].sort((a,b)=>b.net_amount-a.net_amount).slice(0,5);
+  const otT=[...all].sort((a,b)=>a.net_amount-b.net_amount).slice(0,5);
+  const mk=(arr,cls)=>arr.map((v,i)=>`<div class="fi" onclick="goIndustry('${v.name}')"><span class="fi-rk">${i+1}.</span><span class="fi-nm">${v.name}</span><span class="fi-vl ${cls}">${fy(v.net_amount)}</span><span class="fi-ar">›</span></div>`).join('')||'<div class="empty">無資料</div>';
+  document.getElementById('fcIn').innerHTML=mk(inT,'in');
+  document.getElementById('fcOut').innerHTML=mk(otT,'out');
+}
+
+function renderStocks(d){
+  const ti=(d.top_in||[]).slice(0,5),to=(d.top_out||[]).slice(0,5);
+  const mk=(arr,dir)=>arr.map((s,i)=>`<div class="si" onclick="goSearch('${s.code}')"><span class="si-rk">${i+1}.</span><div class="si-bd"><div class="si-cd">${s.code} ${sn(s.code)}</div><span class="si-cg ${dir==='in'?'up':'dn'}">${dir==='in'?'+':''}${s.chg_pct.toFixed(2)}%</span></div><span class="si-am ${dir}">${dir==='in'?'+':''}${fya(dir==='in'?s.flow_in:s.flow_out)}</span></div>`).join('')||'<div class="empty">無資料</div>';
+  document.getElementById('scIn').innerHTML=mk(ti,'in');
+  document.getElementById('scOut').innerHTML=mk(to,'out');
+}
+
+function renderIC(d){
+  const all=[...Object.values(d.industry||{}),...Object.values(d.theme||{})].filter(v=>v.in_amount+v.out_amount>0.5).sort((a,b)=>b.net_amount-a.net_amount).slice(0,10);
+  const tw=new Date(Date.now()+(new Date().getTimezoneOffset()+480)*60000);
+  const ts=String(tw.getHours()).padStart(2,'0')+':'+String(tw.getMinutes()).padStart(2,'0');
+  document.getElementById('icList').innerHTML=all.map(v=>{
+    const isIn=v.net_amount>=0,conc=v.concentration||0,cd=conc>=70?'高度集中':conc>=40?'中度集中':'低度集中';
+    const tabCls=v.type==='theme'?'t':'i',tabTxt=v.type==='theme'?'主題':'產業';
+    const id='ic_'+v.name.replace(/\W/g,'_');
+    const prev=Math.abs(v.net_amount*0.15);
+    const srows=(v.stocks||[]).map((s,i)=>{
+      const tot=v.in_amount+v.out_amount||1,pct=Math.round(Math.abs(s.net_flow)/tot*100);
+      return`<div class="ic-srow"><span class="ic-sn">${i+1}.</span><span class="ic-sc">${s.code} ${sn(s.code)}</span><span class="ic-sg ${s.chg_pct>0?'up':'dn'}">${s.chg_pct>0?'+':''}${s.chg_pct.toFixed(2)}%</span><span class="ic-sp"> ${s.price.toFixed(1)}</span><div class="ic-sf"><div class="ic-sv ${s.net_flow>0?'in':'out'}">${s.net_flow>0?'流入':'流出'} ${fya(s.net_flow)}</div><div class="ic-spc">佔${pct}%</div></div></div>`;
+    }).join('');
+    return`<div class="ic" id="${id}"><div class="ic-hd"><div class="ictabs"><span class="ictab g">一般</span><span class="ictab ${tabCls}">${tabTxt}</span></div><span class="ic-nm">${v.name}</span><span class="ic-sig ${isIn?'in':'out'}">● 資金${isIn?'流入':'流出'}<span class="ic-sigbg ${isIn?'in':'out'}">⚡ ${v.stock_count}</span></span></div><div class="ic-time">${ts}</div><div class="ic-body" onclick="togIC('${id}')"><div class="ic-amt ${isIn?'in':'out'}">淨額：${fy(v.net_amount)}<span class="ic-prev ${isIn?'up':''}">〔較上次 ↑${fya(prev)}〕</span></div><div class="ic-detail">流入：${fya(v.in_amount)} ｜ 流出：${fya(v.out_amount)}</div><div class="ic-conc">資金集中度：${conc}%（${cd}）</div><div class="ic-tog" id="${id}_tog">▼ 展開前 ${(v.stocks||[]).length} 大個股</div></div><div class="ic-stocks">${srows}</div></div>`;
+  }).join('')||'<div class="empty">請點擊重新整理載入資料</div>';
+}
+
+function togIC(id){
+  const el=document.getElementById(id);el.classList.toggle('open');
+  const t=document.getElementById(id+'_tog');if(t)t.textContent=el.classList.contains('open')?'▲ 收起':'▼ 展開前5大個股';
+}
+
+function goSearch(code){goTab(1);document.getElementById('sinput').value=code;doSearch();}
+function goIndustry(name){goTab(1);document.getElementById('sinput').value=name;doSearch();}
+
+async function doSearch(){
+  const raw=document.getElementById('sinput').value.trim();
+  if(!raw)return;
+  const el=document.getElementById('sres');
+  el.innerHTML=`<div class="load"><span class="ld"></span><span class="ld"></span><span class="ld"></span></div>`;
+  try{if(/^\d{4,6}$/.test(raw))await searchCode(raw,el);else await searchInd(raw,el);}
+  catch(e){el.innerHTML=`<div class="empty">查詢失敗：${e.message}</div>`;}
+}
+document.getElementById('sinput').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+
+async function searchCode(code,el){
+  const r=await api(`/flow/stock/${code}`);
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const d=await r.json();if(d.error)throw new Error(d.error);
+  const lat=d.latest||{},isIn=(lat.chg_pct||0)>=0;
+  const maxI=Math.max(Math.abs(lat.foreign_net||0),Math.abs(lat.trust_net||0),Math.abs(lat.dealer_net||0),1);
+  const bar=v=>{const p=Math.abs(v)/maxI*100,c=v>=0?'p':'n';return`<div class="ibar-bg"><div class="ibar-fill ${c}" style="width:${p}%"></div></div>`;};
+  const tls=(d.timeline||[]).slice(0,8).map(row=>{
+    const ri=row.chg_pct>=0,ds=row.date.slice(5).replace('-','/'),id='tl_'+row.date;
+    return`<div class="tl" id="${id}"><div class="tl-hd" onclick="document.getElementById('${id}').classList.toggle('open')"><span class="tl-ind">${(d.belongs_to||[]).map(b=>b.name).slice(0,2).join(' / ')||'—'}</span><span class="tl-tab">一般</span><span class="tl-px">${row.price.toFixed(1)}</span><span class="tl-dt">${ds}</span><span class="tl-ar">›</span></div><div class="tl-body"><div class="tl-frow"><span class="dot ${ri?'in':'out'}"></span><span class="tl-fv ${ri?'in':'out'}">${ri?'流入':'流出'} ${fya(row.amount)}</span></div><div class="tl-net">題材淨額：${fy(row.net_flow)}</div>${row.foreign_net?`<div class="tl-fi ${row.foreign_net>0?'in':'out'}">較上次流入↑${Math.abs(row.foreign_net).toLocaleString()} 張</div>`:''}</div><div class="tl-exp"><div style="padding:3px 0 5px;font-size:11px;color:var(--mu)">法人明細</div><div style="font-size:11px;color:${row.foreign_net>=0?'var(--in)':'var(--ot)'}">外資：${row.foreign_net>0?'+':''}${row.foreign_net.toLocaleString()} 張</div><div style="font-size:11px;color:${row.trust_net>=0?'var(--in)':'var(--ot)'}">投信：${row.trust_net>0?'+':''}${row.trust_net.toLocaleString()} 張</div><div style="font-size:11px;color:${row.dealer_net>=0?'var(--in)':'var(--ot)'}">自營：${row.dealer_net>0?'+':''}${row.dealer_net.toLocaleString()} 張</div></div></div>`;
+  }).join('');
+  el.innerHTML=`<div class="sdc"><div class="sdc-r1"><div class="sdc-code">${code} ${d.name}</div><div class="sdc-price">${(lat.price||0).toFixed(1)}</div></div><div class="sdc-r2"><span class="sdc-pct ${isIn?'up':'dn'}">${isIn?'+':''}${(lat.chg_pct||0).toFixed(2)}%</span><span class="sdc-sig ${isIn?'in':'out'}">● 資金${isIn?'流入':'流出'}</span></div><div class="sdc-meta"><div class="sdc-m">成交額：<span>${(lat.amount||0).toFixed(2)} 億</span></div><div class="sdc-m">出現題材：<span>${(d.belongs_to||[]).length} 個</span></div><div class="sdc-m">訊號次數：<span>${(d.timeline||[]).length} 次</span></div><div class="sdc-m">題材：<span>${(d.belongs_to||[]).map(b=>b.name).slice(0,2).join('、')||'—'}</span></div></div></div><div class="ibar"><div class="ibar-ttl">今日法人籌碼（張）</div><div class="ibar-row"><span class="ibar-lbl">外資</span>${bar(lat.foreign_net||0)}<span class="ibar-v ${(lat.foreign_net||0)>=0?'p':'n'}">${(lat.foreign_net||0)>0?'+':''}${(lat.foreign_net||0).toLocaleString()}</span></div><div class="ibar-row"><span class="ibar-lbl">投信</span>${bar(lat.trust_net||0)}<span class="ibar-v ${(lat.trust_net||0)>=0?'p':'n'}">${(lat.trust_net||0)>0?'+':''}${(lat.trust_net||0).toLocaleString()}</span></div><div class="ibar-row"><span class="ibar-lbl">自營</span>${bar(lat.dealer_net||0)}<span class="ibar-v ${(lat.dealer_net||0)>=0?'p':'n'}">${(lat.dealer_net||0)>0?'+':''}${(lat.dealer_net||0).toLocaleString()}</span></div></div><div class="tl-lbl">各題材流向明細（點擊展開法人資料）</div>${tls||'<div class="empty">無歷史流向資料</div>'}`;
+}
+
+async function searchInd(name,el){
+  const r=await api('/flow/industry/'+encodeURIComponent(name));
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const d=await r.json();if(d.error)throw new Error(d.error);
+  const isIn=d.net_amount>=0;
+  const srows=(d.stocks||[]).map((s,i)=>`<div class="tl-erow"><span class="tl-ec">${i+1}. ${s.code} ${sn(s.code)}</span><span class="tl-eg ${s.chg_pct>=0?'up':'dn'}">${s.chg_pct>=0?'+':''}${s.chg_pct.toFixed(2)}%</span><span class="tl-ep"> ${s.price.toFixed(1)}</span><div class="tl-er"><div class="tl-ef" style="color:${s.net_flow>=0?'var(--in)':'var(--ot)'}">〔${s.net_flow>=0?'流入':'流出'} ${fya(s.net_flow)} 佔${s.pct||0}%〕</div><div class="tl-epc">法人合計 ${s.inst_total>0?'+':''}${(s.inst_total||0).toLocaleString()} 張</div></div></div>`).join('');
+  el.innerHTML=`<div class="tl open" style="margin:10px 12px;"><div class="tl-hd"><span class="tl-ind">${name}</span><span class="tl-tab">產業</span><span style="margin-left:auto;font-size:10px;color:var(--mu)">${d.updated_at}</span></div><div class="tl-body"><div class="tl-frow"><span class="dot ${isIn?'in':'out'}"></span><span class="tl-fv ${isIn?'in':'out'}">淨額 ${fy(d.net_amount)}</span></div><div class="tl-net">流入：${fya(d.in_amount)} ｜ 流出：${fya(d.out_amount)}</div></div><div class="tl-exp" style="display:block;"><div style="font-size:11px;color:var(--mu);margin-bottom:5px;">前 ${(d.stocks||[]).length} 大影響個股：</div>${srows||'<div class="empty">無個股資料</div>'}</div></div>`;
+}
+
+function checkAlerts(d){
+  const thr=parseFloat(document.getElementById('alertThr').value)||30;
+  const ti=d.top_in||[],prev=new Set(prevTopIn.map(s=>s.code));
+  ti.filter(s=>!prev.has(s.code)&&s.flow_in>=thr).forEach(s=>{
+    const el=document.createElement('div');
+    el.className='alert-bar';
+    el.innerHTML=`🚨 ${s.code} ${sn(s.code)}　資金流入 ${fya(s.flow_in)}　+${s.chg_pct.toFixed(1)}%<span class="alert-x" onclick="this.parentElement.remove()">✕</span>`;
+    document.body.appendChild(el);setTimeout(()=>el.remove(),8000);
+    if(document.getElementById('sndOn').checked){
+      try{const c=new(window.AudioContext||window.webkitAudioContext)();[880,1100,880].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;g.gain.setValueAtTime(.13,c.currentTime+i*.11);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+i*.11+.1);o.start(c.currentTime+i*.11);o.stop(c.currentTime+i*.11+.12);});}catch(e){}
+    }
+  });
+  prevTopIn=ti;
+}
+
+function toast(msg,isIn){const e=document.createElement('div');e.className='toast'+(isIn?' in':'');e.textContent=msg;document.body.appendChild(e);setTimeout(()=>e.remove(),2500);}
+
+async function trigRefresh(){
+  if(!SRV)return;
+  const b=document.getElementById('rbtn');b.classList.add('spin');b.style.pointerEvents='none';
+  const ok=await loadFlow();
+  if(ok)toast('已更新 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),true);
+  b.classList.remove('spin');b.style.pointerEvents='';
+}
+function setAuto(){clearInterval(autoTmr);const s=parseInt(document.getElementById('autoSel').value);if(s>0)autoTmr=setInterval(trigRefresh,s*1000);}
+function init(){trigRefresh();setAuto();}
+window.addEventListener('load',()=>{if(SRV)init();});
+</script>
+</body>
+</html>
