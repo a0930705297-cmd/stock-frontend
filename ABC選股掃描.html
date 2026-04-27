@@ -247,6 +247,7 @@ tr.clickable { cursor: pointer; }
 .trend-tag.bull { background: rgba(143,184,122,0.12); color: var(--accent2); border: 1px solid rgba(143,184,122,0.25); }
 .trend-tag.bear { background: rgba(212,101,90,0.1); color: var(--danger); border: 1px solid rgba(212,101,90,0.2); }
 .trend-tag.flat { background: rgba(107,105,96,0.12); color: var(--muted); border: 1px solid var(--border); }
+.trend-tag.warn { background: rgba(212,149,90,0.12); color: var(--warn); border: 1px solid rgba(212,149,90,0.3); }
 
 /* 一年新高標籤 */
 .newhigh-tag {
@@ -254,6 +255,17 @@ tr.clickable { cursor: pointer; }
   background: rgba(200,169,110,0.12); color: var(--accent);
   border: 1px solid rgba(200,169,110,0.25);
 }
+
+/* M哥觀察輔助標籤 */
+.mg-tag {
+  display: inline-flex; align-items: center;
+  padding: 1px 5px; border-radius: 2px;
+  font-size: 9px; font-family: var(--mono); white-space: nowrap;
+}
+.mg-tag.good { background: rgba(143,184,122,0.12); color: var(--accent2); border: 1px solid rgba(143,184,122,0.25); }
+.mg-tag.warn { background: rgba(212,149,90,0.12); color: var(--warn); border: 1px solid rgba(212,149,90,0.3); }
+.mg-tag.danger { background: rgba(212,101,90,0.1); color: var(--danger); border: 1px solid rgba(212,101,90,0.25); }
+.mg-tag.neutral { background: rgba(107,105,96,0.12); color: var(--muted); border: 1px solid var(--border); }
 
 /* 外資趨勢條 */
 .fi-bar { display: flex; align-items: center; gap: 5px; }
@@ -1023,6 +1035,7 @@ async function calcABC(item) {
   if (priceArr.length < 60) return null;
 
   const closes = priceArr.map(p => p.close);
+  const volumes = priceArr.map(p => p.volume || 0);
 
   // 現價優先用 priceMap 最新收盤（最準確），其次才用 item.close
   const latestPriceFromMap = priceArr[priceArr.length - 1]?.close || 0;
@@ -1046,11 +1059,19 @@ async function calcABC(item) {
   const bullAlign = ma5 > ma20 && ma20 > ma60; // 多頭排列
 
   const scoreA = (ma240rising || bullAlign) && latestClose >= ma20;
+  const deduct240Price = closes.length >= 240 ? closes[closes.length - 240] : 0;
+  const deduct240Low = deduct240Price > 0 && deduct240Price < latestClose;
 
   // ── B1 指標（外資趨勢）──────────────────────
   const foreignRes = await apiFetch(`${SERVER}/foreign/${code}`);
   const foreignJson = await foreignRes.json();
   const foreignRaw = foreignJson.data || [];
+  let marginRaw = [];
+  try {
+    const marginRes = await apiFetch(`${SERVER}/margin/${code}`);
+    const marginJson = await marginRes.json();
+    marginRaw = marginJson.data || [];
+  } catch(e) {}
 
   // 近30日外資買賣超
   const recent30 = foreignRaw.slice(-30);
@@ -1063,6 +1084,27 @@ async function calcABC(item) {
   const net20 = foreignRaw.slice(-20).reduce((s,d) => s+(d.buy-d.sell),0);
   const foreignTrend = net10 > 0 && net20 > 0 ? 'pos' : net10 < 0 && net20 < 0 ? 'neg' : 'flat';
   const scoreB1 = buyDays >= 15 || (foreignTrend === 'pos' && buyDays >= 10);
+
+  function marginBalanceChange(days) {
+    const rows = marginRaw.filter(d => d.balance != null).slice(-(days + 1));
+    if (rows.length < 2) return 0;
+    return (rows[rows.length - 1].balance || 0) - (rows[0].balance || 0);
+  }
+  const marginChg5 = marginBalanceChange(5);
+  const marginChg10 = marginBalanceChange(10);
+  const net5 = foreignRaw.slice(-5).reduce((s,d) => s+(d.buy-d.sell),0);
+  let marginTag = '';
+  let marginTagCss = '';
+  if (marginChg10 > 0 && net10 <= 0) {
+    marginTag = '融資危險';
+    marginTagCss = 'danger';
+  } else if (marginChg5 > 0 && net5 <= 0) {
+    marginTag = '融資留意';
+    marginTagCss = 'warn';
+  } else if (marginChg10 > 0 && net10 > 0) {
+    marginTag = '融資跟漲';
+    marginTagCss = 'warn';
+  }
 
   // ── 外資成本（移到 B2 之前，讓位置濾網可以使用）──
   const merged = foreignRaw.map(d => {
@@ -1095,6 +1137,9 @@ async function calcABC(item) {
   const recentLows     = recent30prices.map(p => p.min   || p.close);
   const volumes30      = recent30prices.map(p => p.volume || 0);
   const volsFiltered   = volumes30.filter(v => v > 0);
+  const deduct20Volume = volumes.length >= 20 ? volumes[volumes.length - 20] : 0;
+  const recent5VolAvg = avg(volumes.filter(v => v > 0).slice(-5));
+  const deductVolumeBig = deduct20Volume > 0 && recent5VolAvg > 0 && deduct20Volume > recent5VolAvg;
 
   let scoreB2   = false;
   let b2Detail  = '—';
@@ -1278,12 +1323,14 @@ async function calcABC(item) {
     rankToday: item.rankToday || null,
     rankPrev:  item.rankPrev  || null,
     // A
-    scoreA, ma240rising, isYearHigh, bullAlign,
+    scoreA, ma240rising, isYearHigh, bullAlign, deduct240Low,
+    deduct240Price: deduct240Price > 0 ? +deduct240Price.toFixed(1) : 0,
     ma5: +ma5.toFixed(1), ma20: +ma20.toFixed(1), ma60: +ma60.toFixed(1),
     // B1
-    scoreB1, buyDays, sellDays, foreignTrend, net20,
+    scoreB1, buyDays, sellDays, foreignTrend, net20, net5, marginChg5, marginChg10, marginTag, marginTagCss,
     // B2
-    scoreB2, b2Detail, b2Score: b2Score || 0,
+    scoreB2, b2Detail, b2Score: b2Score || 0, deductVolumeBig,
+    deduct20Volume: deduct20Volume ? Math.round(deduct20Volume / 1000) : 0,
     // 籌碼
     chipScore,
     // 外資成本
@@ -1310,6 +1357,9 @@ function renderResults(data) {
       : `<span class="trend-tag flat">240—</span>`;
     const newHighTag = d.isYearHigh ? `<span class="newhigh-tag">一年新高</span>` : '';
     const bullTag = d.bullAlign ? `<span class="trend-tag bull">多頭</span>` : '';
+    const deduct240Tag = d.deduct240Low
+      ? `<span class="mg-tag good" title="240日前扣抵價低於現價，長均線較容易上彎">240扣低</span>`
+      : '';
 
     const net20str = d.net20 >= 0
       ? `<span class="fi-days pos">+${d.net20}</span>`
@@ -1332,6 +1382,12 @@ function renderResults(data) {
                     : d.b2Score === 3 ? ' breathe-snipe'   // 狙擊或糾結：藍綠
                     : d.b2Score === 1 ? ' warn-breathe'    // 高位警示：橘色
                     : '';
+    const deductVolumeTag = d.deductVolumeBig
+      ? `<span class="mg-tag good" title="20日前扣抵量大於近5日均量，均量較容易自然下降">扣大量</span>`
+      : '';
+    const marginTagHtml = d.marginTag
+      ? `<span class="mg-tag ${d.marginTagCss || 'warn'}" title="近5/10日外資與融資餘額交叉判斷">${d.marginTag}</span>`
+      : '';
 
     const chipHtml = d.chipScore === 'up'
       ? `<span class="chip-up">大戶↑</span>`
@@ -1361,19 +1417,21 @@ function renderResults(data) {
       </td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-          ${trendTag}${newHighTag}${bullTag}
+          ${trendTag}${newHighTag}${bullTag}${deduct240Tag}
         </div>
       </td>
       <td>
-        <div class="fi-bar">
+        <div class="fi-bar" style="flex-wrap:wrap;">
           ${net20str}
           <div style="font-size:9px;color:var(--muted);margin-left:2px;">(${d.buyDays}/30日)</div>
+          ${marginTagHtml}
         </div>
       </td>
       <td>
-        <div class="b2-indicator">
+        <div class="b2-indicator" style="flex-wrap:wrap;">
           <div class="b2-dot ${b2dot}${b2Breathe}"></div>
           <span class="b2-text">${d.b2Detail}</span>
+          ${deductVolumeTag}
         </div>
       </td>
       <td>
