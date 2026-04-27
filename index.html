@@ -262,6 +262,9 @@ body {
 .tech-tag.cross { background: #fcebeb; color: #A32D2D; }
 .tech-tag.redk { background: #fcebeb; color: #A32D2D; }
 .tech-tag.blackk { background: #eef0f2; color: #555; }
+.tech-tag.cost-good { background: #eaf3de; color: #3B6D11; }
+.tech-tag.cost-warning { background: #fdf0e0; color: #854F0B; }
+.tech-tag.cost-danger { background: #fcebeb; color: #A32D2D; }
 .tech-item-detail { font-size: 9px; color: #999; line-height: 1.5; }
 .tech-zone { font-size: 9px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; }
 .monitor-row { padding: 5px 6px; border-radius: 2px; margin-bottom: 2px; font-size: 10px; background: #fafafa; border: 1px solid #f0f0f0; border-left: 2px solid #bbb; }
@@ -1414,6 +1417,12 @@ async function runPullbackScan() {
       data.map(d=>{
         const candleClass = d.candle === '紅K' ? 'redk' : 'blackk';
         const closePosPct = d.close_pos_pct ?? Math.round((d.close_pos || 0) * 100);
+        const costTag = d.foreign_cost_label
+          ? `<span class="tech-tag cost-${d.foreign_cost_css}">${d.foreign_cost_label}</span>`
+          : '';
+        const costLine = d.foreign_cost > 0
+          ? `<br>外資成本 $${d.foreign_cost} ／ 距成本 ${d.foreign_cost_gap_pct}% ${costTag}`
+          : '<br>外資成本 —';
         return `
         <div class="tech-item" onclick="setStock('${d.code}')">
           <div class="tech-item-top">
@@ -1428,7 +1437,7 @@ async function runPullbackScan() {
           <div class="tech-item-detail">
             MA5 $${d.ma5} ／ MA10 $${d.ma10} ／ MA20 $${d.ma20}
             <br>距20MA ${d.ma20_gap_pct}% ／ 量比 ${d.vol_ratio}x ／ 收盤位置 ${closePosPct}%
-            <br>守昨日低點 $${d.prev_low}
+            <br>守昨日低點 $${d.prev_low}${costLine}
           </div>
         </div>`;
       }).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">盤後候選，隔日需確認縮量站回後再考慮進場</div>';
