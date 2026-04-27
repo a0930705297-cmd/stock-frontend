@@ -260,6 +260,8 @@ body {
 .tech-tag.obv { background: #e8f0fb; color: #185FA5; }
 .tech-tag.pullback { background: #fdf0e0; color: #854F0B; }
 .tech-tag.cross { background: #fcebeb; color: #A32D2D; }
+.tech-tag.redk { background: #fcebeb; color: #A32D2D; }
+.tech-tag.blackk { background: #eef0f2; color: #555; }
 .tech-item-detail { font-size: 9px; color: #999; line-height: 1.5; }
 .tech-zone { font-size: 9px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; }
 
@@ -1380,21 +1382,27 @@ async function runPullbackScan() {
     const data = json.data || [];
     if (!data.length) { results.innerHTML = '<div class="empty-text">無符合條件的股票</div>'; return; }
     results.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">找到 ${data.length} 支</div>` +
-      data.map(d=>`
+      data.map(d=>{
+        const candleClass = d.candle === '紅K' ? 'redk' : 'blackk';
+        const closePosPct = d.close_pos_pct ?? Math.round((d.close_pos || 0) * 100);
+        return `
         <div class="tech-item" onclick="setStock('${d.code}')">
           <div class="tech-item-top">
             <span class="si-code">${d.code}</span>
             <span style="flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
             <span class="tech-tag bull">多頭</span>
             <span class="tech-tag cross">5↓10</span>
+            <span class="tech-tag ${candleClass}">${d.candle || '-'}</span>
             <span class="si-zone ${d.signal_css}">${d.signal}</span>
             <span style="font-family:monospace;font-size:10px;">$${d.close}</span>
           </div>
           <div class="tech-item-detail">
             MA5 $${d.ma5} ／ MA10 $${d.ma10} ／ MA20 $${d.ma20}
-            <br>距20MA ${d.ma20_gap_pct}% ／ 量比 ${d.vol_ratio}x
+            <br>距20MA ${d.ma20_gap_pct}% ／ 量比 ${d.vol_ratio}x ／ 收盤位置 ${closePosPct}%
+            <br>守昨日低點 $${d.prev_low}
           </div>
-        </div>`).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">盤後候選，隔日需確認縮量站回後再考慮進場</div>';
+        </div>`;
+      }).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">盤後候選，隔日需確認縮量站回後再考慮進場</div>';
   } catch(e) { results.innerHTML = `<div class="empty-text">失敗：${e.message}</div>`; }
   finally { btn.disabled=false; btn.textContent='掃描'; }
 }
