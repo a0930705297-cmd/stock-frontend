@@ -762,6 +762,15 @@ function filterData(data) {
 const MEMORY_KEY = 'abc_stock_memory';
 const MEMORY_DAYS = 7;
 
+function twDateString(d = new Date()) {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(d);
+}
+
 function loadMemory() {
   try { return JSON.parse(localStorage.getItem(MEMORY_KEY) || '{}'); } catch { return {}; }
 }
@@ -770,8 +779,8 @@ function saveMemory(mem) {
 }
 function updateMemory(stocks, rankMap) {
   const mem = loadMemory();
-  const today = new Date().toISOString().slice(0,10);
-  const cutoff = new Date(Date.now() - MEMORY_DAYS*86400000).toISOString().slice(0,10);
+  const today = twDateString();
+  const cutoff = twDateString(new Date(Date.now() - MEMORY_DAYS*86400000));
 
   // 加入今日排名
   for (const s of stocks) {
@@ -836,12 +845,12 @@ async function runVolumeScan() {
 
     // 讀取昨日記憶庫，找出排名變化
     const mem = loadMemory();
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+    const yesterday = twDateString(new Date(Date.now() - 86400000));
     stocks.forEach(s => {
       s.rankToday = rankMap[s.code] || null;
       const hist  = mem[s.code]?.history || {};
       const dates = Object.keys(hist).sort();
-      const prevDate = dates.filter(d => d < new Date().toISOString().slice(0,10)).pop();
+      const prevDate = dates.filter(d => d < twDateString()).pop();
       s.rankPrev = prevDate ? hist[prevDate] : null;
     });
 
@@ -882,7 +891,7 @@ async function runMemoryScan() {
       const info  = mem[code];
       const hist  = info.history || {};
       const dates = Object.keys(hist).sort();
-      const today = new Date().toISOString().slice(0,10);
+      const today = twDateString();
       const prevDate = dates.filter(d => d < today).pop();
       return {
         code,
@@ -1476,7 +1485,7 @@ function avg(arr) {
   return arr.reduce((a,b) => a+b, 0) / arr.length;
 }
 function fmtDate(d) {
-  return d.toISOString().slice(0,10);
+  return twDateString(d);
 }
 function showToast(msg) {
   const t = document.getElementById('toast');

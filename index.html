@@ -560,6 +560,23 @@ const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostn
   ? 'http://127.0.0.1:8000'
   : 'https://stock-backend-production-95d3.up.railway.app';
 
+function twDateParts(d = new Date()) {
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+  const get = t => parts.find(p => p.type === t)?.value || '';
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    time: `${get('hour')}:${get('minute')}`
+  };
+}
+
 function getToken() { return sessionStorage.getItem('appToken') || ''; }
 
 function apiFetch(url, options = {}) {
@@ -1155,7 +1172,7 @@ async function loadNews() {
     const res = await apiFetch(`${SERVER}/news`);
     const json = await res.json();
     const items = json.data || [];
-    const toTWDate = d => { const tw = new Date(d.getTime()+8*3600000); return tw.toISOString().slice(0,10); };
+    const toTWDate = d => twDateParts(d).date;
     const today = new Date(), yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate()-1);
     const todayStr = toTWDate(today), yestStr = toTWDate(yesterday);
@@ -1213,7 +1230,7 @@ function renderWatchlist() {
       <span class="wi-remove" onclick="removeWatch(${i})">✕</span>
     </div>`;
   }).join('');
-  document.getElementById('watchlistUpdated').textContent = `更新 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('watchlistUpdated').textContent = `更新 ${twDateParts().time}`;
 }
 async function checkWatchItem(i) {
   const w = watchlist[i];
