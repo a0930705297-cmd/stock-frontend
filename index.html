@@ -512,6 +512,30 @@ td.neg { color: #1D9E75; }
           <div style="font-size:9px;color:#bbb;margin-top:4px;" id="watchlistUpdated"></div>
         </div>
 
+        <!-- 隔日沖候選觀察 -->
+        <div class="left-section">
+          <div class="left-section-title">⚡ 隔日沖候選觀察</div>
+          <div class="scan-controls">
+            <select id="pullbackTopN">
+              <option value="50">前50</option>
+              <option value="100" selected>前100</option>
+              <option value="200">前200</option>
+            </select>
+            <button id="pullbackBtn" onclick="runPullbackScan()">掃描</button>
+          </div>
+          <div id="pullbackResults"><div class="empty-text">盤後候選，隔日縮量站回再考慮</div></div>
+        </div>
+
+        <!-- 盤中監測 -->
+        <div class="left-section">
+          <div class="left-section-title">● 盤中監測 <span id="monitorStatus">待機</span></div>
+          <div class="scan-controls">
+            <button id="monitorBtn" onclick="togglePullbackMonitor()">開始監測</button>
+            <button onclick="clearPullbackMonitor()">清空</button>
+          </div>
+          <div id="monitorResults"><div class="empty-text">先跑隔日沖候選觀察</div></div>
+        </div>
+
         <!-- 新聞 -->
         <div class="left-section">
           <div class="left-section-title">
@@ -556,30 +580,6 @@ td.neg { color: #1D9E75; }
             <button id="techBtn" onclick="runTechScan()">掃描</button>
           </div>
           <div id="techResults"><div class="empty-text">多頭排列＋OBV突破</div></div>
-        </div>
-
-        <!-- 隔日沖候選觀察 -->
-        <div class="left-section">
-          <div class="left-section-title">⚡ 隔日沖候選觀察</div>
-          <div class="scan-controls">
-            <select id="pullbackTopN">
-              <option value="50">前50</option>
-              <option value="100" selected>前100</option>
-              <option value="200">前200</option>
-            </select>
-            <button id="pullbackBtn" onclick="runPullbackScan()">掃描</button>
-          </div>
-          <div id="pullbackResults"><div class="empty-text">盤後候選，隔日縮量站回再考慮</div></div>
-        </div>
-
-        <!-- 盤中監測 -->
-        <div class="left-section">
-          <div class="left-section-title">● 盤中監測 <span id="monitorStatus">待機</span></div>
-          <div class="scan-controls">
-            <button id="monitorBtn" onclick="togglePullbackMonitor()">開始監測</button>
-            <button onclick="clearPullbackMonitor()">清空</button>
-          </div>
-          <div id="monitorResults"><div class="empty-text">先跑隔日沖候選觀察</div></div>
         </div>
 
       </div><!-- end left-scroll -->
