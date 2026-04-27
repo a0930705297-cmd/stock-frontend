@@ -829,6 +829,10 @@ function clearMemory() {
   updateMemoryUI();
   showToast('追蹤股池已清除');
 }
+function isCommonStockCode(code) {
+  code = String(code || '').trim();
+  return /^\d{4}$/.test(code) && !code.startsWith('0');
+}
 
 // ── 大盤成交量掃描 ────────────────────────────
 async function runVolumeScan() {
@@ -839,7 +843,7 @@ async function runVolumeScan() {
   try {
     const volRes  = await apiFetch(`${SERVER}/market_volume`);
     const volJson = await volRes.json();
-    let allStocks = volJson.data || [];
+    let allStocks = (volJson.data || []).filter(s => isCommonStockCode(s.code));
 
     // 成交金額排序：close × volume
     if (sortMode === 'amount') {
@@ -878,7 +882,7 @@ async function runVolumeScan() {
 // ── 追蹤股池掃描 ─────────────────────────────
 async function runMemoryScan() {
   const mem = loadMemory();
-  const codes = Object.keys(mem);
+  const codes = Object.keys(mem).filter(isCommonStockCode);
   if (!codes.length) {
     showToast('追蹤股池是空的，請先執行大盤掃描');
     return;
@@ -891,7 +895,7 @@ async function runMemoryScan() {
   try {
     const volRes  = await apiFetch(`${SERVER}/market_volume`);
     const volJson = await volRes.json();
-    const allStocks = volJson.data || [];
+    const allStocks = (volJson.data || []).filter(s => isCommonStockCode(s.code));
     const rankMap   = {};
     const priceMap2 = {};
     allStocks.forEach((s, i) => {
@@ -933,8 +937,8 @@ async function runIndustryScan() {
     ]);
     const volJson = await volRes.json();
     const indJson = await indRes.json();
-    const volList = volJson.data || [];
-    const indStocks = indJson.data || [];
+    const volList = (volJson.data || []).filter(s => isCommonStockCode(s.code));
+    const indStocks = (indJson.data || []).filter(s => isCommonStockCode(s.code));
     const industryCodes = new Set(indStocks.map(s => s.code));
     const nameMap = {};
     indStocks.forEach(s => nameMap[s.code] = s.name);
@@ -992,8 +996,14 @@ async function runSingleScan() {
 // ── ABC 核心計算 ──────────────────────────────
 async function runABCScan(stocks) {
   allResults = [];
+  stocks = (stocks || []).filter(s => isCommonStockCode(s.code));
   const total = stocks.length;
   let done = 0;
+  if (!total) {
+    setEmpty('無符合條件的普通股（已排除 ETF / 非普通股）');
+    hideProgress();
+    return;
+  }
 
   for (const item of stocks) {
     showProgress(done, total, `計算 ${item.code} ${item.name || ''}`);
