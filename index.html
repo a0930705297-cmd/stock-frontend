@@ -1464,10 +1464,10 @@ async function runPullbackMonitorOnce() {
     });
     const json = await res.json();
     const data = json.results || [];
-    const active = data.filter(d => d.signal_type !== 'red')
+    const active = (json.market_live ? data.filter(d => d.signal_type !== 'red') : data)
       .map(d => ({ code:d.code, name:d.name, market:(list.find(x=>x.code===d.code)||{}).market || 'tse', prev_low:d.prev_low }));
     localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(active));
-    document.getElementById('monitorStatus').textContent = `${json.updated_at || ''}`;
+    document.getElementById('monitorStatus').textContent = `${json.market_live ? '盤中' : '非盤中'} ${json.updated_at || ''}`;
     if (!data.length) { box.innerHTML = '<div class="empty-text">目前無監測結果</div>'; return; }
     box.innerHTML = data.map(d => `
       <div class="monitor-row ${d.signal_type}">
