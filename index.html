@@ -264,6 +264,18 @@ body {
 .tech-tag.blackk { background: #eef0f2; color: #555; }
 .tech-item-detail { font-size: 9px; color: #999; line-height: 1.5; }
 .tech-zone { font-size: 9px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; }
+.monitor-row { padding: 5px 6px; border-radius: 2px; margin-bottom: 2px; font-size: 10px; background: #fafafa; border: 1px solid #f0f0f0; border-left: 2px solid #bbb; }
+.monitor-row.green { border-left-color: #639922; background: #f8fff5; }
+.monitor-row.yellow { border-left-color: #E09020; background: #fffaf0; }
+.monitor-row.red { border-left-color: #E24B4A; background: #fff8f8; text-decoration: line-through; }
+.monitor-row.neutral { border-left-color: #bbb; }
+.monitor-top { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+.monitor-detail { font-size: 9px; color: #999; line-height: 1.5; }
+.monitor-signal { font-size: 9px; padding: 1px 4px; border-radius: 2px; white-space: nowrap; }
+.monitor-signal.green { background: #eaf3de; color: #3B6D11; }
+.monitor-signal.yellow { background: #fdf0e0; color: #854F0B; }
+.monitor-signal.red { background: #fcebeb; color: #A32D2D; }
+.monitor-signal.neutral { background: #eee; color: #666; }
 
 /* 右欄 */
 .right-panel {
@@ -560,6 +572,16 @@ td.neg { color: #1D9E75; }
           <div id="pullbackResults"><div class="empty-text">盤後候選，隔日縮量站回再考慮</div></div>
         </div>
 
+        <!-- 盤中監測 -->
+        <div class="left-section">
+          <div class="left-section-title">● 盤中監測 <span id="monitorStatus">待機</span></div>
+          <div class="scan-controls">
+            <button id="monitorBtn" onclick="togglePullbackMonitor()">開始監測</button>
+            <button onclick="clearPullbackMonitor()">清空</button>
+          </div>
+          <div id="monitorResults"><div class="empty-text">先跑隔日沖候選觀察</div></div>
+        </div>
+
       </div><!-- end left-scroll -->
     </div><!-- end left-panel -->
 
@@ -577,6 +599,8 @@ td.neg { color: #1D9E75; }
 const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
   ? 'http://127.0.0.1:8000'
   : 'https://stock-backend-production-95d3.up.railway.app';
+const PULLBACK_MONITOR_KEY = 'pullback_monitor_list';
+let pullbackMonitorTimer = null;
 
 function twDateParts(d = new Date()) {
   const parts = new Intl.DateTimeFormat('sv-SE', {
@@ -1381,6 +1405,11 @@ async function runPullbackScan() {
     const json = await res.json();
     const data = json.data || [];
     if (!data.length) { results.innerHTML = '<div class="empty-text">無符合條件的股票</div>'; return; }
+    const monitorList = data
+      .filter(d => d.prev_low > 0)
+      .map(d => ({ code:d.code, name:d.name, market:d.market || 'tse', prev_low:d.prev_low }));
+    localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(monitorList));
+    renderPullbackMonitorIdle();
     results.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">找到 ${data.length} 支</div>` +
       data.map(d=>{
         const candleClass = d.candle === '紅K' ? 'redk' : 'blackk';
@@ -1407,11 +1436,83 @@ async function runPullbackScan() {
   finally { btn.disabled=false; btn.textContent='掃描'; }
 }
 
+function getPullbackMonitorList() {
+  try { return JSON.parse(localStorage.getItem(PULLBACK_MONITOR_KEY) || '[]') || []; }
+  catch(e) { return []; }
+}
+
+function renderPullbackMonitorIdle() {
+  const list = getPullbackMonitorList();
+  const box = document.getElementById('monitorResults');
+  if (!box) return;
+  if (!list.length) {
+    box.innerHTML = '<div class="empty-text">先跑隔日沖候選觀察</div>';
+    return;
+  }
+  box.innerHTML = `<div class="empty-text">已儲存 ${list.length} 支候選，盤中可開始監測</div>`;
+}
+
+async function runPullbackMonitorOnce() {
+  const list = getPullbackMonitorList();
+  const box = document.getElementById('monitorResults');
+  if (!list.length) { renderPullbackMonitorIdle(); return; }
+  box.innerHTML = '<div class="empty-text">監測中...</div>';
+  try {
+    const res = await apiFetch(`${SERVER}/pullback_monitor`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({candidates:list})
+    });
+    const json = await res.json();
+    const data = json.results || [];
+    const active = data.filter(d => d.signal_type !== 'red')
+      .map(d => ({ code:d.code, name:d.name, market:(list.find(x=>x.code===d.code)||{}).market || 'tse', prev_low:d.prev_low }));
+    localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(active));
+    document.getElementById('monitorStatus').textContent = `${json.updated_at || ''}`;
+    if (!data.length) { box.innerHTML = '<div class="empty-text">目前無監測結果</div>'; return; }
+    box.innerHTML = data.map(d => `
+      <div class="monitor-row ${d.signal_type}">
+        <div class="monitor-top">
+          <span class="si-code">${d.code}</span>
+          <span style="flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
+          <span class="monitor-signal ${d.signal_type}">${d.signal}</span>
+          <span style="font-family:monospace;">$${d.price}</span>
+        </div>
+        <div class="monitor-detail">
+          昨低 $${d.prev_low} ／ 今低 $${d.day_low} ／ 破低 $${d.break_level}<br>${d.note}
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    box.innerHTML = `<div class="empty-text">監測失敗：${e.message}</div>`;
+  }
+}
+
+function togglePullbackMonitor() {
+  const btn = document.getElementById('monitorBtn');
+  if (pullbackMonitorTimer) {
+    clearInterval(pullbackMonitorTimer);
+    pullbackMonitorTimer = null;
+    btn.textContent = '開始監測';
+    document.getElementById('monitorStatus').textContent = '待機';
+    return;
+  }
+  btn.textContent = '停止監測';
+  document.getElementById('monitorStatus').textContent = '進行中';
+  runPullbackMonitorOnce();
+  pullbackMonitorTimer = setInterval(runPullbackMonitorOnce, 5 * 60 * 1000);
+}
+
+function clearPullbackMonitor() {
+  localStorage.removeItem(PULLBACK_MONITOR_KEY);
+  if (pullbackMonitorTimer) togglePullbackMonitor();
+  renderPullbackMonitorIdle();
+}
+
 // 初始化
 function init() {
   checkServer();
   loadNews();
   renderWatchlist();
+  renderPullbackMonitorIdle();
   if (watchlist.length>0) refreshWatchlist();
 }
 
