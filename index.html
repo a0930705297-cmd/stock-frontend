@@ -1440,8 +1440,8 @@ async function runPullbackScan() {
           </div>
           <div class="tech-item-detail">
             MA5 $${d.ma5} ／ MA10 $${d.ma10} ／ MA20 $${d.ma20}
-            <br>距20MA ${d.ma20_gap_pct}% ／ 量比 ${d.vol_ratio}x ／ 收盤位置 ${closePosPct}%
-            <br>守昨日低點 $${d.prev_low}${costLine}
+            <br>距20MA ${d.ma20_gap_pct}% ／ 量比 ${d.vol_ratio}x ／ 成交額 ${d.amount_yi || '-'}億
+            <br>收盤位置 ${closePosPct}% ／ 守昨日低點 $${d.prev_low}${costLine}
           </div>
         </div>`;
       }).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">盤後候選，隔日需確認縮量站回後再考慮進場</div>';
