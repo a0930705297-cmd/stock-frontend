@@ -534,6 +534,7 @@ td.neg { color: #1D9E75; }
           <div class="left-section-title">● 盤中監測 <span id="monitorStatus">待機</span></div>
           <div class="scan-controls">
             <button id="monitorBtn" onclick="togglePullbackMonitor()">開始監測</button>
+            <button id="discordToggleBtn" onclick="togglePullbackDiscord()">推播開</button>
             <button onclick="clearPullbackMonitor()">清空</button>
           </div>
           <div id="monitorResults"><div class="empty-text">先跑隔日沖候選觀察</div></div>
@@ -603,6 +604,7 @@ const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostn
   ? 'http://127.0.0.1:8000'
   : 'https://stock-backend-production-95d3.up.railway.app';
 const PULLBACK_MONITOR_KEY = 'pullback_monitor_list';
+const PULLBACK_DISCORD_KEY = 'pullback_discord_enabled';
 let pullbackMonitorTimer = null;
 
 function twDateParts(d = new Date()) {
@@ -1461,6 +1463,43 @@ function renderPullbackMonitorIdle() {
   box.innerHTML = `<div class="empty-text">已儲存 ${list.length} 支候選，盤中可開始監測</div>`;
 }
 
+function renderPullbackDiscordButton(enabled = null) {
+  const btn = document.getElementById('discordToggleBtn');
+  if (!btn) return;
+  const isEnabled = enabled === null
+    ? localStorage.getItem(PULLBACK_DISCORD_KEY) !== '0'
+    : !!enabled;
+  localStorage.setItem(PULLBACK_DISCORD_KEY, isEnabled ? '1' : '0');
+  btn.textContent = isEnabled ? '推播開' : '推播關';
+  btn.style.color = isEnabled ? '' : '#999';
+}
+
+async function togglePullbackDiscord() {
+  const current = localStorage.getItem(PULLBACK_DISCORD_KEY) !== '0';
+  const next = !current;
+  renderPullbackDiscordButton(next);
+  try {
+    const path = next ? 'discord_on' : 'discord_off';
+    const res = await apiFetch(`${SERVER}/pullback_monitor/${path}`, { method:'POST' });
+    const json = await res.json();
+    renderPullbackDiscordButton(json.discord_enabled);
+  } catch(e) {
+    renderPullbackDiscordButton(current);
+    alert(`推播開關失敗：${e.message}`);
+  }
+}
+
+async function syncPullbackDiscordPreference() {
+  const enabled = localStorage.getItem(PULLBACK_DISCORD_KEY) !== '0';
+  renderPullbackDiscordButton(enabled);
+  try {
+    const path = enabled ? 'discord_on' : 'discord_off';
+    const res = await apiFetch(`${SERVER}/pullback_monitor/${path}`, { method:'POST' });
+    const json = await res.json();
+    renderPullbackDiscordButton(json.discord_enabled);
+  } catch(e) {}
+}
+
 async function runPullbackMonitorOnce() {
   const list = getPullbackMonitorList();
   const box = document.getElementById('monitorResults');
@@ -1477,6 +1516,7 @@ async function runPullbackMonitorOnce() {
       .map(d => ({ code:d.code, name:d.name, market:(list.find(x=>x.code===d.code)||{}).market || 'tse', prev_low:d.prev_low }));
     localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(active));
     document.getElementById('monitorStatus').textContent = `${json.market_live ? '盤中' : '非盤中'} ${json.updated_at || ''}`;
+    renderPullbackDiscordButton(json.discord_enabled);
     if (!data.length) { box.innerHTML = '<div class="empty-text">目前無監測結果</div>'; return; }
     box.innerHTML = data.map(d => `
       <div class="monitor-row ${d.signal_type}">
@@ -1522,6 +1562,8 @@ function init() {
   loadNews();
   renderWatchlist();
   renderPullbackMonitorIdle();
+  renderPullbackDiscordButton();
+  syncPullbackDiscordPreference();
   if (watchlist.length>0) refreshWatchlist();
 }
 
