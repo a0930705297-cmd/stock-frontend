@@ -220,6 +220,8 @@ body {
   background: #fff; cursor: pointer; white-space: nowrap;
 }
 .scan-controls button:disabled { color: #bbb; }
+.scan-controls button.discord-on { background: #f8fff5; border-color: #cfe6bf; color: #3B6D11; }
+.scan-controls button.discord-off { background: #fafafa; border-color: #e0e0e0; color: #999; }
 .scan-item {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 6px; border-radius: 2px;
@@ -534,7 +536,7 @@ td.neg { color: #1D9E75; }
           <div class="left-section-title">● 盤中監測 <span id="monitorStatus">待機</span></div>
           <div class="scan-controls">
             <button id="monitorBtn" onclick="togglePullbackMonitor()">開始監測</button>
-            <button id="discordToggleBtn" onclick="togglePullbackDiscord()">推播開</button>
+            <button id="discordToggleBtn" onclick="togglePullbackDiscord()">Discord推播開</button>
             <button onclick="clearPullbackMonitor()">清空</button>
           </div>
           <div id="monitorResults"><div class="empty-text">先跑隔日沖候選觀察</div></div>
@@ -1470,8 +1472,9 @@ function renderPullbackDiscordButton(enabled = null) {
     ? localStorage.getItem(PULLBACK_DISCORD_KEY) !== '0'
     : !!enabled;
   localStorage.setItem(PULLBACK_DISCORD_KEY, isEnabled ? '1' : '0');
-  btn.textContent = isEnabled ? '推播開' : '推播關';
-  btn.style.color = isEnabled ? '' : '#999';
+  btn.textContent = isEnabled ? 'Discord推播開' : 'Discord推播關';
+  btn.classList.toggle('discord-on', isEnabled);
+  btn.classList.toggle('discord-off', !isEnabled);
 }
 
 async function togglePullbackDiscord() {
