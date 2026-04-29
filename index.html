@@ -1462,7 +1462,16 @@ function renderPullbackMonitorIdle() {
     box.innerHTML = '<div class="empty-text">先跑隔日沖候選觀察</div>';
     return;
   }
-  box.innerHTML = `<div class="empty-text">已儲存 ${list.length} 支候選，盤中可開始監測</div>`;
+  box.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">已儲存 ${list.length} 支候選，盤中可開始監測</div>` +
+    list.map(d => `
+      <div class="monitor-row neutral">
+        <div class="monitor-top">
+          <span class="si-code">${d.code}</span>
+          <span style="flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
+          <span class="monitor-signal neutral">待監測</span>
+        </div>
+        <div class="monitor-detail">昨低 $${d.prev_low} ／ 按「開始監測」後顯示盤中觀察或資料等待</div>
+      </div>`).join('');
 }
 
 function renderPullbackDiscordButton(enabled = null) {
@@ -1515,12 +1524,27 @@ async function runPullbackMonitorOnce() {
     });
     const json = await res.json();
     const data = json.results || [];
-    const active = (json.market_live ? data.filter(d => d.signal_type !== 'red') : data)
-      .map(d => ({ code:d.code, name:d.name, market:(list.find(x=>x.code===d.code)||{}).market || 'tse', prev_low:d.prev_low }));
-    localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(active));
+    if (data.length) {
+      const resultMap = new Map(data.map(d => [d.code, d]));
+      const active = list
+        .filter(item => {
+          const d = resultMap.get(item.code);
+          return !(json.market_live && d && d.signal_type === 'red');
+        })
+        .map(item => {
+          const d = resultMap.get(item.code) || {};
+          return {
+            code: item.code,
+            name: d.name || item.name,
+            market: item.market || 'tse',
+            prev_low: d.prev_low || item.prev_low
+          };
+        });
+      localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(active));
+    }
     document.getElementById('monitorStatus').textContent = `${json.market_live ? '盤中' : '非盤中'} ${json.updated_at || ''}`;
     renderPullbackDiscordButton(json.discord_enabled);
-    if (!data.length) { box.innerHTML = '<div class="empty-text">目前無監測結果</div>'; return; }
+    if (!data.length) { box.innerHTML = '<div class="empty-text">暫無即時資料，已保留候選清單</div>'; return; }
     box.innerHTML = data.map(d => `
       <div class="monitor-row ${d.signal_type}">
         <div class="monitor-top">
