@@ -1441,6 +1441,7 @@ async function runPullbackScan() {
           <div class="tech-item-detail">
             MA5 $${d.ma5} ／ MA10 $${d.ma10} ／ MA20 $${d.ma20}
             <br>距20MA ${d.ma20_gap_pct}% ／ 量比 ${d.vol_ratio}x ／ 成交額 ${d.amount_yi || '-'}億
+            <br>20日均額 ${d.avg_amount20_yi || '-'}億 ／ 20日均量 ${d.avg_volume20_lots || '-'}張
             <br>收盤位置 ${closePosPct}% ／ 守昨日低點 $${d.prev_low}${costLine}
           </div>
         </div>`;
