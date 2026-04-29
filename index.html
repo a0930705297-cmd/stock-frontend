@@ -75,6 +75,14 @@ body {
   flex-shrink: 0;
 }
 .left-header h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; }
+.nav-links { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.nav-link {
+  font-size: 9px; padding: 2px 6px; border-radius: 2px;
+  text-decoration: none; color: #aaa;
+  border: 1px solid #e8e8e8; background: #fff;
+}
+.nav-link:hover { background: #f5f5f5; color: #1a1a1a; }
+.nav-link.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
 .left-header .server-status {
   display: flex; align-items: center; gap: 5px;
   margin-top: 4px; font-size: 10px; color: #999;
@@ -151,9 +159,7 @@ body {
   background: #fafafa; border: 1px solid #f0f0f0;
 }
 .watch-item.alert { background: #fff8f8; border-color: #ffd5d5; }
-.watch-item.safe  { background: #f8fff5; border-color: #d5f0d5; }
-.watch-item.below { background: #f8f8ff; border-color: #d0d0f0; }  /* 跌破成本 */
-.watch-item.ready { background: #fffdf0; border-color: #f0e8b0; }  /* 醞釀中 */
+.watch-item.safe { background: #f8fff5; border-color: #d5f0d5; }
 .wi-code { font-weight: 600; min-width: 35px; font-family: monospace; font-size: 10px; }
 .wi-name { flex: 1; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wi-badge {
@@ -165,6 +171,28 @@ body {
 .wi-badge.below   { background: #7070C0; color: #fff; }
 .wi-badge.ready   { background: #C08820; color: #fff; }
 .wi-badge.loading { background: #eee; color: #999; }
+
+/* 成本背離警示 */
+.deviation-bar {
+  border-radius: 3px; padding: 8px 12px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.deviation-bar.danger  { background: #fff0f0; border: 1px solid #f5c0c0; }
+.deviation-bar.warning { background: #fffaf0; border: 1px solid #f5dfa0; }
+.deviation-bar.safe    { background: #f0fff5; border: 1px solid #b5e8c8; }
+.dev-icon  { font-size: 16px; flex-shrink: 0; }
+.dev-body  { flex: 1; }
+.dev-title { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.dev-desc  { font-size: 10px; color: #555; line-height: 1.5; }
+.dev-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.dev-badge { font-size: 9px; padding: 2px 7px; border-radius: 2px; font-family: monospace; }
+.dev-badge.red    { background: #fde; color: #A32D2D; border: 1px solid #f5c0c0; }
+.dev-badge.orange { background: #fdf0e0; color: #854F0B; border: 1px solid #f5dfa0; }
+.dev-badge.green  { background: #eaf3de; color: #3B6D11; border: 1px solid #c5e0a0; }
+
+/* 監控清單三態 */
+.watch-item.below { background: #f8f8ff; border-color: #d0d0f0; }
+.watch-item.ready { background: #fffdf0; border-color: #f0e8b0; }
 .wi-remove { color: #ccc; cursor: pointer; font-size: 10px; flex-shrink: 0; }
 .wi-remove:hover { color: #E24B4A; }
 
@@ -192,6 +220,8 @@ body {
   background: #fff; cursor: pointer; white-space: nowrap;
 }
 .scan-controls button:disabled { color: #bbb; }
+.scan-controls button.discord-on { background: #f8fff5; border-color: #cfe6bf; color: #3B6D11; }
+.scan-controls button.discord-off { background: #fafafa; border-color: #e0e0e0; color: #999; }
 .scan-item {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 6px; border-radius: 2px;
@@ -230,8 +260,27 @@ body {
 .tech-tag { font-size: 9px; padding: 0px 3px; border-radius: 2px; }
 .tech-tag.bull { background: #eaf3de; color: #3B6D11; }
 .tech-tag.obv { background: #e8f0fb; color: #185FA5; }
+.tech-tag.pullback { background: #fdf0e0; color: #854F0B; }
+.tech-tag.cross { background: #fcebeb; color: #A32D2D; }
+.tech-tag.redk { background: #fcebeb; color: #A32D2D; }
+.tech-tag.blackk { background: #eef0f2; color: #555; }
+.tech-tag.cost-good { background: #eaf3de; color: #3B6D11; }
+.tech-tag.cost-warning { background: #fdf0e0; color: #854F0B; }
+.tech-tag.cost-danger { background: #fcebeb; color: #A32D2D; }
 .tech-item-detail { font-size: 9px; color: #999; line-height: 1.5; }
 .tech-zone { font-size: 9px; padding: 1px 4px; border-radius: 2px; margin-left: 3px; }
+.monitor-row { padding: 5px 6px; border-radius: 2px; margin-bottom: 2px; font-size: 10px; background: #fafafa; border: 1px solid #f0f0f0; border-left: 2px solid #bbb; }
+.monitor-row.green { border-left-color: #639922; background: #f8fff5; }
+.monitor-row.yellow { border-left-color: #E09020; background: #fffaf0; }
+.monitor-row.red { border-left-color: #E24B4A; background: #fff8f8; text-decoration: line-through; }
+.monitor-row.neutral { border-left-color: #bbb; }
+.monitor-top { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+.monitor-detail { font-size: 9px; color: #999; line-height: 1.5; }
+.monitor-signal { font-size: 9px; padding: 1px 4px; border-radius: 2px; white-space: nowrap; }
+.monitor-signal.green { background: #eaf3de; color: #3B6D11; }
+.monitor-signal.yellow { background: #fdf0e0; color: #854F0B; }
+.monitor-signal.red { background: #fcebeb; color: #A32D2D; }
+.monitor-signal.neutral { background: #eee; color: #666; }
 
 /* 右欄 */
 .right-panel {
@@ -395,44 +444,6 @@ td.neg { color: #1D9E75; }
 .label-blue { background: #378ADD; color: #fff; padding: 1px 5px; border-radius: 2px; font-size: 9px; }
 .label-orange { background: #E09020; color: #fff; padding: 1px 5px; border-radius: 2px; font-size: 9px; }
 .note-text { font-size: 9px; color: #bbb; line-height: 1.6; margin-top: 6px; }
-
-/* 成本背離警示 */
-.deviation-bar {
-  border-radius: 3px; padding: 8px 12px; margin-bottom: 10px;
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-}
-.deviation-bar.danger  { background: #fff0f0; border: 1px solid #f5c0c0; }
-.deviation-bar.warning { background: #fffaf0; border: 1px solid #f5dfa0; }
-.deviation-bar.safe    { background: #f0fff5; border: 1px solid #b5e8c8; }
-.dev-icon  { font-size: 16px; flex-shrink: 0; }
-.dev-body  { flex: 1; }
-.dev-title { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
-.dev-desc  { font-size: 10px; color: #555; line-height: 1.5; }
-.dev-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.dev-badge {
-  font-size: 9px; padding: 2px 7px; border-radius: 2px;
-  font-family: monospace;
-}
-.dev-badge.red  { background: #fde; color: #A32D2D; border: 1px solid #f5c0c0; }
-.dev-badge.orange { background: #fdf0e0; color: #854F0B; border: 1px solid #f5dfa0; }
-.dev-badge.green  { background: #eaf3de; color: #3B6D11; border: 1px solid #c5e0a0; }
-
-/* 連結按鈕 */
-.link-btn {
-  padding: 3px 10px; font-size: 10px;
-  border-radius: 2px; cursor: pointer;
-  text-decoration: none; display: inline-flex;
-  align-items: center; gap: 3px;
-  transition: all 0.15s;
-}
-.link-btn-blue {
-  border: 1px solid #378ADD; background: #e8f0fb; color: #185FA5;
-}
-.link-btn-blue:hover { background: #378ADD; color: #fff; }
-.link-btn-green {
-  border: 1px solid #639922; background: #eaf3de; color: #3B6D11;
-}
-.link-btn-green:hover { background: #639922; color: #fff; }
 .loading-text { font-size: 11px; color: #bbb; text-align: center; padding: 20px; }
 .empty-text { font-size: 10px; color: #bbb; text-align: center; padding: 8px; }
 </style>
@@ -461,6 +472,13 @@ td.neg { color: #1D9E75; }
         <div class="server-status">
           <span class="status-dot" id="statusDot"></span>
           <span id="statusText">連線中...</span>
+        </div>
+        <div class="nav-links">
+          <a href="index.html" class="nav-link active">法人成本</a>
+          <a href="內外盤比.html" class="nav-link">內外盤比</a>
+          <a href="ABC選股掃描.html" class="nav-link">ABC掃描</a>
+          <a href="籌碼分析.html" class="nav-link">籌碼分析</a>
+          <a href="興櫃股票分析.html" class="nav-link">興櫃</a>
         </div>
       </div>
 
@@ -497,6 +515,31 @@ td.neg { color: #1D9E75; }
           </div>
           <div id="watchlistItems"><div class="empty-text">尚未新增監控</div></div>
           <div style="font-size:9px;color:#bbb;margin-top:4px;" id="watchlistUpdated"></div>
+        </div>
+
+        <!-- 隔日沖候選觀察 -->
+        <div class="left-section">
+          <div class="left-section-title">⚡ 隔日沖候選觀察</div>
+          <div class="scan-controls">
+            <select id="pullbackTopN">
+              <option value="50">前50</option>
+              <option value="100" selected>前100</option>
+              <option value="200">前200</option>
+            </select>
+            <button id="pullbackBtn" onclick="runPullbackScan()">掃描</button>
+          </div>
+          <div id="pullbackResults"><div class="empty-text">盤後候選，隔日縮量站回再考慮</div></div>
+        </div>
+
+        <!-- 盤中監測 -->
+        <div class="left-section">
+          <div class="left-section-title">● 盤中監測 <span id="monitorStatus">待機</span></div>
+          <div class="scan-controls">
+            <button id="monitorBtn" onclick="togglePullbackMonitor()">開始監測</button>
+            <button id="discordToggleBtn" onclick="togglePullbackDiscord()">Discord推播開</button>
+            <button onclick="clearPullbackMonitor()">清空</button>
+          </div>
+          <div id="monitorResults"><div class="empty-text">先跑隔日沖候選觀察</div></div>
         </div>
 
         <!-- 新聞 -->
@@ -545,28 +588,6 @@ td.neg { color: #1D9E75; }
           <div id="techResults"><div class="empty-text">多頭排列＋OBV突破</div></div>
         </div>
 
-        <!-- 籌碼掃描：外資＋投信雙買超 -->
-        <div class="left-section">
-          <div class="left-section-title">💰 籌碼掃描</div>
-          <div class="watch-add" style="margin-bottom:5px;">
-            <input type="text" id="chipCustom" placeholder="額外代號，逗號分隔" />
-          </div>
-          <div class="scan-controls">
-            <select id="chipMinForeign" style="flex:1;">
-              <option value="0">外資任意買超</option>
-              <option value="100">外資 ≥100張</option>
-              <option value="500">外資 ≥500張</option>
-              <option value="1000">外資 ≥1000張</option>
-            </select>
-            <button id="chipBtn" onclick="runChipScan()">掃描</button>
-          </div>
-          <div style="font-size:9px;color:#bbb;margin-bottom:4px;">
-            自動掃描監控清單＋常用股票
-          </div>
-          <div id="chipResults"><div class="empty-text">外資＋投信同步買超<br>收盤後最有效</div></div>
-          <div style="font-size:9px;color:#bbb;margin-top:4px;" id="chipScanDate"></div>
-        </div>
-
       </div><!-- end left-scroll -->
     </div><!-- end left-panel -->
 
@@ -583,9 +604,29 @@ td.neg { color: #1D9E75; }
 <script>
 const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
   ? 'http://127.0.0.1:8000'
-  : (localStorage.getItem('abcServer') || 'https://stock-backend-production-95d3.up.railway.app');
+  : 'https://stock-backend-production-95d3.up.railway.app';
+const PULLBACK_MONITOR_KEY = 'pullback_monitor_list';
+const PULLBACK_DISCORD_KEY = 'pullback_discord_enabled';
+let pullbackMonitorTimer = null;
 
-function getToken() { return localStorage.getItem('appToken') || sessionStorage.getItem('appToken') || ''; }
+function twDateParts(d = new Date()) {
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+  const get = t => parts.find(p => p.type === t)?.value || '';
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    time: `${get('hour')}:${get('minute')}`
+  };
+}
+
+function getToken() { return sessionStorage.getItem('appToken') || ''; }
 
 function apiFetch(url, options = {}) {
   return fetch(url, {
@@ -608,7 +649,6 @@ async function doLogin() {
     });
     if (res.ok) {
       sessionStorage.setItem('appToken', pwd);
-      localStorage.setItem('appToken', pwd);   // 跨分頁、跨頁面共用
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('mainPage').style.display = 'block';
       init();
@@ -620,7 +660,7 @@ async function doLogin() {
   }
 }
 document.getElementById('loginInput').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-if (localStorage.getItem('appToken') || sessionStorage.getItem('appToken')) {
+if (sessionStorage.getItem('appToken')) {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('mainPage').style.display = 'block';
 }
@@ -813,26 +853,26 @@ async function loadStock() {
       apiFetch(`${SERVER}/invest_trust/${code}`)
     ]);
 
-    const tickerJson = await tickerRes.json();
+    const tickerJson  = await tickerRes.json();
     const historyJson = await historyRes.json();
     const foreignJson = await foreignRes.json();
-    const marginJson = await marginRes.json();
-    const priceJson = await priceRes.json();
-    const themeJson = await themeRes.json();
+    const marginJson  = await marginRes.json();
+    const priceJson   = await priceRes.json();
+    const themeJson   = await themeRes.json();
     const revenueJson = await revenueRes.json();
-    const itJson = await itRes.json();
+    const itJson      = await itRes.json();
 
     const stockName = tickerJson.name || code;
     window._stockName = stockName;
-    const candles = historyJson.data || [];
-    const foreignRaw = foreignJson.data || [];
-    const marginRaw = marginJson.data || [];
-    const priceMap = priceJson.data || {};
-    const themes = themeJson.themes || [];
-    const industry = themeJson.industry || '';
-    const usStocks = themeJson.us_stocks || [];
+    const candles     = historyJson.data || [];
+    const foreignRaw  = foreignJson.data || [];
+    const marginRaw   = marginJson.data  || [];
+    const priceMap    = priceJson.data   || {};
+    const themes      = themeJson.themes || [];
+    const industry    = themeJson.industry || '';
+    const usStocks    = themeJson.us_stocks || [];
     const revenueData = revenueJson.data || [];
-    const itRaw = itJson.data || [];
+    const itRaw       = itJson.data || [];
 
     if (!candles.length) {
       document.getElementById('rightPanel').innerHTML = '<div class="empty-state"><p>找不到股票資料</p></div>';
@@ -854,15 +894,15 @@ async function loadStock() {
     const fAccum = checkAccumulate(foreignHistory);
     const fPw = fCost > 0 ? calcPassword(fCost, latestPrice) : null;
 
-    // 投信成本計算（同外資邏輯）
-    const itRows = mergeForeignWithPrice(itRaw, priceMap);
+    // 投信成本（同外資加權平均成本邏輯）
+    const itRows    = mergeForeignWithPrice(itRaw, priceMap);
     const itHistory = calcCost(itRows);
-    const hasIT = itHistory.length > 0;
-    const itLatest = hasIT ? itHistory[itHistory.length-1] : null;
-    const itCost = itLatest ? itLatest.cost : 0;
-    const itDiff = latestPrice - itCost;
-    const itPct = itCost > 0 ? itDiff / itCost * 100 : 0;
-    const itPw = itCost > 0 ? calcPassword(itCost, latestPrice) : null;
+    const hasIT     = itHistory.length > 0;
+    const itLatest  = hasIT ? itHistory[itHistory.length-1] : null;
+    const itCost    = itLatest ? itLatest.cost : 0;
+    const itDiff    = latestPrice - itCost;
+    const itPct     = itCost > 0 ? itDiff / itCost * 100 : 0;
+    const itPw      = itCost > 0 ? calcPassword(itCost, latestPrice) : null;
 
     // 融資
     const marginRows = mergeMarginWithPrice(marginRaw, priceMap);
@@ -944,8 +984,6 @@ async function loadStock() {
         <span class="stock-name">${stockName}</span>
         <span class="stock-code">${code}</span>
         <span class="stock-price">$${latestPrice.toFixed(1)}</span>
-        <a class="link-btn link-btn-blue" href="javascript:void(0)" onclick="goToChips('${code}')">📊 籌碼分析</a>
-        <a class="link-btn link-btn-green" href="javascript:void(0)" onclick="goToABC('${code}')">◈ ABC掃描</a>
       </div>
 
       <!-- 選股四要素 -->
@@ -978,59 +1016,46 @@ async function loadStock() {
       <!-- 成本背離警示（以投信成本為主） -->
       ${(() => {
         const alerts = [];
-
-        // 投信成本背離（主要警示）
         if (itCost > 0) {
-          const itRatio = latestPrice / itCost;
-          if (itRatio >= 1.7)
-            alerts.push({ type:'danger', src:'投信', cost:itCost, ratio:itRatio,
-              msg:`現價已達投信成本 ${itRatio.toFixed(2)}x，進入韭菜收割區，法人隨時可能出貨。` });
-          else if (itRatio >= 1.4)
-            alerts.push({ type:'warning', src:'投信', cost:itCost, ratio:itRatio,
-              msg:`現價達投信成本 ${itRatio.toFixed(2)}x，處於極端高位，追高風險高。` });
+          const r = latestPrice / itCost;
+          if (r >= 1.7) alerts.push({ type:'danger', src:'投信', cost:itCost, ratio:r,
+            msg:`現價已達投信成本 ${r.toFixed(2)}x，進入韭菜收割區，法人隨時可能出貨。` });
+          else if (r >= 1.4) alerts.push({ type:'warning', src:'投信', cost:itCost, ratio:r,
+            msg:`現價達投信成本 ${r.toFixed(2)}x，處於極端高位，追高風險高。` });
         }
-
-        // 外資成本背離（次要參考）
         if (fCost > 0) {
-          const fRatio = latestPrice / fCost;
-          if (fRatio >= 1.7)
-            alerts.push({ type:'danger', src:'外資', cost:fCost, ratio:fRatio,
-              msg:`現價達外資成本 ${fRatio.toFixed(2)}x，超漲區。` });
-          else if (fRatio >= 1.4)
-            alerts.push({ type:'warning', src:'外資', cost:fCost, ratio:fRatio,
-              msg:`現價達外資成本 ${fRatio.toFixed(2)}x，高位警示。` });
+          const r = latestPrice / fCost;
+          if (r >= 1.7) alerts.push({ type:'danger', src:'外資', cost:fCost, ratio:r,
+            msg:`現價達外資成本 ${r.toFixed(2)}x，超漲區。` });
+          else if (r >= 1.4) alerts.push({ type:'warning', src:'外資', cost:fCost, ratio:r,
+            msg:`現價達外資成本 ${r.toFixed(2)}x，高位警示。` });
         }
-
         if (!alerts.length) {
           if (itCost > 0 || fCost > 0) {
-            const safeItems = [];
-            if (itCost > 0) safeItems.push(`投信成本 $${itCost.toFixed(1)}（×${(latestPrice/itCost).toFixed(2)}）`);
-            if (fCost > 0)  safeItems.push(`外資成本 $${fCost.toFixed(1)}（×${(latestPrice/fCost).toFixed(2)}）`);
+            const items = [];
+            if (itCost > 0) items.push(`投信成本 $${itCost.toFixed(1)}（×${(latestPrice/itCost).toFixed(2)}）`);
+            if (fCost  > 0) items.push(`外資成本 $${fCost.toFixed(1)}（×${(latestPrice/fCost).toFixed(2)}）`);
             return `<div class="deviation-bar safe">
               <div class="dev-icon">✅</div>
               <div class="dev-body">
                 <div class="dev-title">成本背離正常</div>
                 <div class="dev-desc">現價尚未觸及韭菜區（×1.7），風險相對可控。</div>
-                <div class="dev-badges">${safeItems.map(s=>`<span class="dev-badge green">${s}</span>`).join('')}</div>
+                <div class="dev-badges">${items.map(s=>`<span class="dev-badge green">${s}</span>`).join('')}</div>
               </div>
             </div>`;
           }
           return '';
         }
-
-        const topAlert = alerts.sort((a,b) => b.ratio - a.ratio)[0];
-        const icon  = topAlert.type === 'danger' ? '🚨' : '⚠️';
-        const title = topAlert.type === 'danger' ? '⚠ 超漲區警示！韭菜收割區' : '注意：高位背離警示';
-        const badgeCss = topAlert.type === 'danger' ? 'red' : 'orange';
-        const badges = alerts.map(a =>
-          `<span class="dev-badge ${badgeCss}">${a.src}成本 $${a.cost.toFixed(1)} → 現價 ×${a.ratio.toFixed(2)}</span>`
-        ).join('');
-        return `<div class="deviation-bar ${topAlert.type}">
+        const top = alerts.sort((a,b)=>b.ratio-a.ratio)[0];
+        const icon  = top.type==='danger' ? '🚨' : '⚠️';
+        const title = top.type==='danger' ? '⚠ 超漲區警示！韭菜收割區' : '注意：高位背離警示';
+        const bCss  = top.type==='danger' ? 'red' : 'orange';
+        return `<div class="deviation-bar ${top.type}">
           <div class="dev-icon">${icon}</div>
           <div class="dev-body">
             <div class="dev-title">${title}</div>
             <div class="dev-desc">${alerts.map(a=>a.msg).join('<br>')}</div>
-            <div class="dev-badges">${badges}</div>
+            <div class="dev-badges">${alerts.map(a=>`<span class="dev-badge ${bCss}">${a.src}成本 $${a.cost.toFixed(1)} → 現價 ×${a.ratio.toFixed(2)}</span>`).join('')}</div>
           </div>
         </div>`;
       })()}
@@ -1196,7 +1221,7 @@ async function loadNews() {
     const res = await apiFetch(`${SERVER}/news`);
     const json = await res.json();
     const items = json.data || [];
-    const toTWDate = d => { const tw = new Date(d.getTime()+8*3600000); return tw.toISOString().slice(0,10); };
+    const toTWDate = d => twDateParts(d).date;
     const today = new Date(), yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate()-1);
     const todayStr = toTWDate(today), yestStr = toTWDate(yesterday);
@@ -1230,27 +1255,23 @@ function renderWatchlist() {
   const c = document.getElementById('watchlistItems');
   if (!watchlist.length) { c.innerHTML = '<div class="empty-text">尚未新增監控</div>'; return; }
   c.innerHTML = watchlist.map((w,i) => {
-    const hasData   = w.currentPrice > 0;
-    const fCost     = w.foreignCost  || 0;
-    const trigger   = w.triggerPrice || 0;
-    const price     = w.currentPrice || 0;
-
-    // 三態判斷
+    const hasData = w.currentPrice > 0;
+    const fCostW  = w.foreignCost  || 0;
+    const trigger = w.triggerPrice || 0;
+    const price   = w.currentPrice || 0;
     let cls, badge, badgeText;
     if (!hasData) {
       cls = ''; badge = 'loading'; badgeText = '載入中';
-    } else if (fCost > 0 && price < fCost) {
+    } else if (fCostW > 0 && price < fCostW) {
       cls = 'below'; badge = 'below'; badgeText = '↓跌破成本';
     } else if (trigger > 0 && price >= trigger) {
       cls = 'alert'; badge = 'alert'; badgeText = '⚡突破發動';
-    } else if (fCost > 0 && price >= fCost) {
+    } else if (fCostW > 0 && price >= fCostW) {
       cls = 'ready'; badge = 'ready'; badgeText = '⏳醞釀中';
     } else {
       cls = 'safe'; badge = 'safe'; badgeText = '持平';
     }
-
-    const costInfo = fCost > 0 ? ` 成本$${fCost.toFixed(1)}` : '';
-    const trigInfo = trigger > 0 ? ` 發動$${trigger.toFixed(1)}` : '';
+    const costInfo = fCostW > 0 ? ` 成本$${fCostW.toFixed(1)}` : '';
     return `<div class="watch-item ${cls}">
       <span class="wi-code">${w.code}</span>
       <span class="wi-name">${w.name}${hasData?` $${price.toFixed(1)}`:''}${costInfo}</span>
@@ -1258,7 +1279,7 @@ function renderWatchlist() {
       <span class="wi-remove" onclick="removeWatch(${i})">✕</span>
     </div>`;
   }).join('');
-  document.getElementById('watchlistUpdated').textContent = `更新 ${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('watchlistUpdated').textContent = `更新 ${twDateParts().time}`;
 }
 async function checkWatchItem(i) {
   const w = watchlist[i];
@@ -1376,72 +1397,191 @@ async function runTechScan() {
   finally { btn.disabled=false; btn.textContent='掃描'; }
 }
 
-// 籌碼掃描
-async function runChipScan() {
-  const btn = document.getElementById('chipBtn');
-  const results = document.getElementById('chipResults');
-  const dateEl = document.getElementById('chipScanDate');
-  const minForeign = document.getElementById('chipMinForeign').value;
-
-  const watchCodes = watchlist.map(w => w.code);
-  const quickCodes = ['2330','2317','2454','2367','6213','1802','3491'];
-  const customInput = (document.getElementById('chipCustom')?.value || '')
-    .split(/[,，\s]+/)
-    .filter(c => /^\d{4,6}$/.test(c));
-  const allCodes = [...new Set([...watchCodes, ...quickCodes, ...customInput])];
-
-  if (!allCodes.length) {
-    results.innerHTML = '<div class="empty-text">請先新增監控清單或輸入股票代號</div>';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '掃描中';
-  results.innerHTML = `<div class="empty-text">掃描 ${allCodes.length} 支股票中...</div>`;
-
+// 隔日沖候選觀察
+async function runPullbackScan() {
+  const topN = parseInt(document.getElementById('pullbackTopN').value);
+  const btn = document.getElementById('pullbackBtn');
+  const results = document.getElementById('pullbackResults');
+  btn.disabled=true; btn.textContent='掃描中';
+  results.innerHTML = '<div class="empty-text">掃描中，約需數分鐘...</div>';
   try {
-    const res = await apiFetch(`${SERVER}/chip_scan?codes=${allCodes.join(',')}&min_foreign=${minForeign}`);
+    const res = await apiFetch(`${SERVER}/pullback_scan`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({top_n:topN})
+    });
     const json = await res.json();
     const data = json.data || [];
-    dateEl.textContent = json.note || '';
+    if (!data.length) { results.innerHTML = '<div class="empty-text">無符合條件的股票</div>'; return; }
+    const monitorList = data
+      .filter(d => d.prev_low > 0)
+      .map(d => ({ code:d.code, name:d.name, market:d.market || 'tse', prev_low:d.prev_low }));
+    localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(monitorList));
+    renderPullbackMonitorIdle();
+    results.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">找到 ${data.length} 支</div>` +
+      data.map(d=>{
+        const candleClass = d.candle === '紅K' ? 'redk' : 'blackk';
+        const closePosPct = d.close_pos_pct ?? Math.round((d.close_pos || 0) * 100);
+        const costTag = d.foreign_cost_label
+          ? `<span class="tech-tag cost-${d.foreign_cost_css}">${d.foreign_cost_label}</span>`
+          : '';
+        const costLine = d.foreign_cost > 0
+          ? `<br>外資成本 $${d.foreign_cost} ／ 距成本 ${d.foreign_cost_gap_pct}% ${costTag}`
+          : '<br>外資成本 —';
+        return `
+        <div class="tech-item" onclick="setStock('${d.code}')">
+          <div class="tech-item-top">
+            <span class="si-code">${d.code}</span>
+            <span style="flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
+            <span class="tech-tag bull">多頭</span>
+            <span class="tech-tag cross">5↓10</span>
+            <span class="tech-tag ${candleClass}">${d.candle || '-'}</span>
+            <span class="si-zone ${d.signal_css}">${d.signal}</span>
+            <span style="font-family:monospace;font-size:10px;">$${d.close}</span>
+          </div>
+          <div class="tech-item-detail">
+            MA5 $${d.ma5} ／ MA10 $${d.ma10} ／ MA20 $${d.ma20}
+            <br>距20MA ${d.ma20_gap_pct}% ／ 量比 ${d.vol_ratio}x ／ 成交額 ${d.amount_yi || '-'}億
+            <br>20日均額 ${d.avg_amount20_yi || '-'}億 ／ 20日均量 ${d.avg_volume20_lots || '-'}張
+            <br>收盤位置 ${closePosPct}% ／ 守昨日低點 $${d.prev_low}${costLine}
+          </div>
+        </div>`;
+      }).join('') + '<div style="font-size:9px;color:#bbb;margin-top:4px;">盤後候選，隔日需確認縮量站回後再考慮進場</div>';
+  } catch(e) { results.innerHTML = `<div class="empty-text">失敗：${e.message}</div>`; }
+  finally { btn.disabled=false; btn.textContent='掃描'; }
+}
 
-    if (!data.length) {
-      results.innerHTML = '<div class="empty-text">無雙買超股票<br>可增加監控清單擴大範圍</div>';
-      return;
-    }
+function getPullbackMonitorList() {
+  try { return JSON.parse(localStorage.getItem(PULLBACK_MONITOR_KEY) || '[]') || []; }
+  catch(e) { return []; }
+}
 
-    results.innerHTML = data.map(d => `
-      <div class="scan-item good" onclick="setStock('${d.code}')" style="flex-direction:column;align-items:flex-start;gap:2px;">
-        <div style="display:flex;align-items:center;gap:6px;width:100%;">
+function renderPullbackMonitorIdle() {
+  const list = getPullbackMonitorList();
+  const box = document.getElementById('monitorResults');
+  if (!box) return;
+  if (!list.length) {
+    box.innerHTML = '<div class="empty-text">先跑隔日沖候選觀察</div>';
+    return;
+  }
+  box.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">已儲存 ${list.length} 支候選，盤中可開始監測</div>` +
+    list.map(d => `
+      <div class="monitor-row neutral">
+        <div class="monitor-top">
           <span class="si-code">${d.code}</span>
-          <span class="si-name">${d.name}</span>
-          <span class="si-price" style="margin-left:auto;">${d.close > 0 ? '$' + d.close : '—'}</span>
+          <span style="flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
+          <span class="monitor-signal neutral">待監測</span>
         </div>
-        <div style="display:flex;gap:6px;font-size:9px;width:100%;">
-          <span style="color:#378ADD;">外資 +${d.foreign_net.toLocaleString()}張</span>
-          <span style="color:#E09020;">投信 +${d.trust_net.toLocaleString()}張</span>
-          <span style="color:#639922;margin-left:auto;">合計 +${d.total_net.toLocaleString()}張</span>
-        </div>
-      </div>`).join('') +
-      '<div style="font-size:9px;color:#bbb;margin-top:4px;">點擊查詢詳細</div>';
+        <div class="monitor-detail">昨低 $${d.prev_low} ／ 按「開始監測」後顯示盤中觀察或資料等待</div>
+      </div>`).join('');
+}
+
+function renderPullbackDiscordButton(enabled = null) {
+  const btn = document.getElementById('discordToggleBtn');
+  if (!btn) return;
+  const isEnabled = enabled === null
+    ? localStorage.getItem(PULLBACK_DISCORD_KEY) !== '0'
+    : !!enabled;
+  localStorage.setItem(PULLBACK_DISCORD_KEY, isEnabled ? '1' : '0');
+  btn.textContent = isEnabled ? 'Discord推播開' : 'Discord推播關';
+  btn.classList.toggle('discord-on', isEnabled);
+  btn.classList.toggle('discord-off', !isEnabled);
+}
+
+async function togglePullbackDiscord() {
+  const current = localStorage.getItem(PULLBACK_DISCORD_KEY) !== '0';
+  const next = !current;
+  renderPullbackDiscordButton(next);
+  try {
+    const path = next ? 'discord_on' : 'discord_off';
+    const res = await apiFetch(`${SERVER}/pullback_monitor/${path}`, { method:'POST' });
+    const json = await res.json();
+    renderPullbackDiscordButton(json.discord_enabled);
   } catch(e) {
-    results.innerHTML = `<div class="empty-text">失敗：${e.message}</div>`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '掃描';
+    renderPullbackDiscordButton(current);
+    alert(`推播開關失敗：${e.message}`);
   }
 }
 
-// 跳轉工具
-function getPageBase() {
-  return window.location.href.replace(/\/[^\/]*(\?.*)?$/, '');
+async function syncPullbackDiscordPreference() {
+  const enabled = localStorage.getItem(PULLBACK_DISCORD_KEY) !== '0';
+  renderPullbackDiscordButton(enabled);
+  try {
+    const path = enabled ? 'discord_on' : 'discord_off';
+    const res = await apiFetch(`${SERVER}/pullback_monitor/${path}`, { method:'POST' });
+    const json = await res.json();
+    renderPullbackDiscordButton(json.discord_enabled);
+  } catch(e) {}
 }
-function goToChips(code) {
-  window.open(`${getPageBase()}/籌碼分析.html?code=${code}`, '_blank');
+
+async function runPullbackMonitorOnce() {
+  const list = getPullbackMonitorList();
+  const box = document.getElementById('monitorResults');
+  if (!list.length) { renderPullbackMonitorIdle(); return; }
+  box.innerHTML = '<div class="empty-text">監測中...</div>';
+  try {
+    const res = await apiFetch(`${SERVER}/pullback_monitor`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({candidates:list})
+    });
+    const json = await res.json();
+    const data = json.results || [];
+    if (data.length) {
+      const resultMap = new Map(data.map(d => [d.code, d]));
+      const active = list
+        .filter(item => {
+          const d = resultMap.get(item.code);
+          return !(json.market_live && d && d.signal_type === 'red');
+        })
+        .map(item => {
+          const d = resultMap.get(item.code) || {};
+          return {
+            code: item.code,
+            name: d.name || item.name,
+            market: item.market || 'tse',
+            prev_low: d.prev_low || item.prev_low
+          };
+        });
+      localStorage.setItem(PULLBACK_MONITOR_KEY, JSON.stringify(active));
+    }
+    document.getElementById('monitorStatus').textContent = `${json.market_live ? '盤中' : '非盤中'} ${json.updated_at || ''}`;
+    renderPullbackDiscordButton(json.discord_enabled);
+    if (!data.length) { box.innerHTML = '<div class="empty-text">暫無即時資料，已保留候選清單</div>'; return; }
+    box.innerHTML = data.map(d => `
+      <div class="monitor-row ${d.signal_type}">
+        <div class="monitor-top">
+          <span class="si-code">${d.code}</span>
+          <span style="flex:1;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.name}</span>
+          <span class="monitor-signal ${d.signal_type}">${d.signal}</span>
+          <span style="font-family:monospace;">$${d.price}</span>
+        </div>
+        <div class="monitor-detail">
+          昨低 $${d.prev_low} ／ 今低 $${d.day_low} ／ 破低 $${d.break_level}<br>${d.note}
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    box.innerHTML = `<div class="empty-text">監測失敗：${e.message}</div>`;
+  }
 }
-function goToABC(code) {
-  localStorage.setItem('abc_jump_code', code);
-  window.open(`${getPageBase()}/ABC選股掃描.html`, '_blank');
+
+function togglePullbackMonitor() {
+  const btn = document.getElementById('monitorBtn');
+  if (pullbackMonitorTimer) {
+    clearInterval(pullbackMonitorTimer);
+    pullbackMonitorTimer = null;
+    btn.textContent = '開始監測';
+    document.getElementById('monitorStatus').textContent = '待機';
+    return;
+  }
+  btn.textContent = '停止監測';
+  document.getElementById('monitorStatus').textContent = '進行中';
+  runPullbackMonitorOnce();
+  pullbackMonitorTimer = setInterval(runPullbackMonitorOnce, 5 * 60 * 1000);
+}
+
+function clearPullbackMonitor() {
+  localStorage.removeItem(PULLBACK_MONITOR_KEY);
+  if (pullbackMonitorTimer) togglePullbackMonitor();
+  renderPullbackMonitorIdle();
 }
 
 // 初始化
@@ -1449,18 +1589,13 @@ function init() {
   checkServer();
   loadNews();
   renderWatchlist();
+  renderPullbackMonitorIdle();
+  renderPullbackDiscordButton();
+  syncPullbackDiscordPreference();
   if (watchlist.length>0) refreshWatchlist();
-
-  // ABC選股掃描跳轉
-  const jumpCode = localStorage.getItem('abc_jump_code');
-  if (jumpCode) {
-    localStorage.removeItem('abc_jump_code');
-    document.getElementById('stockInput').value = jumpCode;
-    loadStock();
-  }
 }
 
-if (localStorage.getItem('appToken') || sessionStorage.getItem('appToken')) init();
+if (sessionStorage.getItem('appToken')) init();
 </script>
 </body>
 </html>

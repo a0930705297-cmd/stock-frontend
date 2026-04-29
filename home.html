@@ -20,6 +20,7 @@
   --blue: #6a9fd4;
   --orange: #d4955a;
   --red: #d4655a;
+  --teal: #5ab8b0;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -181,6 +182,16 @@ main {
   color: var(--muted);
   border: 1px solid var(--border2);
 }
+.card-badge.new {
+  background: rgba(90,184,176,0.12);
+  color: #5ab8b0;
+  border-color: rgba(90,184,176,0.3);
+  animation: badgePulse 2s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
 
 .card-desc {
   font-size: 11px;
@@ -218,11 +229,15 @@ main {
 .card-abc    { --card-color: #8fb87a; }
 .card-chip   { --card-color: #6a9fd4; }
 .card-emerg  { --card-color: #d4955a; }
+.card-tick   { --card-color: #b87a9f; }
+.card-radar  { --card-color: #5ab8b0; }
 
 .tag-gold   { color: #c8a96e; border-color: rgba(200,169,110,0.25); background: rgba(200,169,110,0.06); }
 .tag-green  { color: #8fb87a; border-color: rgba(143,184,122,0.25); background: rgba(143,184,122,0.06); }
 .tag-blue   { color: #6a9fd4; border-color: rgba(106,159,212,0.25); background: rgba(106,159,212,0.06); }
 .tag-orange { color: #d4955a; border-color: rgba(212,149,90,0.25);  background: rgba(212,149,90,0.06); }
+.tag-purple { color: #b87a9f; border-color: rgba(184,122,159,0.25); background: rgba(184,122,159,0.06); }
+.tag-teal   { color: #5ab8b0; border-color: rgba(90,184,176,0.25);  background: rgba(90,184,176,0.06); }
 .tag-gray   { color: var(--muted); border-color: var(--border2);    background: rgba(255,255,255,0.03); }
 
 /* 底部 */
@@ -250,6 +265,7 @@ footer {
 .fdot.green  { background: rgba(143,184,122,0.5); }
 .fdot.blue   { background: rgba(106,159,212,0.5); }
 .fdot.orange { background: rgba(212,149,90,0.5); }
+.fdot.purple { background: rgba(184,122,159,0.5); }
 
 /* 動畫 */
 .card {
@@ -259,6 +275,8 @@ footer {
 .card:nth-child(2) { animation-delay: 0.10s; }
 .card:nth-child(3) { animation-delay: 0.15s; }
 .card:nth-child(4) { animation-delay: 0.20s; }
+.card:nth-child(5) { animation-delay: 0.25s; }
+.card:nth-child(6) { animation-delay: 0.30s; }
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
@@ -371,12 +389,51 @@ header, .divider, main, footer {
       <span class="card-arrow">↗</span>
     </a>
 
+    <!-- 內外盤比 -->
+    <a class="card card-tick" href="內外盤比.html">
+      <span class="card-icon">📈</span>
+      <div class="card-name">
+        即時內外盤比
+        <span class="card-badge">盤中</span>
+      </div>
+      <div class="card-desc">
+        用 Tick Rule 逐筆計算內外盤比，即時判斷主動買盤或賣盤主導。支援全日統計與近100筆滾動窗口，盤中決策更精準。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-purple">Tick Rule</span>
+        <span class="tag tag-purple">滾動窗口</span>
+        <span class="tag tag-purple">15秒更新</span>
+        <span class="tag tag-gray">逐筆明細</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
+    <!-- 即時資金雷達 -->
+    <a class="card card-radar" href="即時資金雷達Pro.html">
+      <span class="card-icon">⚡</span>
+      <div class="card-name">
+        即時資金雷達 PRO
+        <span class="card-badge new">NEW</span>
+      </div>
+      <div class="card-desc">
+        追蹤上市＋上櫃資金流向，彙整產業排行與個股 TOP 榜。支援 5 分鐘更新、Discord 推播與單股/產業快速查詢，第一時間掌握大資金動向。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-teal">產業流入排行</span>
+        <span class="tag tag-teal">個股TOP榜</span>
+        <span class="tag tag-teal">5分鐘更新</span>
+        <span class="tag tag-teal">Discord推播</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
   </div>
 
   <div class="section-title" style="margin-top:8px;">使用提示</div>
   <div style="font-size:11px;color:var(--muted);line-height:2;max-width:560px;">
     各工具共用同一組登入憑證，首次登入後自動記住，無需重複輸入。<br>
     ABC掃描 → 點擊股票 → 自動跳轉法人成本追蹤查看詳細資料。<br>
+    即時資金雷達 PRO 的 Discord 推播需先在 Railway Variables 設定 `DISCORD_WEBHOOK`。<br>
     所有資料僅供參考，不構成任何投資建議。
   </div>
 
@@ -389,6 +446,8 @@ header, .divider, main, footer {
     <div class="fdot green"></div>
     <div class="fdot blue"></div>
     <div class="fdot orange"></div>
+    <div class="fdot purple"></div>
+    <div class="fdot" style="background:rgba(90,184,176,0.5);"></div>
   </div>
 </footer>
 

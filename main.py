@@ -4,9 +4,10 @@ import warnings
 import os
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import xml.etree.ElementTree as ET
 import yfinance as yf
+import asyncio
 
 warnings.filterwarnings("ignore")
 
@@ -25,6 +26,8 @@ FUGLE_API_KEY     = os.environ.get("FUGLE_API_KEY", "")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 FUGLE_BASE        = "https://api.fugle.tw/marketdata/v1.0/stock"
 API_TOKEN         = os.environ.get("API_TOKEN", "0921")
+DISCORD_WEBHOOK   = os.environ.get("DISCORD_WEBHOOK", "")
+TW_TZ             = timezone(timedelta(hours=8))
 
 
 # 分析結果快取
@@ -60,6 +63,9 @@ def parse_int(s):
         return int(str(s).replace(",", "").replace(" ", "").strip())
     except Exception:
         return 0
+
+def tw_now():
+    return datetime.now(TW_TZ)
 
 INDUSTRY_THEME = {
     "半導體業":         ["半導體", "AI"],
@@ -234,7 +240,7 @@ async def get_ticker(symbol: str, x_token: str = Header(default=None)):
 @app.get("/foreign/{symbol}")
 async def get_foreign(symbol: str, x_token: str = Header(default=None)):
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
     start = (today - timedelta(days=730)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
     rows = finmind_get("TaiwanStockInstitutionalInvestorsBuySell", symbol, start, end)
@@ -257,7 +263,7 @@ async def get_foreign(symbol: str, x_token: str = Header(default=None)):
 async def get_invest_trust(symbol: str, x_token: str = Header(default=None)):
     """投信買賣超，格式與 /foreign 相同，供前端計算投信加權成本"""
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
     start = (today - timedelta(days=730)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
     rows = finmind_get("TaiwanStockInstitutionalInvestorsBuySell", symbol, start, end)
@@ -279,7 +285,7 @@ async def get_invest_trust(symbol: str, x_token: str = Header(default=None)):
 @app.get("/margin/{symbol}")
 async def get_margin(symbol: str, x_token: str = Header(default=None)):
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
     start = (today - timedelta(days=730)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
     rows = finmind_get("TaiwanStockMarginPurchaseShortSale", symbol, start, end)
@@ -300,7 +306,7 @@ async def get_margin(symbol: str, x_token: str = Header(default=None)):
 @app.get("/price/{symbol}")
 async def get_price(symbol: str, x_token: str = Header(default=None)):
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
     start = (today - timedelta(days=730)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
     rows = finmind_get("TaiwanStockPrice", symbol, start, end)
@@ -477,7 +483,7 @@ async def analyze(body: dict, x_token: str = Header(default=None)):
     cache_key = f"{stock_code}_{current_price}"
     if cache_key in analysis_cache:
         cached = analysis_cache[cache_key]
-        elapsed = (datetime.now() - cached["time"]).total_seconds() / 60
+        elapsed = (tw_now() - cached["time"]).total_seconds() / 60
         if elapsed < CACHE_MINUTES:
             print(f"快取命中：{cache_key}，距上次 {elapsed:.1f} 分鐘")
             return {"analysis": cached["text"], "cached": True}
@@ -548,7 +554,7 @@ async def analyze(body: dict, x_token: str = Header(default=None)):
         # 存入快取
         analysis_cache[cache_key] = {
             "text": text,
-            "time": datetime.now()
+            "time": tw_now()
         }
         print(f"新分析已快取：{cache_key}")
 
@@ -559,7 +565,7 @@ async def analyze(body: dict, x_token: str = Header(default=None)):
 @app.get("/revenue/{symbol}")
 async def get_revenue(symbol: str, x_token: str = Header(default=None)):
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
     start = (today - timedelta(days=760)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
 
@@ -588,7 +594,7 @@ async def get_revenue(symbol: str, x_token: str = Header(default=None)):
 @app.get("/market_volume")
 async def get_market_volume(x_token: str = Header(default=None)):
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
     for i in range(5):
         try_date = (today - timedelta(days=i)).strftime("%Y%m%d")
         url = f"https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX20?date={try_date}&response=json"
@@ -705,7 +711,7 @@ CUSTOM_THEME_STOCKS = {
 async def scan(body: dict, x_token: str = Header(default=None)):
     verify_token(x_token)
     codes = body.get("codes", [])
-    today = datetime.today()
+    today = tw_now()
     start = (today - timedelta(days=730)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
 
@@ -815,7 +821,7 @@ async def technical_scan(body: dict, x_token: str = Header(default=None)):
     top_n = body.get("top_n", 100)
 
     # 抓全市場當日成交資料
-    today = datetime.today()
+    today = tw_now()
     all_stocks = []
 
     for i in range(5):
@@ -972,6 +978,267 @@ async def technical_scan(body: dict, x_token: str = Header(default=None)):
     results.sort(key=lambda x: x["volume"], reverse=True)
     return {"data": results}
 
+def _calc_foreign_cost_from_rows(foreign_rows: list, price_rows: list) -> float:
+    price_map = {}
+    for row in price_rows:
+        try:
+            date_key = str(row.get("date", "")).replace("-", "")
+            price_map[date_key] = float(row.get("close", 0) or 0)
+        except Exception:
+            continue
+
+    holdings = 0
+    total_cost = 0
+    for row in foreign_rows:
+        try:
+            if row.get("name") != "Foreign_Investor":
+                continue
+            date_key = str(row.get("date", "")).replace("-", "")
+            price = price_map.get(date_key, 0)
+            if price <= 0:
+                continue
+            buy = max(int(float(row.get("buy", 0) or 0)), 0) // 1000
+            sell = max(int(float(row.get("sell", 0) or 0)), 0) // 1000
+            if buy > 0:
+                total_cost += buy * 1000 * price
+                holdings += buy * 1000
+            if sell > 0 and holdings > 0:
+                sold = min(sell * 1000, holdings)
+                total_cost -= sold * (total_cost / holdings)
+                holdings -= sold
+        except Exception:
+            continue
+
+    return total_cost / holdings if holdings > 0 else 0
+
+_disposal_cache = {"codes": set(), "ts": 0}
+
+def _fetch_disposal_stocks() -> set:
+    """取得 TWSE 處置股 / 警示股清單，快取 30 分鐘。"""
+    now_ts = _time.time()
+    if _disposal_cache["codes"] and now_ts - _disposal_cache["ts"] < 1800:
+        return _disposal_cache["codes"]
+
+    codes = set()
+    urls = [
+        "https://www.twse.com.tw/rwd/zh/announcement/punish?response=json",
+        "https://www.twse.com.tw/rwd/zh/announcement/warning?response=json",
+    ]
+    for url in urls:
+        data = twse_get(url)
+        if not data or not data.get("data"):
+            continue
+        for row in data.get("data", []):
+            for cell in row[:4]:
+                code = str(cell).strip()
+                if code.isdigit() and len(code) == 4 and not code.startswith("0"):
+                    codes.add(code)
+                    break
+
+    _disposal_cache["codes"] = codes
+    _disposal_cache["ts"] = now_ts
+    return codes
+
+@app.post("/pullback_scan")
+async def pullback_scan(body: dict, x_token: str = Header(default=None)):
+    verify_token(x_token)
+    top_n = body.get("top_n", 100)
+
+    today = tw_now()
+    all_stocks = []
+    disposal_codes = _fetch_disposal_stocks()
+
+    for i in range(5):
+        try_date = (today - timedelta(days=i)).strftime("%Y%m%d")
+        url = f"https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY_ALL?response=json&date={try_date}"
+        data = twse_get(url)
+        if data and data.get("stat") == "OK" and data.get("data"):
+            for row in data["data"]:
+                try:
+                    code = str(row[0]).strip()
+                    name = str(row[1]).strip()
+                    volume = int(str(row[2]).replace(",", "")) if row[2] else 0
+                    amount = int(str(row[3]).replace(",", "")) if len(row) > 3 and row[3] else 0
+                    close = float(str(row[7]).replace(",", "")) if row[7] else 0
+                    if not code.isdigit() or volume <= 0 or close <= 0:
+                        continue
+                    if code.startswith("0") or len(code) != 4:
+                        continue
+                    if code in disposal_codes:
+                        continue
+                    if amount <= 0:
+                        amount = int(volume * close)
+                    if close < 20 or amount < 100_000_000:
+                        continue
+                    all_stocks.append({
+                        "code": code,
+                        "name": name,
+                        "close": close,
+                        "volume": volume,
+                        "amount": amount,
+                        "amount_yi": round(amount / 100_000_000, 2),
+                    })
+                except Exception:
+                    continue
+            break
+
+    if not all_stocks:
+        return {"data": [], "error": "無法取得當日成交資料"}
+
+    all_stocks.sort(key=lambda x: x["amount"], reverse=True)
+    target_stocks = all_stocks[:top_n]
+
+    results = []
+    start_date = (today - timedelta(days=140)).strftime("%Y-%m-%d")
+    end_date = today.strftime("%Y-%m-%d")
+
+    def ma_at(values, n, end_idx=None):
+        if end_idx is None:
+            end_idx = len(values)
+        start_idx = end_idx - n
+        if start_idx < 0:
+            return 0
+        return sum(values[start_idx:end_idx]) / n
+
+    for item in target_stocks:
+        code = item["code"]
+        name = item["name"]
+        close = item["close"]
+
+        try:
+            price_rows = finmind_get("TaiwanStockPrice", code, start_date, end_date)
+            if len(price_rows) < 65:
+                continue
+
+            price_rows = sorted(price_rows, key=lambda x: x.get("date", ""))
+            closes = [float(r.get("close", 0)) for r in price_rows]
+            volumes = [int(r.get("Trading_Volume", 0)) for r in price_rows]
+            if len(closes) < 65 or closes[-1] <= 0:
+                continue
+
+            ma5 = ma_at(closes, 5)
+            ma10 = ma_at(closes, 10)
+            ma20 = ma_at(closes, 20)
+            ma60 = ma_at(closes, 60)
+            prev_ma5 = ma_at(closes, 5, len(closes) - 1)
+            prev_ma10 = ma_at(closes, 10, len(closes) - 1)
+            prev_ma20 = ma_at(closes, 20, len(closes) - 1)
+            prev_ma60 = ma_at(closes, 60, len(closes) - 1)
+            avg_vol20 = ma_at(volumes, 20)
+            avg_amount20 = sum(
+                volumes[i] * closes[i] for i in range(len(closes) - 20, len(closes))
+            ) / 20
+            if avg_amount20 < 300_000_000 or avg_vol20 < 3_000_000:
+                continue
+            prev_row = price_rows[-2]
+            today_open = float(price_rows[-1].get("open", closes[-1]) or closes[-1])
+            today_high = float(price_rows[-1].get("max", closes[-1]) or closes[-1])
+            today_low = float(price_rows[-1].get("min", closes[-1]) or closes[-1])
+            today_close = closes[-1]
+            today_volume = volumes[-1]
+            prev_low = float(prev_row.get("min", 0) or 0)
+            day_range = today_high - today_low
+            close_pos = round((today_close - today_low) / day_range, 2) if day_range > 0 else 0.5
+            close_pos = max(0, min(close_pos, 1))
+            candle = "紅K" if today_close >= today_open else "黑K"
+
+            trend_ok = (
+                ma20 > ma60
+                and ma20 >= prev_ma20
+                and ma10 >= prev_ma10
+                and ma60 >= prev_ma60
+                and today_close > ma60
+            )
+            cross_down = prev_ma5 >= prev_ma10 and ma5 < ma10
+            heavy_black = today_close < today_open and today_volume > avg_vol20
+            controlled_pullback = (
+                (avg_vol20 <= 0 or today_volume <= avg_vol20)
+                and not heavy_black
+            )
+            not_breakdown = today_close >= ma20 * 0.96
+
+            if not (trend_ok and cross_down and controlled_pullback and not_breakdown):
+                continue
+
+            ma20_gap_pct = round((today_close - ma20) / ma20 * 100, 2) if ma20 > 0 else 0
+            vol_ratio = round(today_volume / avg_vol20, 2) if avg_vol20 > 0 else 0
+            foreign_cost = 0
+            foreign_cost_gap_pct = None
+            foreign_cost_label = ""
+            foreign_cost_css = ""
+
+            try:
+                foreign_rows = finmind_get(
+                    "TaiwanStockInstitutionalInvestorsBuySell", code, start_date, end_date
+                )
+                foreign_cost = _calc_foreign_cost_from_rows(foreign_rows, price_rows)
+                if foreign_cost > 0:
+                    foreign_cost_gap_pct = round((today_close - foreign_cost) / foreign_cost * 100, 2)
+                    if abs(foreign_cost_gap_pct) <= 5:
+                        foreign_cost_label = "法人成本支撐"
+                        foreign_cost_css = "good"
+                    elif -10 <= foreign_cost_gap_pct < -5:
+                        foreign_cost_label = "成本破位"
+                        foreign_cost_css = "warning"
+                    elif foreign_cost_gap_pct < -10:
+                        foreign_cost_label = "成本深破"
+                        foreign_cost_css = "danger"
+            except Exception:
+                foreign_cost = 0
+
+            if abs(ma20_gap_pct) <= 2:
+                signal = "貼近20MA"
+                signal_css = "good"
+                score = 3
+            elif ma20_gap_pct > 2:
+                signal = "等回測"
+                signal_css = "warning"
+                score = 2
+            else:
+                signal = "弱觀察"
+                signal_css = "neutral"
+                score = 1
+
+            if candle == "紅K":
+                score += 1
+            if close_pos < 0.3:
+                score -= 1
+            score = max(0, score)
+
+            results.append({
+                "code": code,
+                "name": name,
+                "close": close,
+                "ma5": round(ma5, 1),
+                "ma10": round(ma10, 1),
+                "ma20": round(ma20, 1),
+                "ma60": round(ma60, 1),
+                "ma20_gap_pct": ma20_gap_pct,
+                "vol_ratio": vol_ratio,
+                "candle": candle,
+                "close_pos": close_pos,
+                "close_pos_pct": round(close_pos * 100),
+                "prev_low": round(prev_low, 2),
+                "foreign_cost": round(foreign_cost, 1) if foreign_cost > 0 else 0,
+                "foreign_cost_gap_pct": foreign_cost_gap_pct,
+                "foreign_cost_label": foreign_cost_label,
+                "foreign_cost_css": foreign_cost_css,
+                "volume": item["volume"],
+                "amount": item["amount"],
+                "amount_yi": item["amount_yi"],
+                "avg_volume20_lots": round(avg_vol20 / 1000),
+                "avg_amount20_yi": round(avg_amount20 / 100_000_000, 2),
+                "signal": signal,
+                "signal_css": signal_css,
+                "score": score
+            })
+
+        except Exception:
+            continue
+
+    results.sort(key=lambda x: (x["score"], -abs(x["ma20_gap_pct"])), reverse=True)
+    return {"data": results}
+
 # ── 共用工具函式（興櫃分析用）────────────
 def _pf(v) -> float:
     try:
@@ -1042,7 +1309,7 @@ def _parse_tpex_www(raw) -> list:
 async def get_emerging_analysis(x_token: str = Header(default=None)):
     verify_token(x_token)
 
-    today    = datetime.today()
+    today    = tw_now()
     start_90 = (today - timedelta(days=90)).strftime("%Y-%m-%d")
     end_date = today.strftime("%Y-%m-%d")
 
@@ -1126,7 +1393,7 @@ async def get_emerging_analysis(x_token: str = Header(default=None)):
 @app.get("/foreign_rank")
 async def get_foreign_rank(x_token: str = Header(default=None)):
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
 
     for i in range(1, 8):
         d = (today - timedelta(days=i)).strftime("%Y%m%d")
@@ -1203,124 +1470,139 @@ async def get_chips(symbol: str, x_token: str = Header(default=None)):
     整合當日三大法人、融資融券、借券、當沖等籌碼資料
     """
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
+    start_10 = (today - timedelta(days=20)).strftime("%Y-%m-%d")
+    end_date = today.strftime("%Y-%m-%d")
 
-    # ── 1. 三大法人（TWSE T86，最近交易日）───────
-    institutional = {}
+    # ── 1. 並行抓取 FinMind 資料，避免籌碼頁等待多個外部請求串行逾時 ─────
+    institutional = {
+        "foreign_net": 0,
+        "foreign_buy": 0,
+        "foreign_sell": 0,
+        "invest_trust_net": 0,
+        "invest_trust_buy": 0,
+        "invest_trust_sell": 0,
+        "dealer_net": 0,
+        "dealer_buy": 0,
+        "dealer_sell": 0,
+    }
     history_rows = []
-    for i in range(1, 8):
-        d = (today - timedelta(days=i)).strftime("%Y%m%d")
-        url = f"https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date={d}&selectType=ALL"
-        data = twse_get(url)
-        if not data or data.get("stat") != "OK":
-            continue
-        fields = data.get("fields", [])
-        rows   = data.get("data", [])
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        fut_inst = ex.submit(
+            finmind_get,
+            "TaiwanStockInstitutionalInvestorsBuySell",
+            symbol,
+            start_10,
+            end_date,
+        )
+        fut_price = ex.submit(
+            finmind_get,
+            "TaiwanStockPrice",
+            symbol,
+            start_10,
+            end_date,
+        )
+        fut_margin = ex.submit(
+            finmind_get,
+            "TaiwanStockMarginPurchaseShortSale",
+            symbol,
+            start_10,
+            end_date,
+        )
+        fut_day_trade = ex.submit(
+            finmind_get,
+            "TaiwanStockDayTrading",
+            symbol,
+            start_10,
+            end_date,
+        )
+        fut_shareholding = ex.submit(
+            finmind_get,
+            "TaiwanStockShareholding",
+            symbol,
+            start_10,
+            end_date,
+        )
+        fut_short_bal = ex.submit(
+            finmind_get,
+            "TaiwanDailyShortSaleBalances",
+            symbol,
+            start_10,
+            end_date,
+        )
+        inst_rows = fut_inst.result()
+        price_rows = fut_price.result()
+        margin_rows_raw = fut_margin.result()
+        day_trade_rows = fut_day_trade.result()
+        shareholding_rows = fut_shareholding.result()
+        short_bal_rows = fut_short_bal.result()
 
-        def fi(candidates, default):
-            for name in candidates:
-                if name in fields:
-                    return fields.index(name)
+    def to_int(value, default=0):
+        try:
+            return int(float(str(value).replace(",", "").strip()))
+        except Exception:
             return default
 
-        idx_code   = fi(["證券代號"], 0)
-        idx_name   = fi(["證券名稱"], 1)
-        idx_fbuy   = fi(["外陸資買進股數(不含外資自營商)", "外陸資買進股數"], 2)
-        idx_fsell  = fi(["外陸資賣出股數(不含外資自營商)", "外陸資賣出股數"], 3)
-        idx_fnet   = fi(["外陸資買賣超股數(不含外資自營商)", "外陸資買賣超股數"], 4)
-        idx_itbuy  = fi(["投信買進股數"], 8)
-        idx_itsell = fi(["投信賣出股數"], 9)
-        idx_itnet  = fi(["投信買賣超股數"], 10)
-        idx_dbuy   = fi(["自營商買進股數(自行買賣)", "自營商買進股數"], 12)
-        idx_dsell  = fi(["自營商賣出股數(自行買賣)", "自營商賣出股數"], 13)
-        idx_dnet   = fi(["自營商買賣超股數(自行買賣)", "自營商買賣超股數"], 11)
-
-        def pn(s):
-            try: return int(str(s).replace(",","").strip()) // 1000
-            except: return 0
-
-        for row in rows:
-            try:
-                if str(row[idx_code]).strip() != symbol:
-                    continue
-                institutional = {
-                    "foreign_net":      pn(row[idx_fnet]),
-                    "foreign_buy":      pn(row[idx_fbuy]),
-                    "foreign_sell":     pn(row[idx_fsell]),
-                    "invest_trust_net": pn(row[idx_itnet]),
-                    "invest_trust_buy": pn(row[idx_itbuy]),
-                    "invest_trust_sell":pn(row[idx_itsell]),
-                    "dealer_net":       pn(row[idx_dnet]),
-                    "dealer_buy":       pn(row[idx_dbuy]),
-                    "dealer_sell":      pn(row[idx_dsell]),
-                }
-                break
-            except Exception:
-                continue
-        if institutional:
-            break
-
     # ── 2. 近10日三大法人歷史（FinMind）──────────
-    start_10 = (today - timedelta(days=20)).strftime("%Y-%m-%d")
-    end_date  = today.strftime("%Y-%m-%d")
-    inst_rows = finmind_get("TaiwanStockInstitutionalInvestorsBuySell", symbol, start_10, end_date)
     hist_map = {}
     for r in inst_rows:
         date_key = r["date"]
         if date_key not in hist_map:
-            hist_map[date_key] = {"date": date_key, "foreign_net": 0, "invest_trust_net": 0, "dealer_net": 0}
+            hist_map[date_key] = {
+                "date": date_key,
+                "foreign_net": 0,
+                "foreign_buy": 0,
+                "foreign_sell": 0,
+                "invest_trust_net": 0,
+                "invest_trust_buy": 0,
+                "invest_trust_sell": 0,
+                "dealer_net": 0,
+                "dealer_buy": 0,
+                "dealer_sell": 0,
+            }
         buy  = max(int(r.get("buy",  0)), 0) // 1000
         sell = max(int(r.get("sell", 0)), 0) // 1000
         net  = buy - sell
         name = r.get("name", "")
         if name == "Foreign_Investor":
             hist_map[date_key]["foreign_net"] = net
+            hist_map[date_key]["foreign_buy"] = buy
+            hist_map[date_key]["foreign_sell"] = sell
         elif name == "Investment_Trust":
             hist_map[date_key]["invest_trust_net"] = net
+            hist_map[date_key]["invest_trust_buy"] = buy
+            hist_map[date_key]["invest_trust_sell"] = sell
         elif name == "Dealer_self":
             hist_map[date_key]["dealer_net"] = net
+            hist_map[date_key]["dealer_buy"] = buy
+            hist_map[date_key]["dealer_sell"] = sell
 
     # ── 加上收盤價 ──────────────────────────────
-    price_rows = finmind_get("TaiwanStockPrice", symbol, start_10, end_date)
     price_map = {r["date"]: float(r.get("close", 0)) for r in price_rows}
     for date_key, row in hist_map.items():
         row["close"] = price_map.get(date_key, 0)
 
     history_rows = sorted(hist_map.values(), key=lambda x: x["date"])
 
-    # ── 優先用 FinMind 最新一筆的 net，buy/sell 保留 T86 ──
-    # FinMind 只有 net，T86 有 buy/sell/net
-    # 策略：若 FinMind 最新日期 >= T86 日期，用 FinMind net 覆蓋 net，buy/sell 保留 T86
+    # ── 優先用 FinMind 最新一筆的 net ───────────
+    # FinMind 已可提供 buy/sell/net；若沒有拆分欄位則保留預設 0。
     latest_inst_date = ""
     if history_rows:
         latest_hist      = history_rows[-1]
         latest_inst_date = latest_hist["date"]
-        fm_date_str      = latest_inst_date.replace("-", "")
-
-        # 取 T86 的 buy/sell（若有的話）
-        t86_fbuy  = institutional.get("foreign_buy",       0)
-        t86_fsell = institutional.get("foreign_sell",      0)
-        t86_itbuy = institutional.get("invest_trust_buy",  0)
-        t86_itsell= institutional.get("invest_trust_sell", 0)
-        t86_dbuy  = institutional.get("dealer_buy",        0)
-        t86_dsell = institutional.get("dealer_sell",       0)
-
         institutional = {
-            # net 優先用 FinMind（較新）
             "foreign_net":       latest_hist.get("foreign_net", institutional.get("foreign_net", 0)),
             "invest_trust_net":  latest_hist.get("invest_trust_net", institutional.get("invest_trust_net", 0)),
             "dealer_net":        latest_hist.get("dealer_net", institutional.get("dealer_net", 0)),
-            # buy/sell 保留 T86 的值（FinMind 歷史沒有拆分）
-            "foreign_buy":       t86_fbuy,
-            "foreign_sell":      t86_fsell,
-            "invest_trust_buy":  t86_itbuy,
-            "invest_trust_sell": t86_itsell,
-            "dealer_buy":        t86_dbuy,
-            "dealer_sell":       t86_dsell,
+            "foreign_buy":       latest_hist.get("foreign_buy", institutional.get("foreign_buy", 0)),
+            "foreign_sell":      latest_hist.get("foreign_sell", institutional.get("foreign_sell", 0)),
+            "invest_trust_buy":  latest_hist.get("invest_trust_buy", institutional.get("invest_trust_buy", 0)),
+            "invest_trust_sell": latest_hist.get("invest_trust_sell", institutional.get("invest_trust_sell", 0)),
+            "dealer_buy":        latest_hist.get("dealer_buy", institutional.get("dealer_buy", 0)),
+            "dealer_sell":       latest_hist.get("dealer_sell", institutional.get("dealer_sell", 0)),
         }
 
     # ── 3. 融資融券（FinMind）────────────────────
-    margin_rows_raw = finmind_get("TaiwanStockMarginPurchaseShortSale", symbol, start_10, end_date)
     margin_history = []
     for r in margin_rows_raw:
         mb  = int(r.get("MarginPurchaseTodayBalance", 0))
@@ -1339,29 +1621,40 @@ async def get_chips(symbol: str, x_token: str = Header(default=None)):
     latest_margin = margin_history[-1] if margin_history else {}
 
     # ── 4. 當日股價與成交量（FinMind）─────────────
-    price_today_rows = finmind_get("TaiwanStockPrice", symbol,
-                                   (today - timedelta(days=5)).strftime("%Y-%m-%d"),
-                                   end_date)
-    latest_price_row = price_today_rows[-1] if price_today_rows else {}
+    latest_price_row = price_rows[-1] if price_rows else {}
     latest_price  = float(latest_price_row.get("close", 0))
     latest_volume = int(latest_price_row.get("Trading_Volume", 0)) // 1000
 
-    # ── 5. 當沖率（TWSE）──────────────────────────
-    day_trade_vol   = 0
-    day_trade_ratio = 0.0
-    for i in range(1, 6):
-        d = (today - timedelta(days=i)).strftime("%Y%m%d")
-        dt_url = f"https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date={d}&stockNo={symbol}&response=json"
-        dt_data = twse_get(dt_url)
-        if dt_data and dt_data.get("stat") == "OK" and dt_data.get("data"):
-            last = dt_data["data"][-1]
-            try:
-                day_trade_vol = int(str(last[2]).replace(",","")) // 1000
-                vol_total     = int(str(last[1]).replace(",","")) // 1000
-                day_trade_ratio = round(day_trade_vol / vol_total * 100, 2) if vol_total > 0 else 0
-            except Exception:
-                pass
-            break
+    # ── 5. 當沖率（FinMind TaiwanStockDayTrading）────────
+    day_trade_vol = None
+    day_trade_ratio = None
+    if day_trade_rows:
+        latest_day_trade = sorted(day_trade_rows, key=lambda x: x.get("date", ""))[-1]
+        raw_day_trade_vol = to_int(latest_day_trade.get("Volume"), 0)
+        day_trade_vol = raw_day_trade_vol // 1000
+        day_trade_ratio = round(day_trade_vol / latest_volume * 100, 2) if latest_volume > 0 else None
+
+    # ── 6. 周轉率（FinMind TaiwanStockShareholding）───────
+    turnover_rate = None
+    if shareholding_rows:
+        latest_shareholding = sorted(shareholding_rows, key=lambda x: x.get("date", ""))[-1]
+        issued_shares = to_int(
+            latest_shareholding.get("NumberOfSharesIssued")
+            or latest_shareholding.get("number_of_shares_issued"),
+            0,
+        )
+        issued_lots = issued_shares // 1000
+        turnover_rate = round(latest_volume / issued_lots * 100, 2) if issued_lots > 0 else None
+
+    # ── 7. 借券賣出餘額（FinMind TaiwanDailyShortSaleBalances）──
+    borrow_sell_change = None
+    borrow_sell_balance = None
+    if short_bal_rows:
+        latest_short_bal = sorted(short_bal_rows, key=lambda x: x.get("date", ""))[-1]
+        sbl_prev = to_int(latest_short_bal.get("SBLShortSalesPreviousDayBalance"), 0)
+        sbl_current = to_int(latest_short_bal.get("SBLShortSalesCurrentDayBalance"), 0)
+        borrow_sell_balance = sbl_current // 1000
+        borrow_sell_change = int((sbl_current - sbl_prev) / 1000)
 
     # ── 組合今日籌碼 ─────────────────────────────
     data_out = {
@@ -1375,6 +1668,9 @@ async def get_chips(symbol: str, x_token: str = Header(default=None)):
         "short_margin_ratio": latest_margin.get("short_margin_ratio", 0),
         "day_trade_volume": day_trade_vol,
         "day_trade_ratio":  day_trade_ratio,
+        "turnover_rate": turnover_rate,
+        "borrow_sell_change": borrow_sell_change,
+        "borrow_sell_balance": borrow_sell_balance,
         # 主力 = 外資+投信（簡化）
         "main_net": (institutional.get("foreign_net", 0) + institutional.get("invest_trust_net", 0)),
         # 三大法人合計
@@ -1401,7 +1697,7 @@ async def chip_scan(
     x_token: str = Header(default=None)
 ):
     verify_token(x_token)
-    today = datetime.today()
+    today = tw_now()
 
     code_list = [c.strip() for c in codes.split(",") if c.strip().isdigit()]
     if not code_list:
@@ -1478,3 +1774,1261 @@ async def chip_scan(
         "total": len(results),
         "note": f"共 {len(results)} 支雙買超，掃描 {len(code_list)} 支（{scan_date}）"
     }
+
+
+# ════════════════════════════════════════════════════════════════
+#  即時內外盤比 v4
+#  最新成交價：intraday/trades 最後一筆，quote 僅作無逐筆資料時的 fallback
+#  全日外盤/內盤：intraday/volumes 分價量表逐列加總
+#  近100筆滾動：intraday/trades Tick Rule 推估
+# ════════════════════════════════════════════════════════════════
+
+_tick_cache: dict = {}
+_TICK_CACHE_SEC = 12
+_TW_TZ = timezone(timedelta(hours=8))
+
+def _tick_float(v, default: float = 0.0) -> float:
+    try:
+        if v is None:
+            return default
+        s = str(v).replace(",", "").strip()
+        if s in ("", "-", "--", "None", "null", "nan"):
+            return default
+        return float(s)
+    except Exception:
+        return default
+
+def _tick_int(v, default: int = 0) -> int:
+    return int(_tick_float(v, float(default)))
+
+def _fmt_time(t) -> str:
+    """Fugle time 欄位 → HH:MM:SS"""
+    if t is None:
+        return "—"
+
+    def _from_unix(value) -> str | None:
+        try:
+            seconds = float(value)
+        except Exception:
+            return None
+
+        # Fugle may return epoch timestamps in seconds, ms, us, or ns.
+        magnitude = abs(seconds)
+        if magnitude >= 1e17:
+            seconds /= 1_000_000_000
+        elif magnitude >= 1e14:
+            seconds /= 1_000_000
+        elif magnitude >= 1e11:
+            seconds /= 1_000
+
+        try:
+            return datetime.fromtimestamp(seconds, _TW_TZ).strftime("%H:%M:%S")
+        except (OverflowError, OSError, ValueError):
+            return None
+
+    if isinstance(t, (int, float)):
+        return _from_unix(t) or str(t)[:8]
+
+    s = str(t).strip()
+    if not s:
+        return "—"
+    if "T" in s:
+        try:
+            return s.split("T")[1][:8]
+        except Exception:
+            pass
+    if len(s) >= 8 and s[2] == ":" and s[5] == ":":
+        return s[:8]
+
+    parsed = _from_unix(s)
+    return parsed or (s[:8] if len(s) >= 8 else s)
+
+def _tick_err(symbol, msg):
+    return {
+        "symbol": symbol, "error": msg,
+        "outer": 0, "inner": 0, "ratio": 50, "total": 0,
+        "r_outer": 0, "r_inner": 0, "r_ratio": 50,
+        "trade_count": 0, "trades": [], "latest_price": None,
+    }
+
+@app.get("/tick_ratio/{symbol}")
+async def get_tick_ratio(symbol: str, x_token: str = Header(default=None)):
+    """
+    即時內外盤比 v4
+
+    主要資料來源：
+    - intraday/trades?limit=500&sort=desc → 最新500筆，再本地轉成舊到新做 Tick Rule
+    - intraday/volumes → volumeAtAsk / volumeAtBid 分價量表加總（全日精確）
+    - intraday/quote   → 只有完全沒有逐筆資料時，才用價格欄位 fallback
+    - FinMind TaiwanStockPrice → quote 也無價時，最後用近10日最後收盤價 fallback
+
+    latest_price 來源優先順序：
+      1. detail[-1]['price']（最新500筆本地轉舊到新後的最後一筆成交價）
+      2. quote 的 lastPrice / closePrice / price（無逐筆資料時 fallback）
+      3. FinMind 最近收盤價（無逐筆且 quote 無價時 fallback）
+    """
+    verify_token(x_token)
+
+    now = tw_now()
+    cached = _tick_cache.get(symbol)
+    if cached and (now - cached["time"]).total_seconds() < _TICK_CACHE_SEC:
+        return cached["data"]
+
+    quote_url  = f"{FUGLE_BASE}/intraday/quote/{symbol}"
+    vol_url    = f"{FUGLE_BASE}/intraday/volumes/{symbol}"
+    # 先抓最新500筆；不能用 sort=asc，否則會拿到開盤後最早500筆。
+    trades_url = f"{FUGLE_BASE}/intraday/trades/{symbol}?limit=500&sort=desc"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            vol_res, trades_res = await asyncio.gather(
+                client.get(vol_url,    headers={"X-API-KEY": FUGLE_API_KEY}, timeout=10),
+                client.get(trades_url, headers={"X-API-KEY": FUGLE_API_KEY}, timeout=10),
+            )
+        vol_raw    = vol_res.json()
+        trades_raw = trades_res.json()
+    except Exception as e:
+        return _tick_err(symbol, f"Fugle API 連線失敗：{e}")
+
+    latest_price = None
+    close_price = None
+    close_date = ""
+
+    # ── 全日：volumes 分價量表，逐列加總 ──────────────────────────
+    vol_data = vol_raw.get("data", [])
+    if isinstance(vol_data, list) and vol_data:
+        outer_day = sum(_tick_int(row.get("volumeAtAsk")) for row in vol_data)
+        inner_day = sum(_tick_int(row.get("volumeAtBid")) for row in vol_data)
+    elif isinstance(vol_data, dict):
+        # 防禦：萬一 API 回傳單一 dict
+        outer_day = _tick_int(vol_data.get("volumeAtAsk"))
+        inner_day = _tick_int(vol_data.get("volumeAtBid"))
+    else:
+        outer_day = inner_day = 0
+
+    total_day = outer_day + inner_day
+    ratio_day = round(outer_day / total_day * 100, 1) if total_day > 0 else 50.0
+
+    # ── 近100筆：trades Tick Rule ─────────────────────────────────
+    # Fugle 回傳最新→最舊，先反轉成舊→新，Tick Rule 才能正確比較前一筆。
+    trades_data = trades_raw.get("data", [])
+    trades_list = list(reversed(trades_data)) if isinstance(trades_data, list) else []
+    detail = []
+    last_price_tick = None
+    last_side = "outer"
+
+    for t in trades_list:
+        try:
+            price = _tick_float(t.get("price"))
+            size  = _tick_int(t.get("size"))
+            t_str = _fmt_time(t.get("time"))
+        except Exception:
+            continue
+        if price <= 0:
+            continue
+        if last_price_tick is None:
+            side = "outer"
+        elif price > last_price_tick:
+            side = "outer"
+        elif price < last_price_tick:
+            side = "inner"
+        else:
+            side = last_side
+        last_side       = side
+        last_price_tick = price
+        detail.append({"time": t_str, "price": price, "size": size, "side": side})
+
+    # 最新500筆反轉後 detail[-1] 是目前最新一筆成交，直接作為畫面現價。
+    if detail:
+        latest_price = detail[-1]["price"]
+    else:
+        try:
+            async with httpx.AsyncClient() as client:
+                quote_res = await client.get(
+                    quote_url, headers={"X-API-KEY": FUGLE_API_KEY}, timeout=10
+                )
+            quote_raw = quote_res.json()
+            quote_data = quote_raw.get("data", {}) or {}
+            latest_price = (
+                _tick_float(quote_data.get("lastPrice")) or
+                _tick_float(quote_data.get("closePrice")) or
+                _tick_float(quote_data.get("price")) or
+                None
+            )
+        except Exception:
+            latest_price = None
+
+        if latest_price is None:
+            try:
+                fm_end = now.strftime("%Y-%m-%d")
+                fm_start = (now - timedelta(days=10)).strftime("%Y-%m-%d")
+                fm_url = (
+                    f"https://api.finmindtrade.com/api/v4/data"
+                    f"?dataset=TaiwanStockPrice&data_id={symbol}"
+                    f"&start_date={fm_start}&end_date={fm_end}"
+                    f"&token={FINMIND_TOKEN}"
+                )
+                async with httpx.AsyncClient() as client:
+                    fm_res = await client.get(fm_url, timeout=10)
+                fm_raw = fm_res.json()
+                fm_rows = fm_raw.get("data", []) if fm_raw.get("msg") == "success" else []
+                if fm_rows:
+                    latest_row = fm_rows[-1]
+                    close_price = _tick_float(latest_row.get("close")) or None
+                    close_date = str(latest_row.get("date", ""))
+                    latest_price = close_price
+            except Exception:
+                latest_price = None
+
+    recent_100 = detail[-100:]
+    r_outer = sum(t["size"] for t in recent_100 if t["side"] == "outer")
+    r_inner = sum(t["size"] for t in recent_100 if t["side"] == "inner")
+    r_total = r_outer + r_inner
+    r_ratio = round(r_outer / r_total * 100, 1) if r_total > 0 else 50.0
+
+    # fallback：volumes 沒資料時改用 tick rule 全日估算
+    if total_day == 0 and detail:
+        outer_day = sum(t["size"] for t in detail if t["side"] == "outer")
+        inner_day = sum(t["size"] for t in detail if t["side"] == "inner")
+        total_day = outer_day + inner_day
+        ratio_day = round(outer_day / total_day * 100, 1) if total_day > 0 else 50.0
+
+    if not detail and total_day == 0:
+        return _tick_err(symbol, "無資料。可能原因：非交易時段、代號有誤，或 Fugle 未提供此股票資料。")
+
+    result = {
+        "symbol":       symbol,
+        "outer":        outer_day,
+        "inner":        inner_day,
+        "total":        total_day,
+        "ratio":        ratio_day,
+        "r_outer":      r_outer,
+        "r_inner":      r_inner,
+        "r_ratio":      r_ratio,
+        "trade_count":  len(detail),
+        "latest_price": latest_price,
+        "close_price":  close_price,
+        "close_date":   close_date,
+        "updated_at":   now.strftime("%H:%M:%S"),
+        "trades":       detail[-100:],
+    }
+
+    _tick_cache[symbol] = {"data": result, "time": now}
+    return result
+
+# ════════════════════════════════════════════════════════════════
+#  即時資金雷達 — 正式版後端
+#  資料來源：TWSE MIS（盤中即時）+ TWSE OpenAPI（全市場名單）
+#  貼到 main.py 最底部
+# ════════════════════════════════════════════════════════════════
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import unquote
+import time as _time
+
+# ── MIS Headers ─────────────────────────────────────────────
+MIS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Referer":    "https://mis.twse.com.tw/stock/fibest.jsp",
+    "Accept":     "application/json, text/plain, */*",
+}
+
+# ── 產業分類（用在資金流向彙整）───────────────────────────────
+INDUSTRY_GROUPS = {
+    "半導體業", "電腦及週邊設備業", "電子零組件業", "光電業",
+    "通信網路業", "其他電子業", "電子通路業", "資訊服務業",
+    "航運業", "金融業", "生技醫療業", "電機機械", "汽車工業",
+    "鋼鐵工業", "建材營造業", "油電燃氣業", "觀光餐旅業",
+    "貿易百貨業", "化學工業", "塑膠工業", "紡織纖維", "食品工業",
+    "造紙工業", "橡膠工業", "玻璃陶瓷", "水泥工業",
+}
+
+# ── 全市場股票清單快取 ────────────────────────────────────────
+_stock_list_cache: list = []      # [{code, name, industry, market}, ...]
+_stock_list_fetched: str = ""     # 上次抓取日期
+
+def _get_stock_list() -> list:
+    """抓上市＋上櫃股票清單（含產業、市場別）"""
+    global _stock_list_cache, _stock_list_fetched
+    today = tw_now().strftime("%Y-%m-%d")
+    if _stock_list_cache and _stock_list_fetched == today:
+        return _stock_list_cache
+
+    try:
+        url = "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInfo&start_date=2024-01-01"
+        data = twse_get(url)
+        if not data or data.get("msg") != "success":
+            return _stock_list_cache
+        rows = data.get("data", [])
+
+        result = []
+        for row in rows:
+            code = str(row.get("stock_id", "")).strip()
+            name = str(row.get("stock_name", "")).strip()
+            stock_type = str(row.get("type", "")).strip().lower()
+            industry = str(row.get("industry_category", "")).strip() or "其他"
+            if stock_type not in {"twse", "tpex"}:
+                continue
+            if not code.isdigit() or len(code) != 4:
+                continue
+            result.append({
+                "code":     code,
+                "name":     name,
+                "industry": industry,
+                "market":   "tse" if stock_type == "twse" else "otc",
+            })
+
+        if result:
+            _stock_list_cache = result
+            _stock_list_fetched = today
+        return _stock_list_cache if _stock_list_cache else result
+
+    except Exception as e:
+        return _stock_list_cache  # 回傳舊快取
+
+
+def _mis_symbol(code: str, market: str = "tse") -> str:
+    market = "otc" if str(market).lower() == "otc" else "tse"
+    return f"{market}_{code}.tw"
+
+
+# ── 即時流向快取 ───────────────────────────────────────────────
+_flow_cache: dict = {}     # cache_key → result
+_prev_flow:  dict = {}     # 上一次的產業流向（用來算「較上次」）
+
+def _flow_cache_key() -> str:
+    now = tw_now()
+    slot = (now.hour * 60 + now.minute) // 3  # 3分鐘為單位
+    return f"{now.date()}_{slot}"
+
+def _prev_cache_key() -> str:
+    now = tw_now()
+    slot = (now.hour * 60 + now.minute) // 3 - 1
+    return f"{now.date()}_{max(slot,0)}"
+
+def _is_market_live(now: datetime | None = None) -> bool:
+    """僅在台股盤中開放 Discord 自動推播。"""
+    now = now or tw_now()
+    if now.weekday() >= 5:
+        return False
+    minutes = now.hour * 60 + now.minute
+    return 540 <= minutes < 810  # 09:00 - 13:30
+
+
+# ── TWSE MIS：分批抓上市＋上櫃股票即時價格 ─────────────────────
+def _fetch_mis_batch(codes_tw: list) -> list:
+    """
+    codes_tw: ["tse_2330.tw", "tse_2317.tw", ...]
+    回傳 MIS msgArray list
+    """
+    ex_ch = "|".join(codes_tw)
+    url = (f"https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
+           f"?ex_ch={ex_ch}&json=1&delay=0")
+    try:
+        r = requests.get(url, headers=MIS_HEADERS, timeout=12, verify=False)
+        d = r.json()
+        return d.get("msgArray", [])
+    except:
+        return []
+
+def _parse_mis_row(row: dict, industry: str, name: str) -> dict | None:
+    """解析 MIS 單筆資料"""
+    try:
+        # MIS 欄位說明：
+        # c = 代號, n = 名稱
+        # z = 成交價, y = 昨收, u = 漲停, w = 跌停
+        # v = 累計成交量(張)
+        # tv = 最近一筆成交量(張)
+        code = str(
+            row.get("c", row.get("@", "").split(".")[0].replace("tse_", "").replace("otc_", ""))
+        ).strip()
+        if not code or not code.isdigit() or len(code) != 4:
+            return None
+
+        price_str = str(row.get("z","0") or "0").replace(",","")
+        prev_str  = str(row.get("y","0") or "0").replace(",","")
+        vol_str   = str(row.get("v","0") or row.get("tv","0") or "0").replace(",","")
+
+        price = float(price_str) if price_str and price_str != "-" else 0.0
+        prev  = float(prev_str)  if prev_str  and prev_str  != "-" else 0.0
+        vol   = int(float(vol_str)) if vol_str and vol_str != "-" else 0
+
+        if price <= 0 or prev <= 0:
+            return None
+
+        change  = round(price - prev, 2)
+        chg_pct = round(change / prev * 100, 2)
+
+        # 成交金額（億元）= 張數 × 股價 × 1000股 ÷ 1億
+        amount = round(vol * price * 1000 / 1e8, 2)
+
+        # 資金流向：漲→流入，跌→流出，平→不計
+        flow_in  = amount if chg_pct > 0 else 0.0
+        flow_out = amount if chg_pct < 0 else 0.0
+        net_flow = round(flow_in - flow_out, 2)
+
+        stk_name = str(row.get("n", name or code)).strip()
+
+        return {
+            "code":     code,
+            "name":     stk_name,
+            "industry": industry,
+            "price":    price,
+            "prev":     prev,
+            "change":   change,
+            "chg_pct":  chg_pct,
+            "vol":      vol,
+            "amount":   amount,
+            "flow_in":  flow_in,
+            "flow_out": flow_out,
+            "net_flow": net_flow,
+        }
+    except:
+        return None
+
+
+def _fetch_all_market() -> dict:
+    """
+    分批抓全市場即時資料
+    回傳 {code: stock_dict}
+    """
+    stock_list = _get_stock_list()
+    if not stock_list:
+        return {}
+
+    # 建立 code → {name, industry, market} 對照
+    info_map = {s["code"]: s for s in stock_list}
+    all_stocks = stock_list
+
+    # 分批：每批 150 支（MIS URL長度限制）
+    BATCH = 150
+    batches = []
+    for i in range(0, len(all_stocks), BATCH):
+        batch_stocks = all_stocks[i:i+BATCH]
+        codes_tw = [_mis_symbol(s["code"], s.get("market", "tse")) for s in batch_stocks]
+        batches.append((batch_stocks, codes_tw))
+
+    stock_data: dict = {}
+
+    # 並行抓取（最多5個同時，避免被擋）
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        futures = {
+            ex.submit(_fetch_mis_batch, codes_tw): batch_stocks
+            for batch_stocks, codes_tw in batches
+        }
+        for future in as_completed(futures):
+            batch_stocks = futures[future]
+            try:
+                rows = future.result()
+                for row in rows:
+                    # 從 @ 欄位取代號
+                    at = str(row.get("@",""))
+                    code = at.split(".")[0].replace("tse_","").replace("otc_","")
+                    if not code:
+                        code = str(row.get("c",""))
+                    info = info_map.get(code, {})
+                    parsed = _parse_mis_row(
+                        row,
+                        info.get("industry","其他"),
+                        info.get("name","")
+                    )
+                    if parsed:
+                        stock_data[code] = parsed
+            except:
+                pass
+
+    return stock_data
+
+
+def _build_industry_flow(stock_data: dict) -> dict:
+    """彙整產業資金流向"""
+    groups: dict = {}
+
+    for s in stock_data.values():
+        ind = s["industry"] or "其他"
+        if ind not in groups:
+            groups[ind] = {
+                "name":        ind,
+                "type":        "industry",
+                "in_amount":   0.0,
+                "out_amount":  0.0,
+                "stocks":      [],
+            }
+        groups[ind]["in_amount"]  += s["flow_in"]
+        groups[ind]["out_amount"] += s["flow_out"]
+        groups[ind]["stocks"].append(s)
+
+    # 計算淨額、集中度、取前5大個股
+    result = {}
+    for ind, g in groups.items():
+        net   = round(g["in_amount"] - g["out_amount"], 2)
+        total = g["in_amount"] + g["out_amount"]
+        stocks_sorted = sorted(g["stocks"],
+                               key=lambda x: abs(x["net_flow"]), reverse=True)
+        conc = 0
+        if total > 0 and stocks_sorted:
+            conc = round(abs(stocks_sorted[0]["net_flow"]) / total * 100)
+
+        result[ind] = {
+            "name":          ind,
+            "type":          "industry",
+            "net_amount":    round(net, 2),
+            "in_amount":     round(g["in_amount"], 2),
+            "out_amount":    round(g["out_amount"], 2),
+            "concentration": conc,
+            "stock_count":   len(g["stocks"]),
+            "stocks": [{
+                "code":     s["code"],
+                "name":     s["name"],
+                "price":    s["price"],
+                "chg_pct":  s["chg_pct"],
+                "amount":   s["amount"],
+                "net_flow": s["net_flow"],
+            } for s in stocks_sorted[:5]],
+        }
+    return result
+
+
+# ══════════════════════════════════════════════════════════════
+#  Endpoint 1：全市場資金流向總覽  GET /flow/summary
+#  ※ 3分鐘快取；第一次約15秒，之後很快
+# ══════════════════════════════════════════════════════════════
+@app.get("/flow/summary")
+async def flow_summary(x_token: str = Header(default=None)):
+    verify_token(x_token)
+
+    ck = _flow_cache_key()
+    if ck in _flow_cache:
+        return {**_flow_cache[ck], "cached": True}
+
+    t0 = _time.time()
+
+    # 抓上市＋上櫃即時資料
+    stock_data = _fetch_all_market()
+    if not stock_data:
+        return {"error": "無法取得市場資料", "industry": {}, "top_in": [], "top_out": []}
+
+    # 彙整產業流向
+    industry_flow = _build_industry_flow(stock_data)
+
+    # 取上一次快取做「較上次」比較
+    prev_ck = _prev_cache_key()
+    prev_industry = _flow_cache.get(prev_ck, {}).get("industry", {})
+
+    # 加上「較上次」差值
+    for ind, g in industry_flow.items():
+        prev_net = prev_industry.get(ind, {}).get("net_amount", None)
+        if prev_net is not None:
+            g["prev_net"]    = prev_net
+            g["prev_change"] = round(g["net_amount"] - prev_net, 2)
+        else:
+            g["prev_net"]    = None
+            g["prev_change"] = None
+
+    # 個股排行
+    all_s   = list(stock_data.values())
+    top_in  = sorted([s for s in all_s if s["chg_pct"] > 0],
+                     key=lambda x: x["flow_in"], reverse=True)[:20]
+    top_out = sorted([s for s in all_s if s["chg_pct"] < 0],
+                     key=lambda x: x["flow_out"], reverse=True)[:20]
+
+    elapsed = round(_time.time() - t0, 1)
+    result = {
+        "industry":    industry_flow,
+        "top_in":      top_in,
+        "top_out":     top_out,
+        "_stock_data": stock_data,
+        "scanned":     len(stock_data),
+        "elapsed_sec": elapsed,
+        "updated_at":  tw_now().strftime("%H:%M"),
+        "data_date":   tw_now().strftime("%Y-%m-%d"),
+        "cached":      False,
+    }
+
+    # 存快取（只保留最近6筆 = 30分鐘）
+    _flow_cache[ck] = result
+    if len(_flow_cache) > 6:
+        del _flow_cache[next(iter(_flow_cache))]
+
+    return result
+
+
+# ══════════════════════════════════════════════════════════════
+#  Endpoint 2：個股流向詳細  GET /flow/stock/{code}
+#  回傳今日即時 + 近20日歷史（用FinMind單股查詢，免費版可用）
+# ══════════════════════════════════════════════════════════════
+@app.get("/flow/stock/{code}")
+async def flow_stock(code: str, x_token: str = Header(default=None)):
+    verify_token(x_token)
+
+    stock_list = _get_stock_list()
+    info_map = {s["code"]: s for s in stock_list}
+    info = info_map.get(code, {})
+
+    # 即時資料：MIS 單股
+    mis_rows = _fetch_mis_batch([_mis_symbol(code, info.get("market", "tse"))])
+    latest = {}
+    if mis_rows:
+        parsed = _parse_mis_row(mis_rows[0], info.get("industry",""), info.get("name",""))
+        if parsed:
+            latest = parsed
+
+    # 歷史資料：FinMind 單股（免費版可用）
+    today = tw_now()
+    start = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+    end   = today.strftime("%Y-%m-%d")
+
+    price_rows = finmind_get("TaiwanStockPrice", code, start, end)
+    inst_rows  = finmind_get("TaiwanStockInstitutionalInvestorsBuySell", code, start, end)
+
+    # 法人按日期整理
+    inst_map: dict = {}
+    for row in inst_rows:
+        d = row.get("date","")
+        inst_map.setdefault(d, {"foreign":0,"trust":0,"dealer":0})
+        n = row.get("name","")
+        b = max(int(row.get("buy",0)),0) // 1000
+        s = max(int(row.get("sell",0)),0) // 1000
+        if n == "Foreign_Investor":   inst_map[d]["foreign"] = b - s
+        elif n == "Investment_Trust": inst_map[d]["trust"]   = b - s
+        elif n == "Dealer_self":      inst_map[d]["dealer"]  = b - s
+
+    latest_inst = {"foreign": 0, "trust": 0, "dealer": 0}
+    if inst_map:
+        latest_inst = inst_map[sorted(inst_map.keys())[-1]]
+
+    latest.update({
+        "foreign_net": latest_inst.get("foreign", 0),
+        "trust_net":   latest_inst.get("trust", 0),
+        "dealer_net":  latest_inst.get("dealer", 0),
+        "inst_total": (
+            latest_inst.get("foreign", 0)
+            + latest_inst.get("trust", 0)
+            + latest_inst.get("dealer", 0)
+        ),
+    })
+
+    # 找所屬產業/主題
+    info = next((s for s in stock_list if s["code"] == code), {})
+    name     = latest.get("name") or info.get("name", code)
+    industry = info.get("industry","")
+    belongs_to = [{"name": industry, "type": "industry"}] if industry else []
+
+    # 時間軸（近20日，最新在前）
+    timeline = []
+    for row in reversed(price_rows[-20:]):
+        d       = row.get("date","")
+        price   = float(row.get("close",0) or 0)
+        change  = float(row.get("change",0) or 0)
+        prev_p  = price - change
+        chg_pct = round(change/prev_p*100, 2) if prev_p > 0 else 0.0
+        vol     = int(row.get("Trading_Volume",0) or 0)
+        money   = float(row.get("Trading_money",0) or 0)
+        amount  = round(money/1e8, 2) if money > 0 else round(vol*price*1000/1e8, 2)
+        inst    = inst_map.get(d, {})
+        fn = inst.get("foreign",0)
+        tn = inst.get("trust",0)
+        dn = inst.get("dealer",0)
+        timeline.append({
+            "date":        d,
+            "price":       price,
+            "change":      change,
+            "chg_pct":     chg_pct,
+            "amount":      amount,
+            "net_flow":    round(amount if chg_pct>=0 else -amount, 2),
+            "flow_dir":    "in" if chg_pct >= 0 else "out",
+            "foreign_net": fn,
+            "trust_net":   tn,
+            "dealer_net":  dn,
+            "inst_total":  fn + tn + dn,
+        })
+
+    return {
+        "code":       code,
+        "name":       name,
+        "industry":   industry,
+        "belongs_to": belongs_to,
+        "latest":     latest,
+        "timeline":   timeline,
+        "updated_at": tw_now().strftime("%H:%M"),
+    }
+
+
+# ══════════════════════════════════════════════════════════════
+#  Endpoint 3：產業詳細  GET /flow/industry/{name}
+# ══════════════════════════════════════════════════════════════
+@app.get("/flow/industry/{name}")
+async def flow_industry(name: str, x_token: str = Header(default=None)):
+    verify_token(x_token)
+    name = unquote(name)
+
+    # 從快取取最新資料
+    ck = _flow_cache_key()
+    cached = _flow_cache.get(ck) or _flow_cache.get(_prev_cache_key())
+
+    if cached and name in cached.get("industry", {}):
+        ind_data = cached["industry"][name]
+        # 從快取裡拿完整股票資料，避免只剩 summary 的前 5 檔縮略資料
+        stock_data = cached.get("_stock_data", {})
+        full_stocks = [
+            s for s in stock_data.values()
+            if s.get("industry") == name
+        ]
+        total_a = sum(s["amount"] for s in full_stocks) or 1
+        stocks_out = []
+        for s in sorted(full_stocks, key=lambda x: abs(x["net_flow"]), reverse=True):
+            pct = round(abs(s["net_flow"]) / total_a * 100)
+            stocks_out.append({**s, "pct": pct})
+        return {
+            "name":       name,
+            "net_amount": ind_data["net_amount"],
+            "in_amount":  ind_data["in_amount"],
+            "out_amount": ind_data["out_amount"],
+            "prev_change": ind_data.get("prev_change"),
+            "stocks":     stocks_out,
+            "updated_at": cached.get("updated_at",""),
+        }
+
+    # 快取沒有 → 即時抓這個產業的股票
+    stock_list = _get_stock_list()
+    stocks_in_industry = [s for s in stock_list if s["industry"] == name]
+    if not stocks_in_industry:
+        return {"error": f"找不到產業：{name}", "stocks": []}
+
+    codes_tw = [_mis_symbol(s["code"], s.get("market", "tse")) for s in stocks_in_industry]
+    rows = _fetch_mis_batch(codes_tw)
+
+    info_map = {s["code"]: s for s in stock_list}
+    stocks = []
+    for row in rows:
+        at   = str(row.get("@",""))
+        code = at.split(".")[0].replace("tse_","").replace("otc_","")
+        info = info_map.get(code, {})
+        p = _parse_mis_row(row, name, info.get("name",""))
+        if p:
+            stocks.append(p)
+
+    in_a  = sum(s["flow_in"]  for s in stocks)
+    out_a = sum(s["flow_out"] for s in stocks)
+    total_a = in_a + out_a or 1
+
+    stocks_sorted = sorted(stocks, key=lambda x: abs(x["net_flow"]), reverse=True)
+    stocks_out = [{**s, "pct": round(abs(s["net_flow"])/total_a*100)} for s in stocks_sorted]
+
+    return {
+        "name":       name,
+        "net_amount": round(in_a - out_a, 2),
+        "in_amount":  round(in_a, 2),
+        "out_amount": round(out_a, 2),
+        "prev_change": None,
+        "stocks":     stocks_out,
+        "updated_at": tw_now().strftime("%H:%M"),
+    }
+
+
+# ══════════════════════════════════════════════════════════════
+#  Endpoint 4：狀態確認  GET /flow/status
+# ══════════════════════════════════════════════════════════════
+@app.get("/flow/status")
+async def flow_status(x_token: str = Header(default=None)):
+    verify_token(x_token)
+    ck  = _flow_cache_key()
+    has = ck in _flow_cache
+    return {
+        "ok":          True,
+        "has_cache":   has,
+        "scanned":     _flow_cache[ck].get("scanned", 0) if has else 0,
+        "updated_at":  _flow_cache[ck].get("updated_at","") if has else "",
+        "elapsed_sec": _flow_cache[ck].get("elapsed_sec","") if has else "",
+        "cache_key":   ck,
+        "stock_list_count": len(_stock_list_cache),
+    }
+
+
+# ════════════════════════════════════════════════════════════════
+#  Discord 警示系統
+# ════════════════════════════════════════════════════════════════
+
+# 已推播記錄（避免同一個訊號重複推播）
+# key = "產業名稱_cache_key" or "股票代號_cache_key"
+_alerted: set = set()
+_monitor_discord_enabled = True
+
+def _fmt_yi(v: float) -> str:
+    """格式化億元"""
+    a = abs(v)
+    s = "+" if v >= 0 else "-"
+    if a >= 10000: return f"{s}{a/10000:.1f}兆"
+    if a >= 1:     return f"{s}{a:.2f}億"
+    return f"{s}{a*100:.0f}百萬"
+
+def send_discord(msg: str) -> bool:
+    """發送 Discord Webhook 訊息"""
+    if not DISCORD_WEBHOOK:
+        return False
+    try:
+        r = requests.post(
+            DISCORD_WEBHOOK,
+            json={"content": msg},
+            timeout=8
+        )
+        return r.status_code in (200, 204)
+    except Exception:
+        return False
+
+def _prune_alerted(current_ck: str):
+    """只保留目前與上一個 cache slot 的推播記錄，避免集合無限成長"""
+    prev_ck = _prev_cache_key()
+    keep = {
+        key for key in _alerted
+        if key.endswith(f"_{current_ck}") or key.endswith(f"_{prev_ck}")
+    }
+    _alerted.clear()
+    _alerted.update(keep)
+
+async def _check_and_alert(flow_result: dict, ind_thr: float, stock_thr: float):
+    """
+    掃描流向結果，超過門檻就推播 Discord
+    ind_thr   : 產業流入警示門檻（億元）
+    stock_thr : 個股流入警示門檻（億元）
+    """
+    ck = _flow_cache_key()
+    alert_jobs = []
+    push_time = tw_now()
+    push_time_str = push_time.strftime("%H:%M:%S")
+    data_time_str = flow_result.get("updated_at", "") or "—"
+
+    # ── 1. 產業警示 ─────────────────────────────────────────
+    for ind, g in flow_result.get("industry", {}).items():
+        net = g.get("net_amount", 0)
+        if net < ind_thr:
+            continue
+        alert_key = f"ind_{ind}_{ck}"
+        if alert_key in _alerted:
+            continue
+
+        # 前5大個股
+        top_stocks = g.get("stocks", [])[:5]
+        stock_lines = "\n".join([
+            f"  {i+1}. **{s['code']} {s.get('name','')}** "
+            f"{'+' if s['chg_pct']>=0 else ''}{s['chg_pct']:.2f}%  "
+            f"〔流入 {_fmt_yi(s['net_flow'])}〕"
+            for i, s in enumerate(top_stocks)
+        ])
+
+        conc = g.get("concentration", 0)
+        conc_str = "⚠️ 高度集中" if conc >= 70 else "中度集中" if conc >= 40 else "低度集中"
+
+        prev_change = g.get("prev_change")
+        prev_str = f"較上次 ↑{_fmt_yi(prev_change)}" if prev_change and prev_change > 0 else ""
+
+        msg = (
+            f"💰 **{ind}** 🔴資金流入\n"
+            f"資料時間：{data_time_str}\n"
+            f"推播時間：{push_time_str}\n\n"
+            f"淨額：**{_fmt_yi(net)}**　{prev_str}\n"
+            f"流入：{_fmt_yi(g.get('in_amount',0))} ｜ 流出：{_fmt_yi(g.get('out_amount',0))}\n"
+            f"資金集中度：{conc}%（{conc_str}）\n\n"
+            f"前 {len(top_stocks)} 大影響個股：\n{stock_lines}"
+        )
+        alert_jobs.append((alert_key, msg))
+
+    # ── 2. 個股警示（流入 TOP 榜）────────────────────────────
+    for s in flow_result.get("top_in", []):
+        if s.get("flow_in", 0) < stock_thr:
+            break  # 已排序，後面都不會超過
+        alert_key = f"stk_{s['code']}_{ck}"
+        if alert_key in _alerted:
+            continue
+
+        msg = (
+            f"🚨 **{s['code']} {s.get('name','')}**　資金大量流入\n"
+            f"資料時間：{data_time_str}\n"
+            f"推播時間：{push_time_str}\n\n"
+            f"現價：**{s['price']:.1f}**　"
+            f"漲跌：**{'+' if s['chg_pct']>=0 else ''}{s['chg_pct']:.2f}%**\n"
+            f"成交額：{s.get('amount',0):.2f}億　"
+            f"流入：**{_fmt_yi(s['flow_in'])}**\n"
+            f"產業：{s.get('industry','—')}"
+        )
+        alert_jobs.append((alert_key, msg))
+
+    # ── 3. 批次發送（每則間隔0.5秒避免被擋）────────────────
+    sent_count = 0
+    for alert_key, msg in alert_jobs[:5]:  # 每次最多推 5 則，避免洗版
+        ok = await asyncio.to_thread(send_discord, msg)
+        if ok:
+            _alerted.add(alert_key)
+            sent_count += 1
+        await asyncio.sleep(0.5)
+
+    _prune_alerted(ck)
+    return sent_count
+
+
+# ══════════════════════════════════════════════════════════════
+#  Endpoint 5：手動觸發監控掃描  POST /flow/monitor
+#  前端每5分鐘自動呼叫，或手動測試
+# ══════════════════════════════════════════════════════════════
+@app.post("/flow/monitor")
+async def flow_monitor(
+    x_token: str = Header(default=None),
+    ind_thr:   float = 20.0,   # 產業流入警示門檻（億），預設20億
+    stock_thr: float = 5.0,    # 個股流入警示門檻（億），預設5億
+):
+    """
+    掃描資金流向並推播 Discord 警示
+    - ind_thr:   產業流入門檻（億元），超過就推播
+    - stock_thr: 個股流入門檻（億元），超過就推播
+    使用方式：POST /flow/monitor?ind_thr=30&stock_thr=10
+    """
+    verify_token(x_token)
+
+    now = tw_now()
+
+    # 取最新快取（沒有就重新抓）
+    ck = _flow_cache_key()
+    if ck in _flow_cache:
+        flow_result = _flow_cache[ck]
+    else:
+        # 沒快取就重新抓全市場
+        t0 = _time.time()
+        stock_data = _fetch_all_market()
+        if not stock_data:
+            return {"ok": False, "error": "無法取得市場資料", "alerted": 0}
+        industry_flow = _build_industry_flow(stock_data)
+        prev_ck = _prev_cache_key()
+        prev_industry = _flow_cache.get(prev_ck, {}).get("industry", {})
+        for ind, g in industry_flow.items():
+            prev_net = prev_industry.get(ind, {}).get("net_amount", None)
+            g["prev_net"]    = prev_net
+            g["prev_change"] = round(g["net_amount"] - prev_net, 2) if prev_net is not None else None
+
+        all_s   = list(stock_data.values())
+        top_in  = sorted([s for s in all_s if s["chg_pct"] > 0],
+                         key=lambda x: x["flow_in"], reverse=True)[:20]
+        top_out = sorted([s for s in all_s if s["chg_pct"] < 0],
+                         key=lambda x: x["flow_out"], reverse=True)[:20]
+
+        elapsed = round(_time.time() - t0, 1)
+        flow_result = {
+            "industry":    industry_flow,
+            "top_in":      top_in,
+            "top_out":     top_out,
+            "_stock_data": stock_data,
+            "scanned":     len(stock_data),
+            "elapsed_sec": elapsed,
+            "updated_at":  tw_now().strftime("%H:%M"),
+            "data_date":   tw_now().strftime("%Y-%m-%d"),
+            "cached":      False,
+        }
+        _flow_cache[ck] = flow_result
+
+    if not _is_market_live(now):
+        return {
+            "ok":          True,
+            "alerted":     0,
+            "ind_thr":     ind_thr,
+            "stock_thr":   stock_thr,
+            "scanned":     flow_result.get("scanned", 0),
+            "updated_at":  flow_result.get("updated_at", ""),
+            "discord_set": bool(DISCORD_WEBHOOK),
+            "checked_at":  now.strftime("%H:%M:%S"),
+            "market_live": False,
+            "message":     "目前非盤中時段，已跳過 Discord 推播",
+        }
+
+    # 執行警示檢查
+    alerted_count = await _check_and_alert(flow_result, ind_thr, stock_thr)
+
+    return {
+        "ok":          True,
+        "alerted":     alerted_count,
+        "ind_thr":     ind_thr,
+        "stock_thr":   stock_thr,
+        "scanned":     flow_result.get("scanned", 0),
+        "updated_at":  flow_result.get("updated_at", ""),
+        "discord_set": bool(DISCORD_WEBHOOK),
+        "checked_at":  now.strftime("%H:%M:%S"),
+        "market_live": True,
+    }
+
+
+# ══════════════════════════════════════════════════════════════
+#  Endpoint 6：Discord 測試  POST /flow/test_discord
+# ══════════════════════════════════════════════════════════════
+@app.post("/flow/test_discord")
+async def test_discord(x_token: str = Header(default=None)):
+    """測試 Discord Webhook 是否正常"""
+    verify_token(x_token)
+    if not DISCORD_WEBHOOK:
+        return {"ok": False, "error": "DISCORD_WEBHOOK 環境變數未設定"}
+    now = tw_now()
+    ok = await asyncio.to_thread(send_discord,
+        f"✅ **股票雷達連線成功！**\n"
+        f"資料時間：測試訊息\n"
+        f"推播時間：{now.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"Railway 後端正常運作，Discord 警示已啟用 🎉\n"
+        f"產業流入門檻：20億　個股流入門檻：5億"
+    )
+    return {"ok": ok, "webhook_set": True}
+
+
+def _build_pullback_discord_msg(
+    code: str,
+    name: str,
+    price: float,
+    prev_low: float,
+    day_low: float,
+    break_level: float,
+    signal: str,
+    note: str,
+    now: datetime,
+    is_test: bool = False,
+) -> str:
+    icon = "⚡" if signal == "假跌破回站" else "🟢" if signal == "守住昨低" else "❌"
+    title_kind = "買點" if signal == "假跌破回站" else "觀察" if signal == "守住昨低" else "風控"
+    test_prefix = "【測試】" if is_test else ""
+
+    if signal == "假跌破回站":
+        action = "可行動：這是本策略最強買點，但不是無條件追價；需確認站回 VWAP / 5MA，或出現紅K承接後再試單"
+        stop = f"停損：再次跌破昨低 {prev_low:g}，或進場後跌破今低 {day_low:g}，立即出場"
+    elif signal == "守住昨低":
+        action = "可行動：先觀察，不急著追；需確認站穩 VWAP / 5MA，或出現紅K承接後再分批試單"
+        stop = f"停損：跌破昨低 {prev_low:g} 或跌破昨低 1%（{break_level:g}）立即出場"
+    elif signal == "跳空破低":
+        action = "可行動：不進場；若已持有，不等盤中確認，優先風控出場"
+        stop = "重新觀察條件：收盤重新站回昨低，且隔日不再破低"
+    else:
+        action = "可行動：不進場；若已持有，今日出局，停止監測此股"
+        stop = "重新觀察條件：收盤重新站回昨低，且隔日不再破低"
+
+    return (
+        f"{icon} **{test_prefix}隔日沖{title_kind}｜{signal}**\n"
+        f"{code} {name}\n"
+        f"現價：{price:g} ｜ 昨低：{prev_low:g} ｜ 今低：{day_low:g}\n"
+        f"判斷：{note}\n"
+        f"{action}\n"
+        f"{stop}\n"
+        f"交易限制：此訊號需能盤中停損；零股無法當沖，僅建議紙上交易測試\n"
+        f"資料時間：{now.strftime('%H:%M')}\n"
+        f"推播時間：{now.strftime('%H:%M:%S')}"
+    )
+
+
+@app.post("/pullback_monitor")
+async def pullback_monitor(body: dict, x_token: str = Header(default=None)):
+    """盤中監測隔日沖候選：守昨低、假跌破回站、確認破低。"""
+    verify_token(x_token)
+    candidates = body.get("candidates", []) or []
+    now = tw_now()
+    minutes = now.hour * 60 + now.minute
+    disposal_codes = _fetch_disposal_stocks()
+
+    clean = []
+    blocked_results = []
+    for c in candidates[:50]:
+        code = str(c.get("code", "")).strip()
+        if not code.isdigit() or len(code) != 4:
+            continue
+        try:
+            prev_low = float(c.get("prev_low", 0) or 0)
+        except Exception:
+            prev_low = 0
+        if prev_low <= 0:
+            continue
+        market = str(c.get("market", "tse")).lower()
+        if code in disposal_codes:
+            blocked_results.append({
+                "code": code,
+                "name": str(c.get("name", code)).strip() or code,
+                "price": 0,
+                "day_low": 0,
+                "prev_low": prev_low,
+                "break_level": round(prev_low * 0.99, 2),
+                "signal": "處置警示",
+                "signal_type": "red",
+                "note": "已列入處置/警示股，停止監測；此策略不適用",
+            })
+            continue
+        clean.append({
+            "code": code,
+            "name": str(c.get("name", code)).strip() or code,
+            "market": "otc" if market == "otc" else "tse",
+            "prev_low": prev_low,
+        })
+
+    if not clean:
+        return {
+            "results": blocked_results,
+            "market_live": _is_market_live(now),
+            "discord_enabled": _monitor_discord_enabled,
+            "pushed": [],
+            "updated_at": now.strftime("%H:%M:%S"),
+        }
+
+    symbols = [_mis_symbol(c["code"], c["market"]) for c in clean]
+    rows = _fetch_mis_batch(symbols)
+    row_map = {}
+    for row in rows:
+        code = str(row.get("c", row.get("@", "").split(".")[0].replace("tse_", "").replace("otc_", ""))).strip()
+        if code:
+            row_map[code] = row
+
+    results = blocked_results[:]
+    pushed = []
+    market_live = _is_market_live(now)
+
+    for c in clean:
+        row = row_map.get(c["code"], {})
+        try:
+            price = float(str(row.get("z", "0") or "0").replace(",", ""))
+        except Exception:
+            price = 0
+        try:
+            day_low = float(str(row.get("l", "0") or "0").replace(",", ""))
+        except Exception:
+            day_low = 0
+        if day_low <= 0:
+            day_low = price
+        if price <= 0:
+            results.append({
+                "code": c["code"],
+                "name": c["name"],
+                "price": 0,
+                "day_low": 0,
+                "prev_low": c["prev_low"],
+                "break_level": round(c["prev_low"] * 0.99, 2),
+                "signal": "資料等待",
+                "signal_type": "neutral",
+                "note": "MIS 暫無即時價，保留候選並於下一輪再監測",
+            })
+            continue
+
+        prev_low = c["prev_low"]
+        name = str(row.get("n", c["name"])).strip() or c["name"]
+        break_level = round(prev_low * 0.99, 2)
+
+        if not market_live:
+            signal = "非盤中"
+            signal_type = "neutral"
+            note = "非盤中時段，只顯示參考價；09:00-13:30 才判斷入場訊號"
+        elif minutes <= 545 and price < break_level:
+            signal = "跳空破低"
+            signal_type = "red"
+            note = "開盤跳空跌破昨低，直接風控出場"
+        elif price < break_level:
+            signal = "確認破低"
+            signal_type = "red"
+            note = "不進場；若已持有，今日出局"
+        elif day_low < prev_low and price >= prev_low:
+            signal = "假跌破回站"
+            signal_type = "yellow"
+            note = "最強買點，可考慮進場"
+        elif price >= prev_low and minutes >= 570:
+            signal = "守住昨低"
+            signal_type = "green"
+            note = "可觀察分批試單"
+        else:
+            signal = "盤中觀察"
+            signal_type = "neutral"
+            note = "等待 09:30 後確認"
+
+        result = {
+            "code": c["code"],
+            "name": name,
+            "price": price,
+            "day_low": day_low,
+            "prev_low": prev_low,
+            "break_level": break_level,
+            "signal": signal,
+            "signal_type": signal_type,
+            "note": note,
+        }
+        results.append(result)
+
+        if not market_live or signal_type == "neutral" or not _monitor_discord_enabled:
+            continue
+
+        slot = _flow_cache_key()
+        alert_key = f"pullback_{signal}_{c['code']}_{slot if signal == '守住昨低' else now.date()}"
+        if alert_key in _alerted:
+            continue
+
+        msg = _build_pullback_discord_msg(c["code"], name, price, prev_low, day_low, break_level, signal, note, now)
+        if send_discord(msg):
+            _alerted.add(alert_key)
+            pushed.append(c["code"])
+
+    return {
+        "results": results,
+        "market_live": market_live,
+        "discord_enabled": _monitor_discord_enabled,
+        "pushed": pushed,
+        "updated_at": now.strftime("%H:%M:%S"),
+    }
+
+
+@app.post("/pullback_monitor/discord_on")
+async def pullback_monitor_discord_on(x_token: str = Header(default=None)):
+    verify_token(x_token)
+    global _monitor_discord_enabled
+    _monitor_discord_enabled = True
+    return {"discord_enabled": True}
+
+
+@app.post("/pullback_monitor/discord_off")
+async def pullback_monitor_discord_off(x_token: str = Header(default=None)):
+    verify_token(x_token)
+    global _monitor_discord_enabled
+    _monitor_discord_enabled = False
+    return {"discord_enabled": False}
+
+
+@app.post("/pullback_monitor/test_discord")
+async def test_pullback_monitor_discord(body: dict = None, x_token: str = Header(default=None)):
+    """測試隔日沖盤中監測 Discord 文案，不受盤中時間限制。"""
+    verify_token(x_token)
+    if not DISCORD_WEBHOOK:
+        return {"ok": False, "error": "DISCORD_WEBHOOK 環境變數未設定"}
+
+    body = body or {}
+    requested = str(body.get("signal", "all")).strip()
+    samples = {
+        "假跌破回站": {
+            "code": "2495", "name": "普安", "price": 40.85,
+            "prev_low": 39.05, "day_low": 38.10, "note": "最強買點，可考慮進場",
+        },
+        "守住昨低": {
+            "code": "3714", "name": "富采", "price": 64.90,
+            "prev_low": 65.40, "day_low": 62.50, "note": "可觀察分批試單",
+        },
+        "確認破低": {
+            "code": "3450", "name": "聯鈞", "price": 301.50,
+            "prev_low": 309.65, "day_low": 300.10, "note": "不進場；若已持有，今日出局",
+        },
+        "跳空破低": {
+            "code": "1802", "name": "台玻", "price": 61.20,
+            "prev_low": 63.10, "day_low": 61.00, "note": "開盤跳空跌破昨低，直接風控出場",
+        },
+    }
+
+    selected = samples if requested == "all" else {requested: samples[requested]} if requested in samples else {}
+    if not selected:
+        return {"ok": False, "error": "signal 必須是 all、假跌破回站、守住昨低、確認破低、跳空破低"}
+
+    now = tw_now()
+    pushed = []
+    for signal, sample in selected.items():
+        prev_low = float(sample["prev_low"])
+        break_level = round(prev_low * 0.99, 2)
+        msg = _build_pullback_discord_msg(
+            sample["code"], sample["name"], float(sample["price"]), prev_low,
+            float(sample["day_low"]), break_level, signal, sample["note"], now, is_test=True
+        )
+        ok = await asyncio.to_thread(send_discord, msg)
+        if ok:
+            pushed.append(signal)
+        await asyncio.sleep(0.5)
+
+    return {"ok": len(pushed) == len(selected), "pushed": pushed, "webhook_set": True}

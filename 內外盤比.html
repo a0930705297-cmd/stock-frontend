@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>即時內外盤比</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, "Microsoft JhengHei", sans-serif;
+  background: #080a09;
+  color: #d8e1dc;
+}
+.page { min-height: 100vh; padding: 16px; }
+.topbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.title { font-size: 18px; font-weight: 700; color: #f0fff6; margin-right: auto; }
+.nav {
+  color: #8aa096; text-decoration: none; border: 1px solid #1d2b25;
+  padding: 7px 10px; border-radius: 6px; font-size: 12px; background: #0d1210;
+}
+.controls {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  padding: 12px; border: 1px solid #15251d; border-radius: 8px;
+  background: #0c100e; margin-bottom: 12px;
+}
+input {
+  width: 120px; padding: 8px 10px; border-radius: 6px;
+  border: 1px solid #24322b; background: #070908; color: #fff;
+  font-size: 14px; outline: none;
+}
+button {
+  padding: 8px 12px; border-radius: 6px; border: 1px solid #1f6f3d;
+  background: #10391f; color: #d8ffe5; cursor: pointer; font-size: 13px;
+}
+button:disabled { opacity: .55; cursor: wait; }
+.muted { color: #6f8178; font-size: 12px; }
+.summary {
+  border: 1px solid #154b2a; background: #07170d; color: #b8dbc4;
+  border-radius: 6px; padding: 14px 16px; margin-bottom: 12px;
+}
+.summary-title { color: #25d05a; font-weight: 700; margin-bottom: 8px; }
+.summary-line { color: #8aa096; font-size: 13px; line-height: 1.7; }
+.grid {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px; margin-bottom: 12px;
+}
+.metric {
+  border: 1px solid #1b211f; background: #101211; border-radius: 6px;
+  padding: 12px;
+}
+.metric-label { color: #6f8178; font-size: 11px; margin-bottom: 6px; }
+.metric-value { font-family: Consolas, monospace; font-size: 22px; color: #f3fff7; }
+.pos { color: #25d05a; }
+.neg { color: #ff5d6c; }
+.panel {
+  border: 1px solid #1b211f; background: #101211; border-radius: 6px;
+  overflow: hidden;
+}
+.panel-head {
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 12px 14px; border-bottom: 1px solid #1b211f;
+  color: #6f8178; font-size: 12px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+td {
+  padding: 7px 14px; border-bottom: 1px solid #171b19;
+  font-family: Consolas, monospace;
+}
+td:nth-child(2) { color: #f4fff8; font-weight: 700; }
+td:nth-child(3) { text-align: right; color: #82948b; }
+td:nth-child(4) { text-align: right; width: 70px; }
+.side {
+  display: inline-block; min-width: 46px; text-align: center;
+  border-radius: 4px; padding: 2px 8px; font-family: Arial, "Microsoft JhengHei", sans-serif;
+}
+.side.outer { background: #12391f; color: #27d963; }
+.side.inner { background: #3b1218; color: #ff6675; }
+.empty { padding: 30px; color: #6f8178; text-align: center; font-size: 13px; }
+@media (max-width: 760px) {
+  .page { padding: 10px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  td { padding: 7px 8px; }
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="topbar">
+    <div class="title">即時內外盤比</div>
+    <a class="nav" href="home.html">首頁</a>
+    <a class="nav" href="index.html">法人成本</a>
+  </div>
+
+  <div class="controls">
+    <input id="symbolInput" placeholder="股票代號" maxlength="6" />
+    <button id="loadBtn" onclick="loadTickRatio()">查詢</button>
+    <button id="autoBtn" onclick="toggleAuto()">自動更新關</button>
+    <span class="muted" id="statusText">近100筆 Tick Rule，約 15 秒更新一次</span>
+  </div>
+
+  <section class="summary" id="summaryBox">
+    <div class="summary-title">等待查詢</div>
+    <div class="summary-line">輸入股票代號後，系統會顯示全日內外盤與近100筆逐筆成交分析。</div>
+  </section>
+
+  <section class="grid" id="metricGrid"></section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <span>逐筆成交明細（最新100筆）</span>
+      <span id="tradeCount">共 0 筆</span>
+    </div>
+    <div id="tradeTable"><div class="empty">尚無資料</div></div>
+  </section>
+</main>
+
+<script>
+const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:8000'
+  : 'https://stock-backend-production-95d3.up.railway.app';
+
+let autoTimer = null;
+
+function getToken() {
+  return sessionStorage.getItem('appToken') || '';
+}
+
+function apiFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), 'X-Token': getToken() }
+  });
+}
+
+function fmt(v) {
+  const n = Number(v || 0);
+  return n.toLocaleString();
+}
+
+function renderMetrics(data) {
+  const grid = document.getElementById('metricGrid');
+  grid.innerHTML = [
+    ['全日外盤比', `${data.ratio}%`, data.ratio >= 50 ? 'pos' : 'neg'],
+    ['近100筆外盤比', `${data.r_ratio}%`, data.r_ratio >= 50 ? 'pos' : 'neg'],
+    ['全日外盤 / 內盤', `${fmt(data.outer)} / ${fmt(data.inner)}`, ''],
+    ['現價', data.latest_price ? `$${Number(data.latest_price).toFixed(2)}` : '-', '']
+  ].map(([label, value, cls]) => `
+    <div class="metric">
+      <div class="metric-label">${label}</div>
+      <div class="metric-value ${cls}">${value}</div>
+    </div>
+  `).join('');
+}
+
+function renderSummary(data) {
+  const box = document.getElementById('summaryBox');
+  const strong = data.r_ratio >= 70 ? '強力外盤主導'
+    : data.r_ratio >= 58 ? '外盤偏強'
+    : data.r_ratio <= 30 ? '強力內盤主導'
+    : data.r_ratio <= 42 ? '內盤偏強'
+    : '多空拉鋸';
+  const cls = data.r_ratio >= 50 ? 'pos' : 'neg';
+  box.innerHTML = `
+    <div class="summary-title ${cls}">${strong}</div>
+    <div class="summary-line">
+      近100筆外盤比達 ${data.r_ratio}%，全日外盤比 ${data.ratio}%。
+      ${data.r_ratio > data.ratio ? '短線買盤升溫。' : data.r_ratio < data.ratio ? '短線買盤降溫。' : '短線與全日力道接近。'}
+      更新時間：${data.updated_at || '-'}
+    </div>
+  `;
+}
+
+function renderTrades(data) {
+  const trades = data.trades || [];
+  document.getElementById('tradeCount').textContent = `共 ${data.trade_count || trades.length} 筆`;
+  const box = document.getElementById('tradeTable');
+  if (!trades.length) {
+    box.innerHTML = '<div class="empty">尚無逐筆資料</div>';
+    return;
+  }
+  box.innerHTML = `
+    <table>
+      <tbody>
+        ${trades.slice().reverse().map(t => `
+          <tr>
+            <td>${t.time || '-'}</td>
+            <td>$${Number(t.price || 0).toFixed(2)}</td>
+            <td>${fmt(t.size)}</td>
+            <td><span class="side ${t.side}">${t.side === 'outer' ? '外盤' : '內盤'}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function loadTickRatio() {
+  const symbol = document.getElementById('symbolInput').value.trim();
+  const btn = document.getElementById('loadBtn');
+  const status = document.getElementById('statusText');
+  if (!symbol) return;
+  btn.disabled = true;
+  status.textContent = '讀取中...';
+  try {
+    const res = await apiFetch(`${SERVER}/tick_ratio/${symbol}`);
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || '讀取失敗');
+    renderSummary(data);
+    renderMetrics(data);
+    renderTrades(data);
+    status.textContent = `近100筆 Tick Rule，最後更新 ${data.updated_at || '-'}`;
+  } catch (e) {
+    status.textContent = `失敗：${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function toggleAuto() {
+  const btn = document.getElementById('autoBtn');
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    btn.textContent = '自動更新關';
+    return;
+  }
+  loadTickRatio();
+  autoTimer = setInterval(loadTickRatio, 15000);
+  btn.textContent = '自動更新開';
+}
+
+document.getElementById('symbolInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadTickRatio();
+});
+</script>
+</body>
+</html>
