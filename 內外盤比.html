@@ -176,7 +176,11 @@ function renderSummary(data) {
 
 function renderTrades(data) {
   const trades = data.trades || [];
-  document.getElementById('tradeCount').textContent = `共 ${data.trade_count || trades.length} 筆`;
+  const recentCount = Number(data.recent_trade_count || data.trade_count || trades.length || 0);
+  const sampledCount = Number(data.sampled_trade_count || recentCount || 0);
+  document.getElementById('tradeCount').textContent = sampledCount > recentCount
+    ? `顯示 ${recentCount} 筆 / 已抓 ${sampledCount} 筆`
+    : `共 ${recentCount} 筆`;
   const box = document.getElementById('tradeTable');
   if (!trades.length) {
     box.innerHTML = '<div class="empty">尚無逐筆資料</div>';
