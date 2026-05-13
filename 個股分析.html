@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>個股深度分析</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  background: #f8f8f6;
+  color: #1a1a1a;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── 登入 ── */
+#loginPage {
+  display: flex; align-items: center; justify-content: center;
+  height: 100vh; background: #f8f8f6;
+}
+.login-box { width: 280px; text-align: center; }
+.login-box h1 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.login-box p  { font-size: 11px; color: #999; margin-bottom: 20px; }
+.login-box input {
+  width: 100%; padding: 8px 12px; font-size: 12px;
+  border: 1px solid #ddd; border-radius: 4px;
+  margin-bottom: 8px; background: #fff;
+}
+.login-box button {
+  width: 100%; padding: 8px; font-size: 12px;
+  border: 1px solid #1a1a1a; border-radius: 4px;
+  background: #1a1a1a; color: #fff; cursor: pointer;
+}
+.login-box button:hover { background: #333; }
+#loginError { font-size: 11px; color: #E24B4A; margin-top: 6px; }
+
+/* ── 主版面 ── */
+#mainPage { display: none; height: 100vh; overflow: hidden; flex-direction: column; }
+
+/* 頂部 header */
+#topBar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+}
+#topBar .back-link {
+  font-size: 11px; color: #999; text-decoration: none;
+  border: 1px solid #e8e8e8; border-radius: 3px;
+  padding: 3px 8px; white-space: nowrap;
+}
+#topBar .back-link:hover { background: #f5f5f5; color: #1a1a1a; }
+#topBar .title { font-size: 13px; font-weight: 600; margin-right: 6px; white-space: nowrap; }
+#stockTitle { font-size: 12px; color: #666; min-width: 100px; }
+.search-row { display: flex; gap: 5px; margin-left: auto; }
+.search-row input {
+  width: 120px; padding: 5px 8px; font-size: 12px;
+  border: 1px solid #e0e0e0; border-radius: 3px; background: #fafafa;
+}
+.search-row input:focus { outline: none; border-color: #999; background: #fff; }
+.search-row button {
+  padding: 5px 12px; font-size: 12px;
+  background: #1a1a1a; color: #fff;
+  border: none; border-radius: 3px; cursor: pointer;
+}
+.search-row button:hover { background: #333; }
+#statusMsg { font-size: 11px; color: #999; margin-left: 8px; }
+
+/* ── 內容區 ── */
+#content {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  height: calc(100vh - 44px);
+  overflow: hidden;
+}
+
+/* 圖表區 */
+#chartArea {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid #eee;
+  background: #fff;
+}
+
+/* 指標切換列 */
+#toggleBar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.toggle-btn {
+  padding: 2px 8px; font-size: 10px;
+  border: 1px solid #e0e0e0; border-radius: 2px;
+  background: #fff; color: #aaa; cursor: pointer;
+}
+.toggle-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.toggle-btn:hover:not(.active) { background: #f5f5f5; color: #666; }
+.bar-sep { width: 1px; height: 14px; background: #e8e8e8; margin: 0 2px; flex-shrink: 0; }
+.ind-label { font-size: 10px; color: #bbb; margin: 0 2px; }
+
+/* 圖表容器 */
+#mainChartWrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+#mainChart { width: 100%; height: 100%; }
+
+#subChartWrap {
+  height: 120px;
+  flex-shrink: 0;
+  border-top: 1px solid #f0f0f0;
+  position: relative;
+}
+#subChart { width: 100%; height: 100%; }
+.sub-label {
+  position: absolute; top: 4px; left: 8px;
+  font-size: 10px; color: #bbb; z-index: 10; pointer-events: none;
+}
+
+/* ── 報告面板 ── */
+#reportPanel {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 14px 14px 20px;
+  background: #fff;
+}
+#reportPanel::-webkit-scrollbar { width: 3px; }
+#reportPanel::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+#reportLoading {
+  font-size: 12px; color: #bbb;
+  text-align: center; margin-top: 60px;
+  line-height: 2;
+}
+
+/* 報告標題 */
+.rpt-symbol { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+.rpt-price  { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+
+/* 型態 badge */
+.badge {
+  display: inline-block;
+  padding: 2px 8px; font-size: 10px; border-radius: 2px;
+  font-weight: 500; margin-bottom: 8px;
+}
+.badge-red    { background: #fef0f0; color: #c0392b; border: 1px solid #fcc; }
+.badge-green  { background: #f0faf0; color: #27ae60; border: 1px solid #bde5bd; }
+.badge-orange { background: #fef8f0; color: #d35400; border: 1px solid #fdd; }
+.badge-gray   { background: #f5f5f5; color: #888; border: 1px solid #e8e8e8; }
+
+/* 操作建議 */
+.ops-main {
+  font-size: 11px; line-height: 1.7; color: #333;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  background: #f9f9f7;
+  border-left: 3px solid #1a1a1a;
+  border-radius: 0 3px 3px 0;
+}
+.ops-list {
+  list-style: none; margin-bottom: 12px;
+}
+.ops-list li {
+  font-size: 10px; color: #555; line-height: 1.9;
+  padding-left: 12px; position: relative;
+}
+.ops-list li::before {
+  content: '•'; position: absolute; left: 2px; color: #ccc;
+}
+
+/* 分隔線 */
+.divider { height: 1px; background: #f0f0f0; margin: 10px 0; }
+
+/* 關鍵數值 */
+.stat-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px; margin-bottom: 10px;
+}
+.stat-box {
+  background: #f9f9f7;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.stat-label { font-size: 9px; color: #bbb; margin-bottom: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
+.stat-val   { font-size: 13px; font-weight: 600; }
+.stat-val.red    { color: #E24B4A; }
+.stat-val.green  { color: #27ae60; }
+.stat-val.orange { color: #d35400; }
+.stat-val.blue   { color: #2980b9; }
+
+/* 價位列 */
+.level-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0; border-bottom: 1px solid #f5f5f5;
+}
+.level-row:last-child { border-bottom: none; }
+.level-name  { font-size: 10px; color: #888; }
+.level-value { font-size: 12px; font-weight: 600; }
+.level-value.red    { color: #E24B4A; }
+.level-value.blue   { color: #2980b9; }
+.level-value.orange { color: #e67e22; }
+.level-tag {
+  font-size: 9px; padding: 1px 5px; border-radius: 2px;
+  background: #f5f5f5; color: #888;
+}
+
+/* 風險報酬 */
+.rr-box {
+  background: #f9f9f7;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 10px;
+  margin: 10px 0;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.rr-num { font-size: 26px; font-weight: 700; color: #1a1a1a; }
+.rr-label { font-size: 10px; color: #bbb; }
+.safe-tag {
+  font-size: 10px; padding: 3px 8px; border-radius: 3px;
+  font-weight: 500;
+}
+.safe-ok   { background: #f0faf0; color: #27ae60; border: 1px solid #bde5bd; }
+.safe-warn { background: #fef0f0; color: #c0392b; border: 1px solid #fcc; }
+
+/* 指標狀態 */
+.ind-status-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 5px; margin-top: 6px;
+}
+.ind-status-box {
+  background: #f9f9f7; border: 1px solid #f0f0f0;
+  border-radius: 3px; padding: 5px 8px;
+}
+.ind-status-name  { font-size: 9px; color: #bbb; margin-bottom: 1px; }
+.ind-status-value { font-size: 10px; font-weight: 500; color: #444; }
+
+/* section 標題 */
+.section-title {
+  font-size: 9px; font-weight: 600; color: #bbb;
+  letter-spacing: 1px; text-transform: uppercase;
+  margin-bottom: 6px; margin-top: 10px;
+}
+
+/* 免責 */
+.disclaimer {
+  font-size: 9px; color: #ccc; line-height: 1.6; margin-top: 16px;
+}
+</style>
+</head>
+<body>
+
+<!-- ── 登入 ── -->
+<div id="loginPage">
+  <div class="login-box">
+    <h1>個股深度分析</h1>
+    <p>請輸入密碼以繼續</p>
+    <input type="password" id="loginInput" placeholder="密碼" autocomplete="off" />
+    <button onclick="doLogin()">登入</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- ── 主版面 ── -->
+<div id="mainPage">
+
+  <!-- 頂部搜尋 -->
+  <div id="topBar">
+    <a class="back-link" href="home.html">← 首頁</a>
+    <span class="title">個股深度分析</span>
+    <span id="stockTitle">—</span>
+    <div class="search-row">
+      <input type="text" id="stockInput" placeholder="代號 (如 2330)" maxlength="6"
+             onkeydown="if(event.key==='Enter') loadStock()" />
+      <button onclick="loadStock()">分析</button>
+    </div>
+    <span id="statusMsg"></span>
+  </div>
+
+  <!-- 主內容 -->
+  <div id="content">
+
+    <!-- 圖表區 -->
+    <div id="chartArea">
+
+      <!-- 切換列 -->
+      <div id="toggleBar">
+        <button class="toggle-btn active" id="btnMA5"  onclick="toggleLine('ma5',  this)">MA5</button>
+        <button class="toggle-btn active" id="btnMA10" onclick="toggleLine('ma10', this)">MA10</button>
+        <button class="toggle-btn active" id="btnMA20" onclick="toggleLine('ma20', this)">MA20</button>
+        <button class="toggle-btn active" id="btnMA60" onclick="toggleLine('ma60', this)">MA60</button>
+        <div class="bar-sep"></div>
+        <button class="toggle-btn" id="btnBB" onclick="toggleLine('bb', this)">布林</button>
+        <div class="bar-sep"></div>
+        <span class="ind-label">指標</span>
+        <button class="toggle-btn active" id="indRSI"  onclick="setIndicator('rsi',  this)">RSI</button>
+        <button class="toggle-btn"        id="indMACD" onclick="setIndicator('macd', this)">MACD</button>
+        <button class="toggle-btn"        id="indKD"   onclick="setIndicator('kd',   this)">KD</button>
+        <button class="toggle-btn"        id="indOBV"  onclick="setIndicator('obv',  this)">OBV</button>
+        <div class="bar-sep"></div>
+        <button class="toggle-btn" id="btnDays60"  onclick="setDays(60,  this)">60日</button>
+        <button class="toggle-btn active" id="btnDays120" onclick="setDays(120, this)">120日</button>
+        <button class="toggle-btn" id="btnDays240" onclick="setDays(240, this)">240日</button>
+      </div>
+
+      <!-- 主圖 -->
+      <div id="mainChartWrap">
+        <div id="mainChart"></div>
+      </div>
+
+      <!-- 副圖 -->
+      <div id="subChartWrap">
+        <span class="sub-label" id="subLabel">RSI(14)</span>
+        <div id="subChart"></div>
+      </div>
+
+    </div><!-- /chartArea -->
+
+    <!-- 報告面板 -->
+    <div id="reportPanel">
+      <div id="reportLoading">輸入股票代號<br>點擊分析查看 AI 報告</div>
+      <div id="reportContent" style="display:none">
+
+        <div class="rpt-symbol" id="rptSymbol">—</div>
+        <div class="rpt-price" id="rptPrice">—</div>
+
+        <div id="patternBadge" class="badge badge-gray">—</div>
+
+        <div class="ops-main" id="opsMain">—</div>
+        <ul class="ops-list" id="opsDetail"></ul>
+
+        <div class="divider"></div>
+
+        <div class="section-title">關鍵價位</div>
+        <div id="levelRows">
+          <div class="level-row">
+            <span class="level-name">壓力區</span>
+            <span class="level-value red" id="lvRes">—</span>
+            <span class="level-tag" id="lvResTag">—</span>
+          </div>
+          <div class="level-row">
+            <span class="level-name">現價</span>
+            <span class="level-value" id="lvPrice">—</span>
+            <span class="level-tag" id="lvTrend">—</span>
+          </div>
+          <div class="level-row">
+            <span class="level-name">支撐區</span>
+            <span class="level-value blue" id="lvSup">—</span>
+            <span class="level-tag">近期低點</span>
+          </div>
+          <div class="level-row">
+            <span class="level-name">防守位</span>
+            <span class="level-value orange" id="lvDef">—</span>
+            <span class="level-tag">跌破出場</span>
+          </div>
+        </div>
+
+        <div class="rr-box">
+          <div>
+            <div class="rr-label">風險報酬比</div>
+            <div class="rr-num" id="rrNum">—</div>
+          </div>
+          <span class="safe-tag" id="safeTag">—</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-title">技術指標</div>
+        <div class="ind-status-grid">
+          <div class="ind-status-box">
+            <div class="ind-status-name">RSI(14)</div>
+            <div class="ind-status-value" id="indRsiVal">—</div>
+          </div>
+          <div class="ind-status-box">
+            <div class="ind-status-name">KD(9,3,3)</div>
+            <div class="ind-status-value" id="indKdVal">—</div>
+          </div>
+          <div class="ind-status-box">
+            <div class="ind-status-name">MACD</div>
+            <div class="ind-status-value" id="indMacdVal">—</div>
+          </div>
+          <div class="ind-status-box">
+            <div class="ind-status-name">OBV</div>
+            <div class="ind-status-value" id="indObvVal">—</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-title">均線</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-label">MA5</div>
+            <div class="stat-val" id="maVal5">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">MA10</div>
+            <div class="stat-val" id="maVal10">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">MA20</div>
+            <div class="stat-val" id="maVal20">—</div>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-label">MA60</div>
+            <div class="stat-val" id="maVal60">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">距20MA</div>
+            <div class="stat-val" id="gap20Val">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">趨勢</div>
+            <div class="stat-val" id="trendVal" style="font-size:10px">—</div>
+          </div>
+        </div>
+
+        <div class="disclaimer">
+          本頁面僅供學習與研究，不構成投資建議。技術分析無法保證未來走勢，操作前請自行評估風險。
+        </div>
+
+      </div><!-- /reportContent -->
+    </div><!-- /reportPanel -->
+
+  </div><!-- /content -->
+</div><!-- /mainPage -->
+
+<script>
+const SERVER = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:8000'
+  : 'https://stock-backend-production-95d3.up.railway.app';
+
+function getToken() { return sessionStorage.getItem('appToken') || ''; }
+
+function apiFetch(url, opts = {}) {
+  return fetch(url, {
+    ...opts,
+    headers: { 'ngrok-skip-browser-warning': '1', 'x-token': getToken(), ...(opts.headers || {}) }
+  });
+}
+
+// ── 登入 ──
+async function doLogin() {
+  const pwd = document.getElementById('loginInput').value.trim();
+  if (!pwd) return;
+  try {
+    const res = await fetch(`${SERVER}/history/2330`, {
+      headers: { 'ngrok-skip-browser-warning': '1', 'x-token': pwd }
+    });
+    if (res.ok) {
+      sessionStorage.setItem('appToken', pwd);
+      showMain();
+    } else {
+      document.getElementById('loginError').textContent = '密碼錯誤';
+    }
+  } catch(e) {
+    document.getElementById('loginError').textContent = '無法連線：' + e.message;
+  }
+}
+document.getElementById('loginInput').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+function showMain() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainPage').style.display  = 'flex';
+  document.getElementById('loginError').textContent = '';
+  if (!mainChart || !subChartObj) initCharts();
+}
+
+function showLoginExpired(message = '登入已失效，請重新輸入密碼') {
+  sessionStorage.removeItem('appToken');
+  document.getElementById('mainPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('loginError').textContent = message;
+}
+
+if (sessionStorage.getItem('appToken')) showMain();
+
+// ── 圖表初始化 ──
+let mainChart = null, subChartObj = null;
+let candleSeries, volSeries, maSeries = {}, bbSeries = {};
+let subLine1, subLine2, subHist;
+let priceLinesRef = [];
+let currentCandles = null;
+let showState = { ma5: true, ma10: true, ma20: true, ma60: true, bb: false };
+let activeIndicator = 'rsi';
+let currentDays = 120;
+
+function initCharts() {
+  const mainWrap = document.getElementById('mainChartWrap');
+  const subWrap  = document.getElementById('subChartWrap');
+
+  mainChart = LightweightCharts.createChart(document.getElementById('mainChart'), {
+    width:  mainWrap.offsetWidth,
+    height: mainWrap.offsetHeight || 400,
+    layout:     { background: { color: '#ffffff' }, textColor: '#555' },
+    grid:        { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
+    crosshair:   { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: '#e8e8e8' },
+    timeScale:   { borderColor: '#e8e8e8', timeVisible: false, rightOffset: 5 },
+  });
+
+  // Volume overlay (bottom 15%)
+  volSeries = mainChart.addHistogramSeries({
+    priceFormat: { type: 'volume' },
+    priceScaleId: 'vol',
+  });
+  mainChart.priceScale('vol').applyOptions({
+    scaleMargins: { top: 0.85, bottom: 0 },
+    drawTicks: false,
+    borderVisible: false,
+  });
+
+  // Candlestick
+  candleSeries = mainChart.addCandlestickSeries({
+    upColor:          '#E24B4A',
+    downColor:        '#26a69a',
+    borderUpColor:    '#E24B4A',
+    borderDownColor:  '#26a69a',
+    wickUpColor:      '#E24B4A',
+    wickDownColor:    '#26a69a',
+    priceScaleId: 'right',
+  });
+
+  // MA lines
+  const maColors = { ma5: '#e74c3c', ma10: '#3498db', ma20: '#9b59b6', ma60: '#f39c12' };
+  for (const [key, color] of Object.entries(maColors)) {
+    maSeries[key] = mainChart.addLineSeries({
+      color, lineWidth: 1,
+      priceLineVisible: false, lastValueVisible: true,
+      crosshairMarkerVisible: false,
+    });
+  }
+
+  // BB
+  const bbOpts = { lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
+                   priceLineVisible: false, lastValueVisible: false,
+                   crosshairMarkerVisible: false };
+  bbSeries.upper  = mainChart.addLineSeries({ ...bbOpts, color: '#aaa' });
+  bbSeries.middle = mainChart.addLineSeries({ ...bbOpts, color: '#bbb', lineStyle: LightweightCharts.LineStyle.Dotted });
+  bbSeries.lower  = mainChart.addLineSeries({ ...bbOpts, color: '#aaa' });
+  for (const s of Object.values(bbSeries)) s.applyOptions({ visible: false });
+
+  // Sub chart
+  subChartObj = LightweightCharts.createChart(document.getElementById('subChart'), {
+    width:  subWrap.offsetWidth,
+    height: subWrap.offsetHeight || 120,
+    layout:     { background: { color: '#ffffff' }, textColor: '#888', fontSize: 10 },
+    grid:        { vertLines: { color: '#f9f9f9' }, horzLines: { color: '#f5f5f5' } },
+    crosshair:   { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: '#e8e8e8', scaleMargins: { top: 0.1, bottom: 0.1 } },
+    timeScale:   { borderColor: '#e8e8e8', timeVisible: false, rightOffset: 5 },
+  });
+
+  // Sync time scale
+  let syncingMain = false, syncingSub = false;
+  mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (!syncingMain && range) {
+      syncingMain = true;
+      subChartObj.timeScale().setVisibleLogicalRange(range);
+      syncingMain = false;
+    }
+  });
+  subChartObj.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (!syncingSub && range) {
+      syncingSub = true;
+      mainChart.timeScale().setVisibleLogicalRange(range);
+      syncingSub = false;
+    }
+  });
+
+  // Resize
+  window.addEventListener('resize', () => {
+    mainChart.resize(mainWrap.offsetWidth, mainWrap.offsetHeight);
+    subChartObj.resize(subWrap.offsetWidth, subWrap.offsetHeight);
+  });
+}
+
+// ── 設定圖表資料 ──
+function setChartData(candles) {
+  currentCandles = candles;
+
+  candleSeries.setData(candles.map(c => ({
+    time: c.time, open: c.open, high: c.high, low: c.low, close: c.close
+  })));
+
+  volSeries.setData(candles.map(c => ({
+    time: c.time, value: c.volume,
+    color: c.close >= c.open ? 'rgba(226,75,74,0.35)' : 'rgba(38,166,154,0.35)',
+  })));
+
+  for (const key of ['ma5', 'ma10', 'ma20', 'ma60']) {
+    maSeries[key].setData(candles.filter(c => c[key] != null).map(c => ({ time: c.time, value: c[key] })));
+    maSeries[key].applyOptions({ visible: showState[key] });
+  }
+
+  const bbU = candles.filter(c => c.bb_upper  != null).map(c => ({ time: c.time, value: c.bb_upper  }));
+  const bbM = candles.filter(c => c.bb_middle != null).map(c => ({ time: c.time, value: c.bb_middle }));
+  const bbL = candles.filter(c => c.bb_lower  != null).map(c => ({ time: c.time, value: c.bb_lower  }));
+  bbSeries.upper.setData(bbU);
+  bbSeries.middle.setData(bbM);
+  bbSeries.lower.setData(bbL);
+  for (const s of Object.values(bbSeries)) s.applyOptions({ visible: showState.bb });
+
+  updateSubChart(candles);
+  mainChart.timeScale().fitContent();
+  subChartObj.timeScale().fitContent();
+}
+
+// ── 副圖更新 ──
+function clearSubChart() {
+  try { if (subLine1) subChartObj.removeSeries(subLine1); } catch(e) {}
+  try { if (subLine2) subChartObj.removeSeries(subLine2); } catch(e) {}
+  try { if (subHist)  subChartObj.removeSeries(subHist);  } catch(e) {}
+  subLine1 = subLine2 = subHist = null;
+}
+
+function updateSubChart(candles) {
+  clearSubChart();
+  const labels = { rsi: 'RSI(14)', macd: 'MACD(12,26,9)', kd: 'KD(9,3,3)', obv: 'OBV' };
+  document.getElementById('subLabel').textContent = labels[activeIndicator] || '';
+
+  switch (activeIndicator) {
+    case 'rsi': {
+      subLine1 = subChartObj.addLineSeries({ color: '#9b59b6', lineWidth: 1.5,
+                                             priceLineVisible: false, lastValueVisible: true });
+      subLine1.setData(candles.filter(c => c.rsi != null).map(c => ({ time: c.time, value: c.rsi })));
+      subLine1.createPriceLine({ price: 70, color: '#E24B4A66', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,  axisLabelVisible: false });
+      subLine1.createPriceLine({ price: 50, color: '#cccccc',   lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted,  axisLabelVisible: false });
+      subLine1.createPriceLine({ price: 30, color: '#26a69a66', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,  axisLabelVisible: false });
+      break;
+    }
+    case 'macd': {
+      subHist  = subChartObj.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
+      subLine1 = subChartObj.addLineSeries({ color: '#3498db', lineWidth: 1.5,
+                                             priceLineVisible: false, lastValueVisible: true });
+      subLine2 = subChartObj.addLineSeries({ color: '#e67e22', lineWidth: 1.5,
+                                             priceLineVisible: false, lastValueVisible: true });
+      subHist.setData(candles.filter(c => c.hist != null).map(c => ({
+        time: c.time, value: c.hist,
+        color: c.hist >= 0 ? 'rgba(226,75,74,0.6)' : 'rgba(38,166,154,0.6)',
+      })));
+      subLine1.setData(candles.filter(c => c.macd   != null).map(c => ({ time: c.time, value: c.macd   })));
+      subLine2.setData(candles.filter(c => c.signal != null).map(c => ({ time: c.time, value: c.signal })));
+      break;
+    }
+    case 'kd': {
+      subLine1 = subChartObj.addLineSeries({ color: '#3498db', lineWidth: 1.5,
+                                             priceLineVisible: false, lastValueVisible: true });
+      subLine2 = subChartObj.addLineSeries({ color: '#e67e22', lineWidth: 1.5,
+                                             priceLineVisible: false, lastValueVisible: true });
+      subLine1.setData(candles.map(c => ({ time: c.time, value: c.k })));
+      subLine2.setData(candles.map(c => ({ time: c.time, value: c.d })));
+      subLine1.createPriceLine({ price: 80, color: '#E24B4A66', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false });
+      subLine1.createPriceLine({ price: 20, color: '#26a69a66', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false });
+      break;
+    }
+    case 'obv': {
+      subLine1 = subChartObj.addLineSeries({ color: '#1abc9c', lineWidth: 1.5,
+                                             priceLineVisible: false, lastValueVisible: true });
+      subLine1.setData(candles.map(c => ({ time: c.time, value: c.obv })));
+      break;
+    }
+  }
+  subChartObj.timeScale().fitContent();
+}
+
+// ── 報告面板更新 ──
+function updateReport(a, symbol, name) {
+  document.getElementById('reportLoading').style.display = 'none';
+  document.getElementById('reportContent').style.display = '';
+
+  document.getElementById('rptSymbol').textContent = `${symbol}　${name}`;
+  document.getElementById('rptPrice').textContent  = a.price?.toLocaleString() ?? '—';
+
+  const badge = document.getElementById('patternBadge');
+  badge.textContent = a.pattern || '—';
+  badge.className   = 'badge ' + (
+    /(射擊之星|空頭吞噬|長黑K)/.test(a.pattern) ? 'badge-red'   :
+    /(鎚子線|多頭吞噬|長紅K)/.test(a.pattern)   ? 'badge-green' :
+    /(十字星|孕線|觀望)/.test(a.pattern)          ? 'badge-orange' : 'badge-gray'
+  );
+
+  document.getElementById('opsMain').textContent = '→ ' + (a.ops_main || '—');
+
+  const ul = document.getElementById('opsDetail');
+  ul.innerHTML = '';
+  for (const d of (a.ops_detail || [])) {
+    const li = document.createElement('li');
+    li.textContent = d;
+    ul.appendChild(li);
+  }
+
+  // 關鍵價位
+  document.getElementById('lvRes').textContent   = a.resistance ?? '—';
+  document.getElementById('lvResTag').textContent = '近期高點';
+  document.getElementById('lvPrice').textContent  = a.price?.toLocaleString() ?? '—';
+  document.getElementById('lvTrend').textContent  = a.trend || '—';
+  document.getElementById('lvSup').textContent    = a.support ?? '—';
+  document.getElementById('lvDef').textContent    = a.defense ?? '—';
+
+  // 風險報酬
+  document.getElementById('rrNum').textContent = (a.rr_ratio ?? 0).toFixed(2);
+  const safeTag = document.getElementById('safeTag');
+  safeTag.textContent = a.safe_label || '—';
+  safeTag.className   = 'safe-tag ' + (a.is_safe ? 'safe-ok' : 'safe-warn');
+
+  // 技術指標
+  document.getElementById('indRsiVal').textContent  = a.rsi_status  || '—';
+  document.getElementById('indKdVal').textContent   = a.kd_status   || '—';
+  document.getElementById('indMacdVal').textContent = a.macd_status || '—';
+  document.getElementById('indObvVal').textContent  = 'OBV ' + (a.obv_trend || '—');
+
+  // 均線
+  document.getElementById('maVal5').textContent  = a.ma5  ?? '—';
+  document.getElementById('maVal10').textContent = a.ma10 ?? '—';
+  document.getElementById('maVal20').textContent = a.ma20 ?? '—';
+  document.getElementById('maVal60').textContent = a.ma60 ?? '—';
+  const gap = a.ma_gap_20;
+  const gapEl = document.getElementById('gap20Val');
+  gapEl.textContent = gap != null ? (gap >= 0 ? '+' : '') + gap + '%' : '—';
+  gapEl.className   = 'stat-val ' + (gap > 0 ? 'red' : gap < 0 ? 'green' : '');
+  const trendEl = document.getElementById('trendVal');
+  trendEl.textContent = a.trend || '—';
+  trendEl.className = 'stat-val ' + (
+    a.trend === '上升趨勢' ? 'red' : a.trend === '下降趨勢' ? 'green' : 'orange'
+  );
+
+  // 支撐/壓力 水平線
+  for (const pl of priceLinesRef) { try { candleSeries.removePriceLine(pl); } catch(e) {} }
+  priceLinesRef = [];
+  if (a.resistance) priceLinesRef.push(candleSeries.createPriceLine({
+    price: a.resistance, color: '#E24B4A', lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '壓力',
+  }));
+  if (a.support) priceLinesRef.push(candleSeries.createPriceLine({
+    price: a.support, color: '#2980b9', lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: '支撐',
+  }));
+  if (a.defense) priceLinesRef.push(candleSeries.createPriceLine({
+    price: a.defense, color: '#e67e22', lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true, title: '防守',
+  }));
+}
+
+// ── 載入股票 ──
+let isLoading = false;
+async function loadStock() {
+  if (isLoading) return;
+  const sym = document.getElementById('stockInput').value.trim();
+  if (!sym) return;
+  isLoading = true;
+
+  const msg = document.getElementById('statusMsg');
+  msg.textContent = '載入中…';
+  document.getElementById('reportLoading').textContent = '載入中…';
+  document.getElementById('reportLoading').style.display = '';
+  document.getElementById('reportContent').style.display = 'none';
+
+  try {
+    const res  = await apiFetch(`${SERVER}/stock_deep/${sym}?days=${currentDays}`);
+    const raw  = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      data = {};
+    }
+    if (!res.ok || data.error || data.detail) {
+      const errMsg =
+        data.error ||
+        (res.status === 401 ? '登入已失效，請重新登入' : '') ||
+        data.detail ||
+        `HTTP ${res.status}`;
+      throw new Error(errMsg);
+    }
+    document.getElementById('stockTitle').textContent = `${sym}　${data.name || ''}`;
+    msg.textContent = `更新：${new Date().toLocaleTimeString('zh-TW', { hour12: false, timeZone: 'Asia/Taipei' })}`;
+    setChartData(data.candles);
+    if (data.analysis && !data.analysis.error) {
+      updateReport(data.analysis, sym, data.name || '');
+    }
+  } catch(e) {
+    const errText = String(e.message || '連線失敗');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
+    msg.textContent = '❌ ' + errText;
+    document.getElementById('reportLoading').textContent = errText;
+  } finally {
+    isLoading = false;
+  }
+}
+
+// ── 切換 ──
+function toggleLine(key, btn) {
+  showState[key] = !showState[key];
+  btn.classList.toggle('active', showState[key]);
+  if (key === 'bb') {
+    for (const s of Object.values(bbSeries)) s.applyOptions({ visible: showState.bb });
+  } else {
+    maSeries[key]?.applyOptions({ visible: showState[key] });
+  }
+}
+
+function setIndicator(ind, btn) {
+  activeIndicator = ind;
+  document.querySelectorAll('#toggleBar .toggle-btn[id^="ind"]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (currentCandles) updateSubChart(currentCandles);
+}
+
+function setDays(d, btn) {
+  currentDays = d;
+  document.querySelectorAll('#toggleBar .toggle-btn[id^="btnDays"]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const sym = document.getElementById('stockInput').value.trim();
+  if (sym) loadStock();
+}
+</script>
+</body>
+</html>

@@ -628,6 +628,13 @@ function twDateParts(d = new Date()) {
 
 function getToken() { return sessionStorage.getItem('appToken') || ''; }
 
+function showLoginExpired(message = '登入已失效，請重新輸入密碼') {
+  sessionStorage.removeItem('appToken');
+  document.getElementById('mainPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('loginError').textContent = message;
+}
+
 function apiFetch(url, options = {}) {
   return fetch(url, {
     ...options,
@@ -672,6 +679,9 @@ async function checkServer() {
     if (res.ok) {
       document.getElementById('statusDot').className = 'status-dot green';
       document.getElementById('statusText').textContent = '已連線';
+    } else if (res.status === 401) {
+      document.getElementById('statusDot').className = 'status-dot red';
+      document.getElementById('statusText').textContent = '登入失效';
     } else throw new Error();
   } catch {
     document.getElementById('statusDot').className = 'status-dot red';
@@ -842,25 +852,42 @@ async function loadStock() {
   document.getElementById('rightPanel').innerHTML = '<div class="loading-text">載入中...</div>';
 
   try {
-    const [tickerRes, historyRes, foreignRes, marginRes, priceRes, themeRes, revenueRes, itRes] = await Promise.all([
+    const [tickerRes, historyRes, foreignRes, marginRes, priceRes] = await Promise.all([
       apiFetch(`${SERVER}/ticker/${code}`),
       apiFetch(`${SERVER}/history/${code}`),
       apiFetch(`${SERVER}/foreign/${code}`),
       apiFetch(`${SERVER}/margin/${code}`),
-      apiFetch(`${SERVER}/price/${code}`),
-      apiFetch(`${SERVER}/theme/${code}`),
-      apiFetch(`${SERVER}/revenue/${code}`),
-      apiFetch(`${SERVER}/invest_trust/${code}`)
+      apiFetch(`${SERVER}/price/${code}`)
     ]);
+
+    if ([tickerRes, historyRes, foreignRes, marginRes, priceRes].some(r => r.status === 401)) {
+      throw new Error('登入已失效，請重新登入');
+    }
 
     const tickerJson  = await tickerRes.json();
     const historyJson = await historyRes.json();
     const foreignJson = await foreignRes.json();
     const marginJson  = await marginRes.json();
     const priceJson   = await priceRes.json();
-    const themeJson   = await themeRes.json();
-    const revenueJson = await revenueRes.json();
-    const itJson      = await itRes.json();
+
+    const optionalResults = await Promise.allSettled([
+      apiFetch(`${SERVER}/theme/${code}`).then(async r => {
+        if (!r.ok) throw new Error(`theme ${r.status}`);
+        return r.json();
+      }),
+      apiFetch(`${SERVER}/revenue/${code}`).then(async r => {
+        if (!r.ok) throw new Error(`revenue ${r.status}`);
+        return r.json();
+      }),
+      apiFetch(`${SERVER}/invest_trust/${code}`).then(async r => {
+        if (!r.ok) throw new Error(`invest_trust ${r.status}`);
+        return r.json();
+      })
+    ]);
+
+    const themeJson   = optionalResults[0].status === 'fulfilled' ? optionalResults[0].value : {};
+    const revenueJson = optionalResults[1].status === 'fulfilled' ? optionalResults[1].value : {};
+    const itJson      = optionalResults[2].status === 'fulfilled' ? optionalResults[2].value : {};
 
     const stockName = tickerJson.name || code;
     window._stockName = stockName;
@@ -1210,7 +1237,11 @@ async function loadStock() {
     }
 
   } catch(err) {
-    document.getElementById('rightPanel').innerHTML = `<div class="empty-state"><p>錯誤：${err.message}</p></div>`;
+    const errText = String(err.message || '載入失敗');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
+    document.getElementById('rightPanel').innerHTML = `<div class="empty-state"><p>錯誤：${errText}</p></div>`;
   }
 }
 
@@ -1253,7 +1284,11 @@ document.getElementById('watchInput').addEventListener('keydown', e => { if(e.ke
 function removeWatch(i) { watchlist.splice(i,1); saveWatchlist(); renderWatchlist(); }
 function renderWatchlist() {
   const c = document.getElementById('watchlistItems');
-  if (!watchlist.length) { c.innerHTML = '<div class="empty-text">尚未新增監控</div>'; return; }
+  if (!watchlist.length) {
+    c.innerHTML = '<div class="empty-text">尚未新增監控</div>';
+    document.getElementById('watchlistUpdated').textContent = '';
+    return;
+  }
   c.innerHTML = watchlist.map((w,i) => {
     const hasData = w.currentPrice > 0;
     const fCostW  = w.foreignCost  || 0;
@@ -1523,7 +1558,17 @@ async function runPullbackMonitorOnce() {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({candidates:list})
     });
-    const json = await res.json();
+    const raw = await res.text();
+    let json = {};
+    try { json = raw ? JSON.parse(raw) : {}; } catch(e) { json = {}; }
+    if (!res.ok || json.detail || json.error) {
+      const errMsg =
+        (res.status === 401 ? '登入已失效，請重新登入' : '') ||
+        json.error ||
+        json.detail ||
+        `HTTP ${res.status}`;
+      throw new Error(errMsg);
+    }
     const data = json.results || [];
     if (data.length) {
       const resultMap = new Map(data.map(d => [d.code, d]));
@@ -1559,7 +1604,11 @@ async function runPullbackMonitorOnce() {
         </div>
       </div>`).join('');
   } catch(e) {
-    box.innerHTML = `<div class="empty-text">監測失敗：${e.message}</div>`;
+    const errText = String(e.message || '監測失敗');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
+    box.innerHTML = `<div class="empty-text">監測失敗：${errText}</div>`;
   }
 }
 
