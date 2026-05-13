@@ -232,6 +232,7 @@ body {
   font-weight: 500;
 }
 .safe-ok   { background: #f0faf0; color: #27ae60; border: 1px solid #bde5bd; }
+.safe-wait { background: #fff8ec; color: #b26b00; border: 1px solid #f2d49a; }
 .safe-warn { background: #fef0f0; color: #c0392b; border: 1px solid #fcc; }
 
 /* 指標狀態 */
@@ -357,7 +358,7 @@ body {
           <div class="level-row">
             <span class="level-name">支撐區</span>
             <span class="level-value blue" id="lvSup">—</span>
-            <span class="level-tag">近期低點</span>
+            <span class="level-tag" id="lvSupTag">—</span>
           </div>
           <div class="level-row">
             <span class="level-name">防守位</span>
@@ -661,8 +662,8 @@ function updateSubChart(candles) {
                                              priceLineVisible: false, lastValueVisible: true });
       subLine2 = subChartObj.addLineSeries({ color: '#e67e22', lineWidth: 1.5,
                                              priceLineVisible: false, lastValueVisible: true });
-      subLine1.setData(candles.map(c => ({ time: c.time, value: c.k })));
-      subLine2.setData(candles.map(c => ({ time: c.time, value: c.d })));
+      subLine1.setData(candles.filter(c => c.k != null).map(c => ({ time: c.time, value: c.k })));
+      subLine2.setData(candles.filter(c => c.d != null).map(c => ({ time: c.time, value: c.d })));
       subLine1.createPriceLine({ price: 80, color: '#E24B4A66', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false });
       subLine1.createPriceLine({ price: 20, color: '#26a69a66', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false });
       break;
@@ -705,17 +706,22 @@ function updateReport(a, symbol, name) {
 
   // 關鍵價位
   document.getElementById('lvRes').textContent   = a.resistance ?? '—';
-  document.getElementById('lvResTag').textContent = '近期高點';
+  document.getElementById('lvResTag').textContent = a.resistance_label || '近期高點';
   document.getElementById('lvPrice').textContent  = a.price?.toLocaleString() ?? '—';
   document.getElementById('lvTrend').textContent  = a.trend || '—';
   document.getElementById('lvSup').textContent    = a.support ?? '—';
+  document.getElementById('lvSupTag').textContent = a.support_label || '近期低點';
   document.getElementById('lvDef').textContent    = a.defense ?? '—';
 
   // 風險報酬
-  document.getElementById('rrNum').textContent = (a.rr_ratio ?? 0).toFixed(2);
+  document.getElementById('rrNum').textContent = a.rr_ratio != null ? a.rr_ratio.toFixed(2) : '—';
   const safeTag = document.getElementById('safeTag');
   safeTag.textContent = a.safe_label || '—';
-  safeTag.className   = 'safe-tag ' + (a.is_safe ? 'safe-ok' : 'safe-warn');
+  safeTag.className   = 'safe-tag ' + (
+    a.safe_tone === 'ok' ? 'safe-ok' :
+    a.safe_tone === 'wait' ? 'safe-wait' :
+    'safe-warn'
+  );
 
   // 技術指標
   document.getElementById('indRsiVal').textContent  = a.rsi_status  || '—';

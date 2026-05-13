@@ -646,6 +646,27 @@ function apiFetch(url, options = {}) {
   });
 }
 
+async function readApiJson(res, loginMessage = '登入已失效，請重新登入') {
+  const raw = await res.text();
+  let json = {};
+  try {
+    json = raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    json = {};
+  }
+  const rawMsg = raw && !raw.trim().startsWith('<') ? raw.trim() : '';
+  if (!res.ok || json.error || json.detail) {
+    const errMsg =
+      json.error ||
+      (res.status === 401 ? loginMessage : '') ||
+      json.detail ||
+      rawMsg ||
+      `HTTP ${res.status}`;
+    throw new Error(errMsg);
+  }
+  return json;
+}
+
 // 登入
 async function doLogin() {
   const pwd = document.getElementById('loginInput').value.trim();
@@ -830,13 +851,27 @@ async function runAnalysis() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const json = await res.json();
+    const raw = await res.text();
+    let json = {};
+    try { json = raw ? JSON.parse(raw) : {}; } catch(e) { json = {}; }
+    if (!res.ok || json.detail || json.error) {
+      const errMsg =
+        (res.status === 401 ? '登入已失效，請重新登入' : '') ||
+        json.error ||
+        json.detail ||
+        `HTTP ${res.status}`;
+      throw new Error(errMsg);
+    }
     const text = json.analysis || '分析失敗';
     analysisCache[cacheKey] = text;
     body.textContent = text;
     btn.textContent = '重新分析';
   } catch(e) {
-    body.textContent = '分析失敗：' + e.message;
+    const errText = String(e.message || '分析失敗');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
+    body.textContent = '分析失敗：' + errText;
   } finally {
     btn.disabled = false;
   }
@@ -860,8 +895,25 @@ async function loadStock() {
       apiFetch(`${SERVER}/price/${code}`)
     ]);
 
-    if ([tickerRes, historyRes, foreignRes, marginRes, priceRes].some(r => r.status === 401)) {
-      throw new Error('登入已失效，請重新登入');
+    const coreEntries = [
+      ['ticker', tickerRes],
+      ['history', historyRes],
+      ['foreign', foreignRes],
+      ['margin', marginRes],
+      ['price', priceRes]
+    ];
+    const failedCore = coreEntries.find(([, res]) => !res.ok);
+    if (failedCore) {
+      const [label, res] = failedCore;
+      const raw = await res.text();
+      let json = {};
+      try { json = raw ? JSON.parse(raw) : {}; } catch(e) { json = {}; }
+      const errMsg =
+        (res.status === 401 ? '登入已失效，請重新登入' : '') ||
+        json.error ||
+        json.detail ||
+        `${label} HTTP ${res.status}`;
+      throw new Error(errMsg);
     }
 
     const tickerJson  = await tickerRes.json();
@@ -944,9 +996,18 @@ async function loadStock() {
     // 美股
     const usPrices = {};
     if (usStocks.length > 0) {
-      const usFetches = usStocks.slice(0,4).map(s => apiFetch(`${SERVER}/us_price/${s.ticker}`).then(r=>r.json()));
-      const usResults = await Promise.all(usFetches);
-      for (const r of usResults) { if (!r.error) usPrices[r.ticker] = r; }
+      const usFetches = usStocks.slice(0,4).map(s =>
+        apiFetch(`${SERVER}/us_price/${s.ticker}`).then(async r => {
+          if (!r.ok) throw new Error(`us_price ${s.ticker} ${r.status}`);
+          return r.json();
+        })
+      );
+      const usResults = await Promise.allSettled(usFetches);
+      for (const item of usResults) {
+        if (item.status === 'fulfilled' && !item.value.error) {
+          usPrices[item.value.ticker] = item.value;
+        }
+      }
     }
 
     // 全域變數
@@ -1250,7 +1311,7 @@ async function loadNews() {
   document.getElementById('newsList').innerHTML = '<div class="empty-text">載入中...</div>';
   try {
     const res = await apiFetch(`${SERVER}/news`);
-    const json = await res.json();
+    const json = await readApiJson(res);
     const items = json.data || [];
     const toTWDate = d => twDateParts(d).date;
     const today = new Date(), yesterday = new Date(today);
@@ -1265,7 +1326,13 @@ async function loadNews() {
       const label = dateStr===todayStr?`今 ${timeStr}`:`昨 ${timeStr}`;
       return `<div class="news-item"><span class="news-date">${label}</span><a class="news-title" href="${item.link}" target="_blank">${item.title.replace(' - 經濟日報','')}</a></div>`;
     }).join('');
-  } catch(e) { document.getElementById('newsList').innerHTML = '<div class="empty-text">載入失敗</div>'; }
+  } catch(e) {
+    const errText = String(e.message || '載入失敗');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
+    document.getElementById('newsList').innerHTML = `<div class="empty-text">${errText}</div>`;
+  }
 }
 
 // 監控清單
@@ -1325,9 +1392,11 @@ async function checkWatchItem(i) {
       apiFetch(`${SERVER}/foreign/${w.code}`),
       apiFetch(`${SERVER}/ticker/${w.code}`)
     ]);
-    const priceJson = await priceRes.json();
-    const foreignJson = await foreignRes.json();
-    const tickerJson = await tickerRes.json();
+    const [priceJson, foreignJson, tickerJson] = await Promise.all([
+      readApiJson(priceRes),
+      readApiJson(foreignRes),
+      readApiJson(tickerRes)
+    ]);
     const priceMap = priceJson.data || {};
     const pv = Object.values(priceMap);
     const latestPrice = pv.length>0?pv[pv.length-1].close:0;
@@ -1340,7 +1409,12 @@ async function checkWatchItem(i) {
     w.triggerPrice = fCost*1.04;
     saveWatchlist();
     renderWatchlist();
-  } catch(e) {}
+  } catch(e) {
+    const errText = String(e.message || '');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
+  }
 }
 async function refreshWatchlist() { for(let i=0;i<watchlist.length;i++) await checkWatchItem(i); }
 
@@ -1356,8 +1430,10 @@ async function runScan() {
       apiFetch(`${SERVER}/market_volume`),
       apiFetch(`${SERVER}/industry_stocks/${encodeURIComponent(industry)}`)
     ]);
-    const volumeJson = await volumeRes.json();
-    const industryJson = await industryRes.json();
+    const [volumeJson, industryJson] = await Promise.all([
+      readApiJson(volumeRes),
+      readApiJson(industryRes)
+    ]);
     const volumeList = volumeJson.data || [];
     const industryStocks = industryJson.data || [];
     const industryCodes = new Set(industryStocks.map(s=>s.code));
@@ -1373,7 +1449,7 @@ async function runScan() {
       if (item.close===0) {
         try {
           const pr = await apiFetch(`${SERVER}/price/${item.code}`);
-          const pj = await pr.json();
+          const pj = await readApiJson(pr);
           const pv = Object.values(pj.data||{});
           if (pv.length>0) item.close = pv[pv.length-1].close;
         } catch(e) {}
@@ -1384,7 +1460,7 @@ async function runScan() {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({codes:filtered})
     });
-    const scanJson = await scanRes.json();
+    const scanJson = await readApiJson(scanRes);
     const scanData = scanJson.data || [];
     if (!scanData.length) { results.innerHTML = '<div class="empty-text">無結果</div>'; return; }
     results.innerHTML = scanData.map(d=>`
@@ -1410,7 +1486,7 @@ async function runTechScan() {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({top_n:topN})
     });
-    const json = await res.json();
+    const json = await readApiJson(res);
     const data = json.data || [];
     if (!data.length) { results.innerHTML = '<div class="empty-text">無符合條件的股票</div>'; return; }
     results.innerHTML = `<div style="font-size:9px;color:#999;margin-bottom:4px;">找到 ${data.length} 支</div>` +
@@ -1444,7 +1520,7 @@ async function runPullbackScan() {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({top_n:topN})
     });
-    const json = await res.json();
+    const json = await readApiJson(res);
     const data = json.data || [];
     if (!data.length) { results.innerHTML = '<div class="empty-text">無符合條件的股票</div>'; return; }
     const monitorList = data
@@ -1529,11 +1605,15 @@ async function togglePullbackDiscord() {
   try {
     const path = next ? 'discord_on' : 'discord_off';
     const res = await apiFetch(`${SERVER}/pullback_monitor/${path}`, { method:'POST' });
-    const json = await res.json();
+    const json = await readApiJson(res);
     renderPullbackDiscordButton(json.discord_enabled);
   } catch(e) {
+    const errText = String(e.message || '推播開關失敗');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
     renderPullbackDiscordButton(current);
-    alert(`推播開關失敗：${e.message}`);
+    alert(`推播開關失敗：${errText}`);
   }
 }
 
@@ -1543,9 +1623,14 @@ async function syncPullbackDiscordPreference() {
   try {
     const path = enabled ? 'discord_on' : 'discord_off';
     const res = await apiFetch(`${SERVER}/pullback_monitor/${path}`, { method:'POST' });
-    const json = await res.json();
+    const json = await readApiJson(res);
     renderPullbackDiscordButton(json.discord_enabled);
-  } catch(e) {}
+  } catch(e) {
+    const errText = String(e.message || '');
+    if (errText.includes('登入')) {
+      showLoginExpired(errText);
+    }
+  }
 }
 
 async function runPullbackMonitorOnce() {
