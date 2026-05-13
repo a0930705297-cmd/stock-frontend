@@ -32,9 +32,220 @@
 ## 最新交接紀錄
 
 ### 日期
-- 2026-04-29
+- 2026-05-13（Codex 更新）
 
-### 本次重點
+### 本次重點：個股深度分析補強
+
+#### 修改檔案
+- `main.py`
+- `個股分析.html`
+
+#### 已修正
+- `stock_deep` 後端原本雖然多抓了 `days + 150` 天的日線，但在計算技術指標前就先切成最後 `days` 筆，導致暖身資料完全沒被使用。
+- 現在改為：
+  - 先對完整抓回的歷史資料計算 `MA / 布林 / RSI / MACD / KD / OBV`
+  - 再切出最後 `days` 筆回給前端
+- 這樣 `60日 / 120日 / 240日` 視圖前段的均線與指標不會因為缺少前置資料而大量 `None` 或失真。
+- `days` 參數已加基本防呆，限制在 `1 ~ 240`。
+- `main.py` 已新增 `_stock_deep_cache`，目前採 3 分鐘 TTL（180 秒）：
+  - cache key：`{symbol}_{days}`
+  - 同股票、同天數在短時間內重查時直接回快取
+  - 每次寫入後會順手清掉過期項目，避免 cache 無限制增長
+- `_lin_channel()` 原本用「絕對股價斜率」判斷 `上升 / 下降 / 橫盤`，對高價股與低價股不公平。
+  - 現在改成使用 `slope_pct`（斜率相對均價百分比）來判斷通道方向
+  - `analysis.ops_detail` 也會顯示相對斜率，例如 `+0.18%/日`
+- `obv_trend` 原本在資料少於 10 根時會直接回 `下降`，現在資料不足時改為 `資料不足`
+- `個股分析.html` 原本在右側統計格中用 `型態` 當 label，但實際顯示的是 `trend`，現在已改成 `趨勢`
+- `_build_analysis()` 文案判讀補強：
+  - `RSI` 改成用 `is not None` 判斷，不再把極端值誤當成缺值
+  - `MACD` 改為三態：`金叉偏多 / 死叉偏空 / 糾結`
+  - `OBV` 改為三態：`上升 / 下降 / 持平`
+  - 空頭趨勢文案改成 `暫不建議偏多操作`，避免出現過度激進的「以空為主」
+  - 風險報酬若 reward<=0 或 risk<=0，不再硬算損益比，而會顯示 `目前風險報酬不佳，建議先觀察`
+  - 防守位距現價改成用帶正負號的百分比顯示，例如 `-3.1%`
+- `_build_analysis()` 已進一步往實戰觀察語氣調整：
+  - 多頭結構中的底部型態：改成先看 `支撐 / 20MA 是否守住`，不再直接暗示追價
+  - 多頭結構中的轉弱型態：改成 `未止穩前不急著接`
+  - 加入 `距20MA乖離` 的判讀：
+    - 乖離偏大時明示 `不追價`
+    - 回到 20MA 下方時明示先看能否站回
+  - 盤整文案改成 `等帶量突破 / 跌破再行動`
+  - `safe_label` 改成較貼近工具用途：
+    - `✓ 可列觀察`
+    - `✗ 不宜追價`
+  - `ops_detail` 新增 `位階：距20MA ±x%`
+
+#### 前端補強
+- `個股分析.html` 的 `loadStock()` 原本只檢查 `data.error`，若後端回 `401 Unauthorized` 或 FastAPI `detail`，前端會繼續往下跑到 `setChartData(undefined)`，最後只顯示模糊的連線失敗。
+- 現在改為：
+  - 先檢查 `res.ok / data.error / data.detail`
+  - 若登入失效，清掉 `sessionStorage.appToken` 並切回登入頁
+  - 錯誤訊息會直接顯示 `登入已失效，請重新登入` 或實際 HTTP/後端錯誤
+- 頁面右上角更新時間改為明確使用 `Asia/Taipei`
+- `showMain()` 現在會先檢查圖表是否已初始化，避免登入失效後重新登入時重建第二組 Lightweight Charts 實例
+- `home.html` 已補上 `tag-red` 樣式，避免「個股深度分析」卡片下方 tags 顯示成未定義樣式
+- `home.html` 的即時資金雷達文案已從「5 分鐘更新」改成與實際一致的「3 分鐘更新」
+
+#### 驗證結果
+- `python -m py_compile main.py` 通過
+- `個股分析.html` script 語法檢查通過
+- `home.html` script 語法檢查通過
+
+#### 尚未完成
+- 尚未做真實 `/stock_deep/2330` API 整合測試
+- 若後續觀察到記憶體壓力，再評估加上最大 cache 筆數上限
+
+---
+
+### 日期
+- 2026-05-13（Codex 更新）
+
+### 本次重點：`index.html` 主流程穩定性補強
+
+#### 修改檔案
+- `index.html`
+
+#### 已修正
+- `index.html / loadStock()` 原本把 `ticker / history / foreign / margin / price / theme / revenue / invest_trust` 全部綁在同一個 `Promise.all`。
+  - 只要 `theme / revenue / invest_trust` 這種輔助資料有一個 timeout 或 5xx，整個主查詢就直接失敗。
+  - 現在改為：
+    - 核心資料：`ticker / history / foreign / margin / price` 用 `Promise.all`
+    - 輔助資料：`theme / revenue / invest_trust` 用 `Promise.allSettled`
+  - 這樣輔助資料失敗時，主畫面仍能正常顯示法人成本主內容。
+- 若核心 API 回 `401`，現在會直接視為登入失效，而不是只顯示 generic 錯誤。
+- 新增 `showLoginExpired()`：
+  - 清掉 `sessionStorage.appToken`
+  - 切回登入頁
+  - 顯示 `登入已失效，請重新輸入密碼`
+- `checkServer()` 現在會區分：
+  - `已連線`
+  - `登入失效`
+  - `未連線`
+- `runPullbackMonitorOnce()` 原本直接 `await res.json()`，若後端回 `401 / detail / error`，前端訊息不明確。
+  - 現在會先判斷 `res.ok / json.detail / json.error`
+  - 若登入失效，會直接切回登入頁
+- 監控清單在清空時，`watchlistUpdated` 會一起清掉，避免殘留舊時間
+
+#### 驗證結果
+- `index.html` script 語法檢查通過
+
+#### 尚未完成
+- 尚未做瀏覽器端實際 smoke test；若後續要驗證，優先確認：
+  - 主查詢在 `theme/revenue/invest_trust` 任一失敗時仍可正常顯示
+  - token 過期時是否會正確切回登入頁
+
+---
+
+### 日期
+- 2026-05-13（Claude 更新）
+
+### 本次重點：個股深度分析功能上線
+
+#### 新增檔案
+- `個股分析.html`：互動式 K 線圖 + AI 分析報告前端頁面（全新建立）
+- `home.html`：新增「個股深度分析」入口卡片（card-deep）
+
+#### 修改檔案
+- `main.py`：在末尾追加以下內容（語法檢查通過 `python -m py_compile main.py`）
+
+#### main.py 新增的函數與 Endpoint
+
+**純計算輔助函數（無副作用，不依賴外部 API）：**
+
+| 函數 | 說明 |
+|------|------|
+| `_ma(values, period)` | 簡單移動平均，回傳 list，不足期間填 None |
+| `_ema_full(values, period)` | 指數移動平均，支援輸入含 None（用於 MACD Signal） |
+| `_bollinger(closes, period=20, mult=2.0)` | 布林通道，回傳 (upper, middle, lower) |
+| `_rsi(closes, period=14)` | RSI，Wilder 平滑法 |
+| `_macd_calc(closes, fast=12, slow=26, signal_p=9)` | MACD，回傳 (macd, signal, histogram) |
+| `_kd(highs, lows, closes, period=9, smooth=3)` | KD 隨機指標，初始值 50 |
+| `_obv(closes, volumes)` | OBV（能量潮），累積型 |
+| `_detect_pattern(opens, highs, lows, closes)` | 偵測最後一根 K 棒型態（射擊之星/鎚子/吞噬/孕線/長紅/長黑等） |
+| `_swing_levels(highs, lows, closes, lookback=60, wing=2)` | 找近期擺動支撐與壓力（局部極值法） |
+| `_trend_label(ma5, ma10, ma20, ma60)` | 均線排列判斷（上升趨勢/多頭整理/下降趨勢/盤整） |
+| `_lin_channel(closes, period=30)` | 線性回歸通道（斜率/上軌/下軌/方向） |
+| `_build_analysis(...)` | 組合 AI 分析報告 dict（型態 + 操作建議 + 支撐壓力 + 風險報酬 + 指標狀態） |
+
+**新 Endpoint：**
+
+```
+GET /stock_deep/{symbol}?days=120
+Header: x-token: <API_TOKEN>
+```
+
+回傳格式：
+```json
+{
+  "symbol": "1711",
+  "name":   "永光",
+  "candles": [
+    {
+      "time": "2026-05-12",
+      "open": 51.9, "high": 52.5, "low": 51.0, "close": 51.9,
+      "volume": 726,
+      "ma5": 52.1, "ma10": 53.0, "ma20": 50.1, "ma60": 43.2,
+      "bb_upper": 56.1, "bb_middle": 50.1, "bb_lower": 44.1,
+      "rsi": 52.3, "macd": -0.12, "signal": -0.08, "hist": -0.04,
+      "k": 48.2, "d": 51.3, "obv": 12340
+    }
+  ],
+  "analysis": {
+    "symbol": "1711", "name": "永光", "price": 51.9,
+    "pattern": "射擊之星（頂部壓力訊號）",
+    "ops_main": "頂部反轉訊號，建議先出場觀望...",
+    "ops_detail": ["防守位 50.3（距現價 -3.1%），損益比 11.59", "支撐 51.6...", ...],
+    "trend": "上升趨勢",
+    "support": 51.6, "resistance": 64.3, "defense": 50.51,
+    "rr_ratio": 11.59, "is_safe": true, "safe_label": "✓ 報酬大於風險",
+    "rsi_status": "中性（52.3）", "kd_status": "中性（K=48.2）",
+    "macd_status": "MACD 死叉偏空", "obv_trend": "下降",
+    "ma5": 52.1, "ma10": 53.0, "ma20": 50.1, "ma60": 43.2,
+    "ma_gap_20": 3.6,
+    "channel": { "slope": 0.12, "end": 51.9, "upper": 54.2, "lower": 49.6, "direction": "上升", "std": 2.3 }
+  }
+}
+```
+
+#### 前端 個股分析.html 架構
+
+- 登入邏輯與其他頁相同（`sessionStorage.getItem('appToken')`，測試 `/history/2330`）
+- 搜尋框輸入代號 → 呼叫 `GET /stock_deep/{symbol}` → 單次 API 取所有資料
+- 支援 60日/120日/240日 切換
+- 左側：`lightweight-charts@4.1.3`（unpkg CDN）
+  - 主圖：K 線 + 成交量 overlay + MA5/10/20/60 + 布林通道
+  - 副圖：RSI / MACD / KD / OBV（切換按鈕）
+  - 主副圖時間軸同步（`subscribeVisibleLogicalRangeChange`）
+  - 支撐/壓力/防守 以 price line 畫在主圖
+- 右側：AI 分析報告面板（型態 badge + 操作建議 + 關鍵價位 + 風險報酬比 + 技術指標狀態 + 均線數值）
+
+#### 已驗證
+- `python -m py_compile main.py` → SYNTAX OK
+- 前端 HTML 結構語法完整，無遺漏閉標籤
+
+#### 尚未做整合測試
+- `GET /stock_deep/2330` 需在 Railway 環境確認 FinMind token 正常後才能驗證完整回傳
+- 本機缺少 fastapi/uvicorn 依賴，無法本地跑起 API 做 end-to-end 測試
+
+---
+
+### 待 Codex 確認與後續優化（優先順序排列）
+
+| 優先 | 項目 | 說明 |
+|------|------|------|
+| 🔴 高 | 整合測試 `/stock_deep/2330` | 確認 FinMind `TaiwanStockPrice` 欄位名稱是否對應（`max`/`min`/`Trading_Volume`） |
+| 🔴 高 | `TaiwanStockInfo` 查名稱 | 確認 `finmind_get("TaiwanStockInfo", symbol, ...)` 能正確回傳 `stock_name` 欄位 |
+| 🟡 中 | 加快取 | `_stock_deep_cache` 3~5分鐘 TTL，避免使用者重複查同股票打多次 FinMind |
+| 🟡 中 | `home.html` tag 樣式 | `tag-red` 在首頁 CSS 可能無定義，需確認或改用已定義的顏色 class（`tag-teal`/`tag-blue`/`tag-green`） |
+| 🟢 低 | 副圖圖例 | MACD 顯示 MACD/Signal 各自顏色標示（目前只有 subLabel 文字） |
+| 🟢 低 | 通道線 overlay | 目前只顯示在報告文字中，未畫到主圖。可新增兩條斜線 series（需後端回傳通道全段資料點） |
+| 🟢 低 | 盤中即時價更新 | 目前是收盤日線，未來可接 MIS 即時更新最後一根 K 棒 |
+
+---
+
+### 舊版最新交接紀錄（2026-04-29 存檔）
+
+- 2026-04-29
 - 最新區已整理：已完成的詳細紀錄移到「歷史交接紀錄」，此處只保留目前仍需接手的狀態。
 - 今天使用者回報：隔日沖掃描 / 盤中監測 / Discord 推播測試功能正常。
 - 已執行 Claude 提案：`pullback_scan` 候選宇宙改用成交金額排序，排除股價 < $20 與成交額 < 1 億，前端同步顯示成交額。
@@ -1460,6 +1671,35 @@ if close < 20:
 | 🟢 低 | 評估是否加市值 / 均量門檻 | `main.py` |
 
 完成後請執行 `python -m py_compile main.py` 並更新本文件。
+
+---
+
+### 2026-05-11
+
+#### 本次重點
+- 修正 `內外盤比` 頁面最新 100 筆顯示與後端欄位語意不一致的問題。
+- 原本 `/tick_ratio/{symbol}` 回傳的 `trade_count` 是本次樣本總筆數（最多 500），但前端把它直接顯示在「逐筆成交明細（最新100筆）」區塊，容易讓使用者誤以為頁面顯示 500 筆或內外盤比計算錯誤。
+- 後端現在新增：
+  - `recent_trade_count`：實際顯示的最近 100 筆數量
+  - `sampled_trade_count`：本次計算 Tick Rule 的樣本總筆數
+- `trade_count` 已改為和頁面一致的最近 100 筆數量。
+- 前端頁面右上角改成：
+  - 若樣本總筆數大於顯示筆數，顯示 `顯示 100 筆 / 已抓 500 筆`
+  - 否則顯示 `共 N 筆`
+- 補強 `內外盤比.html` 的錯誤處理：
+  - 若 `sessionStorage.appToken` 不存在，頁面會直接提示「需要登入」，不再只顯示 `失敗：讀取失敗`
+  - 若後端回 `401/404/500` 或 FastAPI `detail`，前端會優先顯示實際訊息，而不是一律壓成 `讀取失敗`
+
+#### 影響檔案
+- `main.py`
+- `內外盤比.html`
+
+#### 驗證結果
+- `python -m py_compile main.py` 通過
+- `內外盤比.html` script 語法檢查通過
+
+#### 未解決事項
+- 目前只修正了前後端筆數語意不一致；若使用者回報的是「比率數值本身」有異常，下一步需要再比對 Fugle `intraday/volumes` 與 `intraday/trades` 的實際回傳內容。
 
 ---
 

@@ -33,6 +33,8 @@ TW_TZ             = timezone(timedelta(hours=8))
 # 分析結果快取
 analysis_cache = {}
 CACHE_MINUTES = 30
+_stock_deep_cache = {}
+_STOCK_DEEP_CACHE_SEC = 180
 
 def verify_token(x_token: str):
     if x_token != API_TOKEN:
@@ -66,6 +68,14 @@ def parse_int(s):
 
 def tw_now():
     return datetime.now(TW_TZ)
+
+def _prune_stock_deep_cache(now: datetime):
+    stale_keys = [
+        key for key, item in _stock_deep_cache.items()
+        if (now - item["time"]).total_seconds() >= _STOCK_DEEP_CACHE_SEC
+    ]
+    for key in stale_keys:
+        _stock_deep_cache.pop(key, None)
 
 INDUSTRY_THEME = {
     "半導體業":         ["半導體", "AI"],
@@ -1848,7 +1858,10 @@ def _tick_err(symbol, msg):
         "symbol": symbol, "error": msg,
         "outer": 0, "inner": 0, "ratio": 50, "total": 0,
         "r_outer": 0, "r_inner": 0, "r_ratio": 50,
-        "trade_count": 0, "trades": [], "latest_price": None,
+        "trade_count": 0,
+        "recent_trade_count": 0,
+        "sampled_trade_count": 0,
+        "trades": [], "latest_price": None,
     }
 
 @app.get("/tick_ratio/{symbol}")
@@ -2005,7 +2018,9 @@ async def get_tick_ratio(symbol: str, x_token: str = Header(default=None)):
         "r_outer":      r_outer,
         "r_inner":      r_inner,
         "r_ratio":      r_ratio,
-        "trade_count":  len(detail),
+        "trade_count":  len(recent_100),
+        "recent_trade_count": len(recent_100),
+        "sampled_trade_count": len(detail),
         "latest_price": latest_price,
         "close_price":  close_price,
         "close_date":   close_date,
@@ -3032,3 +3047,365 @@ async def test_pullback_monitor_discord(body: dict = None, x_token: str = Header
         await asyncio.sleep(0.5)
 
     return {"ok": len(pushed) == len(selected), "pushed": pushed, "webhook_set": True}
+
+
+# ══════════════════════════════════════════════════════════════
+#  個股深度分析 — K線圖 + AI分析報告
+#  Endpoint: GET /stock_deep/{symbol}?days=120
+# ══════════════════════════════════════════════════════════════
+import math as _math
+
+
+def _ma(values, period):
+    result = []
+    for i in range(len(values)):
+        if i < period - 1:
+            result.append(None)
+        else:
+            result.append(round(sum(values[i - period + 1:i + 1]) / period, 2))
+    return result
+
+
+def _ema_full(values, period):
+    """EMA series; None until period non-None values accumulated."""
+    result = [None] * len(values)
+    k = 2.0 / (period + 1)
+    non_none = [(i, v) for i, v in enumerate(values) if v is not None]
+    if len(non_none) < period:
+        return result
+    init_mean = sum(v for _, v in non_none[:period]) / period
+    result[non_none[period - 1][0]] = round(init_mean, 4)
+    prev = init_mean
+    for i, v in non_none[period:]:
+        prev = v * k + prev * (1 - k)
+        result[i] = round(prev, 4)
+    return result
+
+
+def _bollinger(closes, period=20, mult=2.0):
+    upper  = [None] * len(closes)
+    middle = [None] * len(closes)
+    lower  = [None] * len(closes)
+    for i in range(period - 1, len(closes)):
+        win = closes[i - period + 1:i + 1]
+        avg = sum(win) / period
+        std = _math.sqrt(sum((x - avg) ** 2 for x in win) / period)
+        middle[i] = round(avg, 2)
+        upper[i]  = round(avg + mult * std, 2)
+        lower[i]  = round(avg - mult * std, 2)
+    return upper, middle, lower
+
+
+def _rsi(closes, period=14):
+    result = [None] * len(closes)
+    if len(closes) < period + 1:
+        return result
+    diffs = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+    ag = sum(max(d, 0) for d in diffs[:period]) / period
+    al = sum(max(-d, 0) for d in diffs[:period]) / period
+    result[period] = round(100 - 100 / (1 + ag / al), 2) if al > 0 else 100.0
+    for i in range(period + 1, len(closes)):
+        d = closes[i] - closes[i - 1]
+        ag = (ag * (period - 1) + max(d, 0)) / period
+        al = (al * (period - 1) + max(-d, 0)) / period
+        result[i] = round(100 - 100 / (1 + ag / al), 2) if al > 0 else 100.0
+    return result
+
+
+def _macd_calc(closes, fast=12, slow=26, signal_p=9):
+    ema_f  = _ema_full(closes, fast)
+    ema_s  = _ema_full(closes, slow)
+    macd_v = [round(f - s, 4) if f is not None and s is not None else None
+              for f, s in zip(ema_f, ema_s)]
+    sig_v  = _ema_full(macd_v, signal_p)
+    hist_v = [round(m - s, 4) if m is not None and s is not None else None
+              for m, s in zip(macd_v, sig_v)]
+    return macd_v, sig_v, hist_v
+
+
+def _kd(highs, lows, closes, period=9, smooth=3):
+    n = len(closes)
+    K = [50.0] * n
+    D = [50.0] * n
+    for i in range(period - 1, n):
+        lo  = min(lows[i - period + 1:i + 1])
+        hi  = max(highs[i - period + 1:i + 1])
+        rsv = (closes[i] - lo) / (hi - lo) * 100 if hi > lo else 50.0
+        K[i] = round(K[i - 1] * (smooth - 1) / smooth + rsv / smooth, 2)
+        D[i] = round(D[i - 1] * (smooth - 1) / smooth + K[i] / smooth, 2)
+    return K, D
+
+
+def _obv(closes, volumes):
+    obv = [0] * len(closes)
+    for i in range(1, len(closes)):
+        if closes[i] > closes[i - 1]:
+            obv[i] = obv[i - 1] + volumes[i]
+        elif closes[i] < closes[i - 1]:
+            obv[i] = obv[i - 1] - volumes[i]
+        else:
+            obv[i] = obv[i - 1]
+    return obv
+
+
+def _detect_pattern(opens, highs, lows, closes):
+    if len(closes) < 3:
+        return "資料不足"
+    i = len(closes) - 1
+    o, h, l, c = opens[i], highs[i], lows[i], closes[i]
+    full = h - l
+    if full == 0:
+        return "十字星（觀望）"
+    body    = abs(c - o)
+    upper_s = h - max(o, c)
+    lower_s = min(o, c) - l
+    body_r  = body / full
+    upper_r = upper_s / full
+    lower_r = lower_s / full
+    if upper_r > 0.5 and body_r < 0.25 and lower_r < 0.15 and c < opens[i - 1]:
+        return "射擊之星（頂部壓力訊號）"
+    if lower_r > 0.5 and body_r < 0.25 and upper_r < 0.15:
+        return "鎚子線（底部支撐訊號）"
+    if body_r < 0.06:
+        return "十字星（觀望）"
+    o2, c2 = opens[i - 1], closes[i - 1]
+    if c > o and c2 < o2 and o <= c2 and c >= o2:
+        return "多頭吞噬（反轉偏多）"
+    if c < o and c2 > o2 and o >= c2 and c <= o2:
+        return "空頭吞噬（反轉偏空）"
+    if body < abs(c2 - o2) * 0.5 and min(o, c) > min(o2, c2) and max(o, c) < max(o2, c2):
+        return "孕線（整理觀望）"
+    if c > o and body_r > 0.6:
+        return "長紅K（強勢）"
+    if c < o and body_r > 0.6:
+        return "長黑K（弱勢）"
+    return "紅K" if c >= o else "黑K"
+
+
+def _swing_levels(highs, lows, closes, lookback=60, wing=2):
+    n   = min(lookback, len(closes))
+    h   = highs[-n:]
+    l   = lows[-n:]
+    cur = closes[-1]
+    ph, pl = [], []
+    for i in range(wing, len(h) - wing):
+        if all(h[i] > h[i - k] for k in range(1, wing + 1)) and \
+           all(h[i] > h[i + k] for k in range(1, wing + 1)):
+            ph.append(h[i])
+        if all(l[i] < l[i - k] for k in range(1, wing + 1)) and \
+           all(l[i] < l[i + k] for k in range(1, wing + 1)):
+            pl.append(l[i])
+    sup = max((p for p in pl if p < cur), default=round(min(l) * 0.99, 2))
+    res = min((p for p in ph if p > cur), default=round(max(h) * 1.01, 2))
+    return round(sup, 2), round(res, 2)
+
+
+def _trend_label(ma5, ma10, ma20, ma60):
+    vals = [ma5[-1], ma10[-1], ma20[-1], ma60[-1]]
+    if any(v is None for v in vals):
+        return "資料不足"
+    if vals[0] > vals[1] > vals[2] > vals[3]:
+        return "上升趨勢"
+    if vals[0] < vals[1] < vals[2] < vals[3]:
+        return "下降趨勢"
+    if vals[2] > vals[3]:
+        return "多頭整理"
+    return "盤整"
+
+
+def _lin_channel(closes, period=30):
+    n = min(period, len(closes))
+    if n < 5:
+        return None
+    y  = closes[-n:]
+    x  = list(range(n))
+    mx = sum(x) / n
+    my = sum(y) / n
+    ssxx = sum((xi - mx) ** 2 for xi in x) or 1e-9
+    ssxy = sum((xi - mx) * (yi - my) for xi, yi in zip(x, y))
+    b    = ssxy / ssxx
+    a    = my - b * mx
+    reg  = [a + b * xi for xi in x]
+    std  = _math.sqrt(sum((y[i] - reg[i]) ** 2 for i in range(n)) / n)
+    ev   = reg[-1]
+    slope_pct = (b / my * 100) if my else 0.0
+    return {
+        "slope":     round(b, 4),
+        "slope_pct": round(slope_pct, 4),
+        "end":       round(ev, 2),
+        "upper":     round(ev + std, 2),
+        "lower":     round(ev - std, 2),
+        "direction": "上升" if slope_pct > 0.12 else "下降" if slope_pct < -0.12 else "橫盤",
+        "std":       round(std, 2),
+    }
+
+
+def _build_analysis(symbol, name, closes, opens, highs, lows, volumes,
+                    ma5, ma10, ma20, ma60, rsi, macd_v, sig_v, macd_h,
+                    k_v, d_v, obv_v, bb_u, bb_m, bb_l):
+    if not closes:
+        return {"error": "no data"}
+    cur     = closes[-1]
+    pattern = _detect_pattern(opens, highs, lows, closes)
+    sup, res = _swing_levels(highs, lows, closes)
+    trend   = _trend_label(ma5, ma10, ma20, ma60)
+    ch      = _lin_channel(closes)
+    defense = round(sup * 0.979, 2)
+    risk    = cur - defense
+    reward  = res - cur
+    rr      = round(reward / risk, 2) if risk > 0 and reward > 0 else 0.0
+    m5, m10, m20, m60 = ma5[-1], ma10[-1], ma20[-1], ma60[-1]
+    gap20   = round((cur / m20 - 1) * 100, 2) if m20 else None
+    rv = rsi[-1]
+    rsi_s = (f"超買（{rv}）" if rv is not None and rv > 70 else
+             f"超賣（{rv}）" if rv is not None and rv < 30 else
+             f"中性（{rv}）" if rv is not None else "—")
+    kv    = k_v[-1]
+    kd_s  = (f"超買（K={kv:.1f}）" if kv > 80 else
+             f"超賣（K={kv:.1f}）" if kv < 20 else
+             f"中性（K={kv:.1f}）")
+    mv, sv = macd_v[-1], sig_v[-1]
+    macd_s = (
+        "MACD 金叉偏多" if mv is not None and sv is not None and mv > sv else
+        "MACD 死叉偏空" if mv is not None and sv is not None and mv < sv else
+        "MACD 糾結"     if mv is not None and sv is not None else
+        "—"
+    )
+    if len(obv_v) < 10:
+        obv_trend = "資料不足"
+    else:
+        obv_trend = "上升" if obv_v[-1] > obv_v[-10] else "下降" if obv_v[-1] < obv_v[-10] else "持平"
+
+    if trend in ("上升趨勢", "多頭整理"):
+        if "鎚子" in pattern or "多頭吞噬" in pattern:
+            ops = f"多頭結構內出現止跌訊號，先觀察支撐 {sup} 與 20MA（{m20}）是否守住；不追高，站穩後再分批。"
+        elif "射擊之星" in pattern or "空頭吞噬" in pattern:
+            ops = f"多頭結構內出現轉弱訊號，先觀察是否回測支撐 {sup} 或 20MA（{m20}）；未止穩前不急著接。"
+        elif gap20 is not None and gap20 > 8:
+            ops = f"仍在多頭結構，但距 20MA（{m20}）乖離偏大；現階段不追價，等拉回支撐區再評估。"
+        elif gap20 is not None and gap20 < -2:
+            ops = f"價格已回到 20MA（{m20}）下方，先看能否重新站回；若站不回，代表整理時間可能拉長。"
+        else:
+            ops = f"多頭結構未破，優先觀察回測 20MA（{m20}）或支撐 {sup} 附近的承接，不急著追價。"
+    elif trend == "下降趨勢":
+        ops = f"均線空頭排列，暫不建議偏多操作；先觀望，等待重新站回關鍵均線或支撐止穩後再評估。"
+    else:
+        ops = f"目前偏區間整理，先看是否帶量突破 {res} 或跌破 {sup}；未表態前以觀察為主。"
+
+    dist_def = round((defense / cur - 1) * 100, 1) if cur else 0
+    if rr >= 2:
+        risk_reward_note = f"損益比 {rr}，報酬優於風險"
+        safe_label = "✓ 可列觀察"
+        is_safe = True
+    else:
+        risk_reward_note = "目前風險報酬不佳，建議先觀察"
+        safe_label = "✗ 不宜追價"
+        is_safe = False
+    details = [
+        f"防守位 {defense}（距現價 {dist_def:+.1f}%），{risk_reward_note}",
+        f"支撐 {sup}（近期擺動低點）",
+        f"壓力 {res}（近期擺動高點）",
+        f"趨勢：{trend}",
+    ]
+    if gap20 is not None:
+        details.append(f"位階：距 20MA {gap20:+.2f}%")
+    if ch:
+        pos = ("靠近下軌（相對低風險觀察位）" if cur <= ch["lower"] else
+               "靠近上軌（相對高風險）"       if cur >= ch["upper"] else
+               "位於通道中段")
+        slope_note = f"{ch['slope_pct']:+.2f}%/日"
+        details.append(f"軌道：{ch['direction']}通道（斜率 {slope_note}），{pos}")
+
+    return {
+        "symbol": symbol, "name": name, "price": cur,
+        "pattern": pattern, "ops_main": ops, "ops_detail": details,
+        "trend": trend,
+        "support": sup, "resistance": res, "defense": defense,
+        "rr_ratio": rr, "is_safe": is_safe,
+        "safe_label": safe_label,
+        "rsi_status": rsi_s, "kd_status": kd_s,
+        "macd_status": macd_s, "obv_trend": obv_trend,
+        "ma5": m5, "ma10": m10, "ma20": m20, "ma60": m60,
+        "ma_gap_20": gap20, "channel": ch,
+    }
+
+
+@app.get("/stock_deep/{symbol}")
+async def stock_deep(symbol: str, days: int = 120, x_token: str = Header(default=None)):
+    """個股深度分析：K線圖資料 + AI分析報告（單次 FinMind 呼叫）"""
+    verify_token(x_token)
+    symbol     = str(symbol).strip()
+    days       = max(1, min(int(days or 120), 240))
+    now        = tw_now()
+    cache_key  = f"{symbol}_{days}"
+    cached     = _stock_deep_cache.get(cache_key)
+    if cached and (now - cached["time"]).total_seconds() < _STOCK_DEEP_CACHE_SEC:
+        return cached["data"]
+
+    end_date   = now.strftime("%Y-%m-%d")
+    start_date = (now - timedelta(days=days + 150)).strftime("%Y-%m-%d")
+    rows = finmind_get("TaiwanStockPrice", symbol, start_date, end_date)
+    if not rows:
+        return {"error": f"無法取得 {symbol} 資料"}
+    rows_all = sorted(rows, key=lambda r: r.get("date", ""))
+    dates_all   = [r.get("date") for r in rows_all]
+    opens_all   = [float(r.get("open",  0)) for r in rows_all]
+    highs_all   = [float(r.get("max",   0)) for r in rows_all]
+    lows_all    = [float(r.get("min",   0)) for r in rows_all]
+    closes_all  = [float(r.get("close", 0)) for r in rows_all]
+    volumes_all = [int(r.get("Trading_Volume", 0)) // 1000 for r in rows_all]
+    ma5_all  = _ma(closes_all, 5)
+    ma10_all = _ma(closes_all, 10)
+    ma20_all = _ma(closes_all, 20)
+    ma60_all = _ma(closes_all, 60)
+    bbu_all, bbm_all, bbl_all = _bollinger(closes_all)
+    rsi_all               = _rsi(closes_all)
+    macd_all, sig_all, mh_all = _macd_calc(closes_all)
+    k_all, d_all          = _kd(highs_all, lows_all, closes_all)
+    obv_all               = _obv(closes_all, volumes_all)
+
+    start_idx = max(0, len(rows_all) - days)
+    dates   = dates_all[start_idx:]
+    opens   = opens_all[start_idx:]
+    highs   = highs_all[start_idx:]
+    lows    = lows_all[start_idx:]
+    closes  = closes_all[start_idx:]
+    volumes = volumes_all[start_idx:]
+    ma5_v   = ma5_all[start_idx:]
+    ma10_v  = ma10_all[start_idx:]
+    ma20_v  = ma20_all[start_idx:]
+    ma60_v  = ma60_all[start_idx:]
+    bbu     = bbu_all[start_idx:]
+    bbm     = bbm_all[start_idx:]
+    bbl     = bbl_all[start_idx:]
+    rsi_v   = rsi_all[start_idx:]
+    macd_v  = macd_all[start_idx:]
+    sig_v   = sig_all[start_idx:]
+    mh_v    = mh_all[start_idx:]
+    k_v     = k_all[start_idx:]
+    d_v     = d_all[start_idx:]
+    obv_v   = obv_all[start_idx:]
+    stock_name = symbol
+    try:
+        info = finmind_get("TaiwanStockInfo", symbol, "2020-01-01", end_date)
+        if info:
+            stock_name = info[-1].get("stock_name", symbol)
+    except Exception:
+        pass
+    candles = [{
+        "time": dates[i], "open": opens[i], "high": highs[i],
+        "low": lows[i], "close": closes[i], "volume": volumes[i],
+        "ma5": ma5_v[i], "ma10": ma10_v[i], "ma20": ma20_v[i], "ma60": ma60_v[i],
+        "bb_upper": bbu[i], "bb_middle": bbm[i], "bb_lower": bbl[i],
+        "rsi": rsi_v[i], "macd": macd_v[i], "signal": sig_v[i], "hist": mh_v[i],
+        "k": k_v[i], "d": d_v[i], "obv": obv_v[i],
+    } for i in range(len(dates))]
+    analysis = _build_analysis(
+        symbol, stock_name, closes, opens, highs, lows, volumes,
+        ma5_v, ma10_v, ma20_v, ma60_v, rsi_v, macd_v, sig_v, mh_v,
+        k_v, d_v, obv_v, bbu, bbm, bbl,
+    )
+    result = {"symbol": symbol, "name": stock_name, "candles": candles, "analysis": analysis}
+    _stock_deep_cache[cache_key] = {"data": result, "time": now}
+    _prune_stock_deep_cache(now)
+    return result

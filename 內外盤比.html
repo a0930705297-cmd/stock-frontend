@@ -174,9 +174,23 @@ function renderSummary(data) {
   `;
 }
 
+function renderNeedLogin(message = '尚未登入，請先到法人成本頁登入。') {
+  document.getElementById('summaryBox').innerHTML = `
+    <div class="summary-title neg">需要登入</div>
+    <div class="summary-line">${message} <a href="index.html" class="nav" style="margin-left:8px;">前往登入</a></div>
+  `;
+  document.getElementById('metricGrid').innerHTML = '';
+  document.getElementById('tradeCount').textContent = '共 0 筆';
+  document.getElementById('tradeTable').innerHTML = '<div class="empty">請先登入後再查詢</div>';
+}
+
 function renderTrades(data) {
   const trades = data.trades || [];
-  document.getElementById('tradeCount').textContent = `共 ${data.trade_count || trades.length} 筆`;
+  const recentCount = Number(data.recent_trade_count || data.trade_count || trades.length || 0);
+  const sampledCount = Number(data.sampled_trade_count || recentCount || 0);
+  document.getElementById('tradeCount').textContent = sampledCount > recentCount
+    ? `顯示 ${recentCount} 筆 / 已抓 ${sampledCount} 筆`
+    : `共 ${recentCount} 筆`;
   const box = document.getElementById('tradeTable');
   if (!trades.length) {
     box.innerHTML = '<div class="empty">尚無逐筆資料</div>';
@@ -203,17 +217,38 @@ async function loadTickRatio() {
   const btn = document.getElementById('loadBtn');
   const status = document.getElementById('statusText');
   if (!symbol) return;
+  if (!getToken()) {
+    status.textContent = '尚未登入';
+    renderNeedLogin();
+    return;
+  }
   btn.disabled = true;
   status.textContent = '讀取中...';
   try {
     const res = await apiFetch(`${SERVER}/tick_ratio/${symbol}`);
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || '讀取失敗');
+    const raw = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      data = {};
+    }
+    if (!res.ok || data.error || data.detail) {
+      const message =
+        data.error ||
+        (res.status === 401 ? '尚未登入或登入已失效，請重新登入。' : '') ||
+        data.detail ||
+        `HTTP ${res.status}`;
+      throw new Error(message);
+    }
     renderSummary(data);
     renderMetrics(data);
     renderTrades(data);
     status.textContent = `近100筆 Tick Rule，最後更新 ${data.updated_at || '-'}`;
   } catch (e) {
+    if (String(e.message).includes('登入')) {
+      renderNeedLogin(e.message);
+    }
     status.textContent = `失敗：${e.message}`;
   } finally {
     btn.disabled = false;
@@ -236,6 +271,11 @@ function toggleAuto() {
 document.getElementById('symbolInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') loadTickRatio();
 });
+
+if (!getToken()) {
+  document.getElementById('statusText').textContent = '尚未登入';
+  renderNeedLogin();
+}
 </script>
 </body>
 </html>

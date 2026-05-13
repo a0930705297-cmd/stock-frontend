@@ -231,6 +231,7 @@ main {
 .card-emerg  { --card-color: #d4955a; }
 .card-tick   { --card-color: #b87a9f; }
 .card-radar  { --card-color: #5ab8b0; }
+.card-deep   { --card-color: #e07070; }
 
 .tag-gold   { color: #c8a96e; border-color: rgba(200,169,110,0.25); background: rgba(200,169,110,0.06); }
 .tag-green  { color: #8fb87a; border-color: rgba(143,184,122,0.25); background: rgba(143,184,122,0.06); }
@@ -238,6 +239,7 @@ main {
 .tag-orange { color: #d4955a; border-color: rgba(212,149,90,0.25);  background: rgba(212,149,90,0.06); }
 .tag-purple { color: #b87a9f; border-color: rgba(184,122,159,0.25); background: rgba(184,122,159,0.06); }
 .tag-teal   { color: #5ab8b0; border-color: rgba(90,184,176,0.25);  background: rgba(90,184,176,0.06); }
+.tag-red    { color: #e07070; border-color: rgba(224,112,112,0.25); background: rgba(224,112,112,0.06); }
 .tag-gray   { color: var(--muted); border-color: var(--border2);    background: rgba(255,255,255,0.03); }
 
 /* 底部 */
@@ -408,6 +410,25 @@ header, .divider, main, footer {
       <span class="card-arrow">↗</span>
     </a>
 
+    <!-- 個股深度分析 -->
+    <a class="card card-deep" href="個股分析.html">
+      <span class="card-icon">📊</span>
+      <div class="card-name">
+        個股深度分析
+        <span class="card-badge new">NEW</span>
+      </div>
+      <div class="card-desc">
+        互動式 K 線圖 + AI 分析報告。MA5/10/20/60、布林通道、RSI/MACD/KD/OBV 指標，自動偵測 K 棒型態、支撐壓力、通道方向與風險報酬比，一頁看清個股技術結構。
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-red">K棒型態</span>
+        <span class="tag tag-red">支撐壓力</span>
+        <span class="tag tag-red">RSI/MACD/KD</span>
+        <span class="tag tag-red">AI報告</span>
+      </div>
+      <span class="card-arrow">↗</span>
+    </a>
+
     <!-- 即時資金雷達 -->
     <a class="card card-radar" href="即時資金雷達Pro.html">
       <span class="card-icon">⚡</span>
@@ -416,7 +437,7 @@ header, .divider, main, footer {
         <span class="card-badge new">NEW</span>
       </div>
       <div class="card-desc">
-        追蹤上市＋上櫃資金流向，彙整產業排行與個股 TOP 榜。支援 5 分鐘更新、Discord 推播與單股/產業快速查詢，第一時間掌握大資金動向。
+        追蹤上市＋上櫃資金流向，彙整產業排行與個股 TOP 榜。支援 3 分鐘更新、Discord 推播與單股/產業快速查詢，第一時間掌握大資金動向。
       </div>
       <div class="card-tags">
         <span class="tag tag-teal">產業流入排行</span>
